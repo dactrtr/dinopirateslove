@@ -7,6 +7,7 @@ local config = require "config"
 local crt_effect
 local font
 local canvas -- offscreen render target
+local crtEnabled = true
 
 function love.load()
 	love.window.setMode(config.VIRTUAL_WIDTH * 2, config.VIRTUAL_HEIGHT * 2, { vsync = 1 }) -- real resolution is 800x480
@@ -59,15 +60,26 @@ function love.draw()
 	sceneManager.draw()
 	love.graphics.setCanvas()
 
-	-- Draw the canvas to screen using CRT effect, scaled 2x
-	crt_effect(function()
+	if crtEnabled then
+		-- Draw the canvas with CRT effect
+		crt_effect(function()
+			love.graphics.push()
+			love.graphics.scale(2, 2)
+			love.graphics.draw(canvas, 0, 0)
+			love.graphics.pop()
+		end)
+	else
+		-- Draw the canvas without CRT effect
 		love.graphics.push()
-		love.graphics.scale(2, 2) -- scale canvas from 400x240 to 800x480
+		love.graphics.scale(2, 2)
 		love.graphics.draw(canvas, 0, 0)
 		love.graphics.pop()
-	end)
+	end
 end
 
 function love.keypressed(key)
+	if key == "q" then
+		crtEnabled = not crtEnabled
+	end
 	sceneManager.keypressed(key)
 end

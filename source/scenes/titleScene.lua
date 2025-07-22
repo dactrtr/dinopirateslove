@@ -1,5 +1,5 @@
 local sceneManager = require "sceneManager"
-
+local config = require "config"
 local titleScene = {
 	currentOption = 1,
 	options = { "Start Game", "Quit" },
@@ -14,21 +14,30 @@ function titleScene.update(dt)
 	-- Title scene logic (if needed)
 end
 
+
+
 function titleScene.draw()
-	-- Draw background image scaled to fit screen
-	-- Draw background image at original resolution
+	-- Draw background image
 	love.graphics.draw(titleScene.backgroundImage, 0, 0)
-	
-	-- Draw menu options
+
+	-- Menu options positioning using virtual resolution
+	local screenWidth = config.VIRTUAL_WIDTH
+	local screenHeight = config.VIRTUAL_HEIGHT
+	local optionHeight = 30
+	local totalOptionsHeight = #titleScene.options * optionHeight
+	local startY = screenHeight - totalOptionsHeight - 20  -- 20px margin from bottom
+
 	for i, option in ipairs(titleScene.options) do
+		local y = startY + (i - 1) * optionHeight
 		if i == titleScene.currentOption then
-			love.graphics.setColor(1, 1, 0)  -- Yellow for selected option
+			love.graphics.setColor(1, 1, 0) -- Yellow
 		else
-			love.graphics.setColor(1, 1, 1)  -- White for unselected options
+			love.graphics.setColor(1, 1, 1) -- White
 		end
-		love.graphics.printf(option, 0, 100 + i * 30, love.graphics.getWidth(), "center")
+		love.graphics.printf(option, 0, y, screenWidth, "center")
 	end
-	love.graphics.setColor(1, 1, 1)  -- Reset color to white
+
+	love.graphics.setColor(1, 1, 1) -- Reset to white
 end
 
 function titleScene.keypressed(key)
