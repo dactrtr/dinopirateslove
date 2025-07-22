@@ -6,7 +6,6 @@ local Player = require 'entities.Player'
 
 local gameScene = {
 	player = nil,
-	message = "Welcome to the Game! Use WASD to move, ESC to return to title.",
 	world = nil,  -- BUMP world
 	timer = nil   -- HUMP timer
 }

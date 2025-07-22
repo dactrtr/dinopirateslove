@@ -24,11 +24,11 @@ function love.load()
 		.chain(moonshine.effects.glow)
 	
 	-- Configure scanlines
-	crt_effect.scanlines.width = 2
+	crt_effect.scanlines.width = 1
 	crt_effect.scanlines.frequency = 240
-	crt_effect.scanlines.phase = 0
+	crt_effect.scanlines.phase = 1
 	crt_effect.scanlines.thickness = 1
-	crt_effect.scanlines.opacity = 0.4
+	crt_effect.scanlines.opacity = 0.5
 	
 	-- Configure CRT distortion
 	crt_effect.crt.distortionFactor = {1.06, 1.065}
