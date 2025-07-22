@@ -1,4 +1,5 @@
 local sceneManager = require "sceneManager"
+local config = require "config"
 local Timer = require 'libraries/hump/timer'  -- Para timers y tweens
 local bump = require 'libraries/bump'          -- Para físicas
 local Player = require 'entities.Player'
@@ -30,8 +31,8 @@ function gameScene.update(dt)
 	-- Actualizar jugador
 	gameScene.player:update(dt)
 	-- Keep player on screen (backup boundary check)
-	gameScene.player.x = math.max(10, math.min(love.graphics.getWidth() - 10, gameScene.player.x))
-	gameScene.player.y = math.max(10, math.min(love.graphics.getHeight() - 10, gameScene.player.y))
+	gameScene.player.x = math.max(10, math.min(config.VIRTUAL_WIDTH - 10, gameScene.player.x))
+	gameScene.player.y = math.max(10, math.min(config.VIRTUAL_HEIGHT - 10, gameScene.player.y))
 end
 
 function gameScene.draw()
@@ -45,10 +46,10 @@ function gameScene.draw()
 	
 	-- Draw game message
 	love.graphics.setColor(1, 1, 1)
-	love.graphics.printf(gameScene.message, 10, 10, love.graphics.getWidth() - 20, "left")
+	love.graphics.printf(gameScene.message, 10, 10, config.VIRTUAL_WIDTH - 20, "left")
 	
 	-- Draw instructions
-	love.graphics.printf("ESC - Return to Title", 10, love.graphics.getHeight() - 30, love.graphics.getWidth() - 20, "left")
+	love.graphics.printf("ESC - Return to Title", 10, config.VIRTUAL_HEIGHT - 30, config.VIRTUAL_WIDTH - 20, "left")
 	
 	love.graphics.setColor(1, 1, 1)  -- Reset color
 end

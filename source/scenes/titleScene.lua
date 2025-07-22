@@ -16,10 +16,8 @@ end
 
 function titleScene.draw()
 	-- Draw background image scaled to fit screen
-	love.graphics.draw(titleScene.backgroundImage, 0, 0, 0,
-		love.graphics.getWidth() / titleScene.backgroundImage:getWidth(),
-		love.graphics.getHeight() / titleScene.backgroundImage:getHeight()
-	)
+	-- Draw background image at original resolution
+	love.graphics.draw(titleScene.backgroundImage, 0, 0)
 	
 	-- Draw menu options
 	for i, option in ipairs(titleScene.options) do
