@@ -1,49 +1,47 @@
 local sceneManager = require "sceneManager"
+local Timer = require 'libraries/hump/timer'  -- Para timers y tweens
+local bump = require 'libraries/bump'          -- Para físicas
+local Player = require 'entities.Player'
 
 local gameScene = {
-	player = {
-		x = 200,
-		y = 120,
-		speed = 100
-	},
-	message = "Welcome to the Game! Use WASD to move, ESC to return to title."
+	player = nil,
+	message = "Welcome to the Game! Use WASD to move, ESC to return to title.",
+	world = nil,  -- BUMP world
+	timer = nil   -- HUMP timer
 }
 
 function gameScene.load()
 	-- Initialize game scene resources here
-	-- Reset player position
-	gameScene.player.x = 200
-	gameScene.player.y = 120
+	
+	-- Initialize BUMP world for physics
+	gameScene.world = bump.newWorld(32) -- 32 = cell size
+	
+	-- Initialize HUMP timer
+	gameScene.timer = Timer.new()
+	
+	-- Instanciar al jugador con físicas
+	gameScene.player = Player(200, 120, gameScene.world)
 end
 
 function gameScene.update(dt)
-	-- Simple player movement
-	if love.keyboard.isDown("w") or love.keyboard.isDown("up") then
-		gameScene.player.y = gameScene.player.y - gameScene.player.speed * dt
-	end
-	if love.keyboard.isDown("s") or love.keyboard.isDown("down") then
-		gameScene.player.y = gameScene.player.y + gameScene.player.speed * dt
-	end
-	if love.keyboard.isDown("a") or love.keyboard.isDown("left") then
-		gameScene.player.x = gameScene.player.x - gameScene.player.speed * dt
-	end
-	if love.keyboard.isDown("d") or love.keyboard.isDown("right") then
-		gameScene.player.x = gameScene.player.x + gameScene.player.speed * dt
-	end
+	-- Update HUMP timer
+	gameScene.timer:update(dt)
 	
-	-- Keep player on screen
+	-- Actualizar jugador
+	gameScene.player:update(dt)
+	-- Keep player on screen (backup boundary check)
 	gameScene.player.x = math.max(10, math.min(love.graphics.getWidth() - 10, gameScene.player.x))
 	gameScene.player.y = math.max(10, math.min(love.graphics.getHeight() - 10, gameScene.player.y))
 end
 
 function gameScene.draw()
 	-- Dark background for game
-	love.graphics.setColor(0.1, 0.1, 0.2)
-	love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
+	-- Dibujar al jugador
+	gameScene.player:draw()
 	
 	-- Draw player as a simple rectangle
 	love.graphics.setColor(0, 1, 0)  -- Green player
-	love.graphics.rectangle("fill", gameScene.player.x - 10, gameScene.player.y - 10, 20, 20)
+	-- love.graphics.rectangle("fill", gameScene.player.x - 10, gameScene.player.y - 10, 20, 20)
 	
 	-- Draw game message
 	love.graphics.setColor(1, 1, 1)
