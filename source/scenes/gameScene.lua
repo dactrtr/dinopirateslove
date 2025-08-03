@@ -45,7 +45,7 @@ function gameScene.draw()
 	
 	-- Draw game message
 	love.graphics.setColor(1, 1, 1)
-	love.graphics.printf(gameScene.message, 10, 10, config.VIRTUAL_WIDTH - 20, "left")
+
 	
 	-- Draw instructions
 	love.graphics.printf("ESC - Return to Title", 10, config.VIRTUAL_HEIGHT - 30, config.VIRTUAL_WIDTH - 20, "left")
