@@ -31,7 +31,8 @@ function gameScene.update(dt)
 	gameScene.player:update(dt)
 	-- Keep player on screen (backup boundary check)
 	local padding = 48
-
+	local playerW = 48
+	local playerH = 48
 	
 	gameScene.player.x = math.max(padding, math.min(config.VIRTUAL_WIDTH - padding - playerW, gameScene.player.x))
 	gameScene.player.y = math.max(padding, math.min(config.VIRTUAL_HEIGHT - padding - playerH, gameScene.player.y))
