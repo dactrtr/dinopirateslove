@@ -43,7 +43,7 @@ function gameScene.draw()
 	-- Dibujar al jugador
 	-- Draw visible boundary box (padding area)
 	local padding = 48
-	love.graphics.setColor(1, 1, 1, 1) -- Semi-transparent white
+	love.graphics.setColor(1, 0, 0, 1) -- Semi-transparent white
 	love.graphics.rectangle("line", padding, padding, config.VIRTUAL_WIDTH - 2 * padding, config.VIRTUAL_HEIGHT - 2 * padding)
 	love.graphics.setColor(1, 1, 1) -- Reset color
 	gameScene.player:draw()
@@ -57,7 +57,7 @@ function gameScene.draw()
 
 	
 	-- Draw instructions
-	love.graphics.printf("ESC - Return to Title", 10, config.VIRTUAL_HEIGHT - 30, config.VIRTUAL_WIDTH - 20, "left")
+	love.graphics.printf("TEST", 10, config.VIRTUAL_HEIGHT - 30, config.VIRTUAL_WIDTH - 20, "left")
 	
 	love.graphics.setColor(1, 1, 1)  -- Reset color
 end
