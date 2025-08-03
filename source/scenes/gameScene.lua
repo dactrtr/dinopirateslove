@@ -9,6 +9,7 @@ local gameScene = {
 	world = nil,  -- BUMP world
 	timer = nil   -- HUMP timer
 }
+local padding = 8
 
 function gameScene.load()
 	-- Initialize game scene resources here
@@ -30,7 +31,7 @@ function gameScene.update(dt)
 	-- Actualizar jugador
 	gameScene.player:update(dt)
 	-- Keep player on screen (backup boundary check)
-	local padding = 48
+	
 	local playerW = 48
 	local playerH = 48
 	
@@ -42,7 +43,6 @@ function gameScene.draw()
 	-- Dark background for game
 	-- Dibujar al jugador
 	-- Draw visible boundary box (padding area)
-	local padding = 48
 	love.graphics.setColor(1, 0, 0, 1) -- Semi-transparent white
 	love.graphics.rectangle("line", padding, padding, config.VIRTUAL_WIDTH - 2 * padding, config.VIRTUAL_HEIGHT - 2 * padding)
 	love.graphics.setColor(1, 1, 1) -- Reset color
