@@ -25,26 +25,26 @@ function love.load()
 		.chain(moonshine.effects.glow)
 	
 	-- Configure scanlines
-	crt_effect.scanlines.width = 1
+	crt_effect.scanlines.width = 0.5
 	crt_effect.scanlines.frequency = 240
 	crt_effect.scanlines.phase = 1
-	crt_effect.scanlines.thickness = 1
-	crt_effect.scanlines.opacity = 0.5
+	crt_effect.scanlines.thickness = 0.5
+	crt_effect.scanlines.opacity = 0.4
 	
 	-- Configure CRT distortion
-	crt_effect.crt.distortionFactor = {1.06, 1.065}
+	crt_effect.crt.distortionFactor = {1.02, 1.02}
 	crt_effect.crt.scaleFactor = {1, 1}
 	crt_effect.crt.feather = 0.02
 	
 	-- Configure glow
 	crt_effect.glow.strength = 1.0
-	crt_effect.glow.min_luma = 0.7
+	crt_effect.glow.min_luma = 1
 	
 	-- Initialize scenes
 	sceneManager.init()
 	sceneManager.registerScene("title", titleScene)
 	sceneManager.registerScene("game", gameScene)
-	sceneManager.setCurrentScene("game")
+	sceneManager.setCurrentScene("title")
 	
 	titleScene.load()
 	gameScene.load()
