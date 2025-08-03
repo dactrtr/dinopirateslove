@@ -2,7 +2,7 @@ local moonshine = require "libraries/moonshine"
 local sceneManager = require "sceneManager"
 local titleScene = require "scenes/titleScene"
 local gameScene = require "scenes/gameScene"
-local config = require "config"
+-- local config = require "config"
 local PlayerData = require 'assets/data/PlayerDataTables'
 local crt_effect
 local font
@@ -10,13 +10,13 @@ local canvas -- offscreen render target
 local crtEnabled = true
 
 function love.load()
-	love.window.setMode(config.VIRTUAL_WIDTH * 2, config.VIRTUAL_HEIGHT * 2, { vsync = 1 }) -- real resolution is 800x480
+	love.window.setMode(VIRTUAL_WIDTH * 2, VIRTUAL_HEIGHT * 2, { vsync = 1 }) -- real resolution is 800x480
 	love.graphics.setDefaultFilter("nearest", "nearest") -- avoid blurry scaling
 	
 	font = love.graphics.newFont(20)
 	love.graphics.setFont(font)
 
-	canvas = love.graphics.newCanvas(config.VIRTUAL_WIDTH, config.VIRTUAL_HEIGHT) -- offscreen canvas for virtual resolution
+	canvas = love.graphics.newCanvas(VIRTUAL_WIDTH, VIRTUAL_HEIGHT) -- offscreen canvas for virtual resolution
 	
 	-- Configure CRT effect with moonshine
 	crt_effect = moonshine(moonshine.effects.scanlines)

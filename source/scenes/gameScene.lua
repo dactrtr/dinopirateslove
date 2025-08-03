@@ -1,5 +1,5 @@
 local sceneManager = require "sceneManager"
-local config = require "config"
+-- local config = require "config"
 local Timer = require 'libraries/hump/timer'  -- Para timers y tweens
 local bump = require 'libraries/bump'          -- Para físicas
 local Player = require 'entities.Player'
@@ -35,17 +35,21 @@ function gameScene.update(dt)
 	local playerW = 48
 	local playerH = 48
 	
-	gameScene.player.x = math.max(padding, math.min(config.VIRTUAL_WIDTH - padding - playerW, gameScene.player.x))
-	gameScene.player.y = math.max(padding, math.min(config.VIRTUAL_HEIGHT - padding - playerH, gameScene.player.y))
+	gameScene.player.x = math.max(padding, math.min(VIRTUAL_WIDTH - padding - playerW, gameScene.player.x))
+	gameScene.player.y = math.max(padding, math.min(VIRTUAL_HEIGHT - padding - playerH, gameScene.player.y))
 end
 
 function gameScene.draw()
 	-- Dark background for game
 	-- Dibujar al jugador
 	-- Draw visible boundary box (padding area)
-	love.graphics.setColor(1, 0, 0, 1) -- Semi-transparent white
-	love.graphics.rectangle("line", padding, padding, config.VIRTUAL_WIDTH - 2 * padding, config.VIRTUAL_HEIGHT - 2 * padding)
+	love.graphics.setColor(1, 0, 0, 1) -- Semi-transparent red
+	love.graphics.rectangle("line", padding, padding, VIRTUAL_WIDTH - 2 * padding, VIRTUAL_HEIGHT - 2 * padding)
 	love.graphics.setColor(1, 1, 1) -- Reset color
+	-- Draw player's collision box
+	love.graphics.setColor(0, 1, 1, 0.5) -- Cyan, semi-transparent
+	love.graphics.rectangle("line", gameScene.player.x, gameScene.player.y, 48, 48)
+	
 	gameScene.player:draw()
 	
 	-- Draw player as a simple rectangle
@@ -57,7 +61,7 @@ function gameScene.draw()
 
 	
 	-- Draw instructions
-	love.graphics.printf("TEST", 10, config.VIRTUAL_HEIGHT - 30, config.VIRTUAL_WIDTH - 20, "left")
+	love.graphics.printf("TEST", 10, VIRTUAL_HEIGHT - 30, VIRTUAL_WIDTH - 20, "left")
 	
 	love.graphics.setColor(1, 1, 1)  -- Reset color
 end

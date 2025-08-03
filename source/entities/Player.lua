@@ -44,13 +44,30 @@ end
 
 function Player:update(dt)
 	local dx, dy = 0, 0
-	
-	-- Movement input
-	if love.keyboard.isDown("w") then dy = -self.speed * dt end
-	if love.keyboard.isDown("s") then dy = self.speed * dt end
-	if love.keyboard.isDown("a") then dx = -self.speed * dt end
-	if love.keyboard.isDown("d") then dx = self.speed * dt end
-	
+
+	-- Keyboard movement (WASD and arrow keys)
+	if love.keyboard.isDown("w") or love.keyboard.isDown("up") then dy = -self.speed * dt end
+	if love.keyboard.isDown("s") or love.keyboard.isDown("down") then dy = self.speed * dt end
+	if love.keyboard.isDown("a") or love.keyboard.isDown("left") then dx = -self.speed * dt end
+	if love.keyboard.isDown("d") or love.keyboard.isDown("right") then dx = self.speed * dt end
+
+	-- Gamepad movement (left stick)
+	local joysticks = love.joystick.getJoysticks()
+	if #joysticks > 0 then
+		local joy = joysticks[1]
+		local axisX = joy:getAxis(1) -- left stick X
+		local axisY = joy:getAxis(2) -- left stick Y
+
+		-- Apply deadzone
+		local deadzone = 0.2
+		if math.abs(axisX) > deadzone then
+			dx = dx + axisX * self.speed * dt
+		end
+		if math.abs(axisY) > deadzone then
+			dy = dy + axisY * self.speed * dt
+		end
+	end
+
 	-- Update animation
 	if dx > 0 then
 		self.currentAnimation = PlayerData.hasLamp and self.animations.lampRight or self.animations.right
@@ -63,11 +80,11 @@ function Player:update(dt)
 	else
 		self.currentAnimation = PlayerData.hasLamp and self.animations.lampIdle or self.animations.idle
 	end
-	
+
 	-- BUMP collision
 	local actualX, actualY, cols, len = self.world:move(self, self.x + dx, self.y + dy)
 	self.x, self.y = actualX, actualY
-	
+
 	-- Update animation
 	self.currentAnimation:update(dt)
 end

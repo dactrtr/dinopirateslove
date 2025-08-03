@@ -1,5 +1,5 @@
 local sceneManager = require "sceneManager"
-local config = require "config"
+-- local config = require "config"
 local titleScene = {
 	currentOption = 1,
 	options = { "Start Game", "Quit" },
@@ -21,8 +21,8 @@ function titleScene.draw()
 	love.graphics.draw(titleScene.backgroundImage, 0, 0)
 
 	-- Menu options positioning using virtual resolution
-	local screenWidth = config.VIRTUAL_WIDTH
-	local screenHeight = config.VIRTUAL_HEIGHT
+	local screenWidth = VIRTUAL_WIDTH
+	local screenHeight = VIRTUAL_HEIGHT
 	local optionHeight = 30
 	local totalOptionsHeight = #titleScene.options * optionHeight
 	local startY = screenHeight - totalOptionsHeight - 20  -- 20px margin from bottom
