@@ -16,15 +16,30 @@ function Player:initialize(x, y, world)
 	world:add(self, self.x, self.y, self.width, self.height)
 	
 	-- Anim8 animations
+	-- Anim8 animations
 	self.spritesheet = love.graphics.newImage("assets/player.png")
 	local grid = anim8.newGrid(48, 48, self.spritesheet:getWidth(), self.spritesheet:getHeight())
 	
 	self.animations = {
-		idle = anim8.newAnimation(grid('1-4', 1), 0.1),
-		walk = anim8.newAnimation(grid('1-8', 1), 0.1)
+		idle = anim8.newAnimation(grid('1-4', 1), 0.4),              -- frameDuration = 24 (0.4s a 60fps)
+		right = anim8.newAnimation(grid('5-7', 1), 0.2),             -- frameDuration = 12 (0.2s)
+		left = anim8.newAnimation(grid('8-10', 1), 0.2),
+		down = anim8.newAnimation(grid('11-13', 1), 0.2),
+		up = anim8.newAnimation(grid('14-16', 1), 0.2),
+		deadBrocolli = anim8.newAnimation(grid('17-18', 1), 0.2),
+		lampIdle = anim8.newAnimation(grid('19-22', 1), 0.4),
+		lampRight = anim8.newAnimation(grid('23-25', 1), 0.2),
+		lampLeft = anim8.newAnimation(grid('26-28', 1), 0.2),
+		lampDown = anim8.newAnimation(grid('29-31', 1), 0.2),
+		charge = anim8.newAnimation(grid('32-35', 1), 0.2)
 	}
 	
-	self.currentAnimation = self.animations.idle
+	-- Elegir animación inicial según estado
+	if PlayerData.hasLamp and PlayerData.isInDarkness then
+		self.currentAnimation = self.animations.lampIdle
+	else
+		self.currentAnimation = self.animations.idle
+	end
 end
 
 function Player:update(dt)
@@ -37,10 +52,16 @@ function Player:update(dt)
 	if love.keyboard.isDown("d") then dx = self.speed * dt end
 	
 	-- Update animation
-	if dx ~= 0 or dy ~= 0 then
-		self.currentAnimation = self.animations.walk
+	if dx > 0 then
+		self.currentAnimation = PlayerData.hasLamp and self.animations.lampRight or self.animations.right
+	elseif dx < 0 then
+		self.currentAnimation = PlayerData.hasLamp and self.animations.lampLeft or self.animations.left
+	elseif dy > 0 then
+		self.currentAnimation = PlayerData.hasLamp and self.animations.lampDown or self.animations.down
+	elseif dy < 0 then
+		self.currentAnimation = self.animations.up
 	else
-		self.currentAnimation = self.animations.idle
+		self.currentAnimation = PlayerData.hasLamp and self.animations.lampIdle or self.animations.idle
 	end
 	
 	-- BUMP collision

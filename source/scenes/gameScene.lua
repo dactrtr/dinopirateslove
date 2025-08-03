@@ -30,13 +30,21 @@ function gameScene.update(dt)
 	-- Actualizar jugador
 	gameScene.player:update(dt)
 	-- Keep player on screen (backup boundary check)
-	gameScene.player.x = math.max(10, math.min(config.VIRTUAL_WIDTH - 10, gameScene.player.x))
-	gameScene.player.y = math.max(10, math.min(config.VIRTUAL_HEIGHT - 10, gameScene.player.y))
+	local padding = 48
+
+	
+	gameScene.player.x = math.max(padding, math.min(config.VIRTUAL_WIDTH - padding - playerW, gameScene.player.x))
+	gameScene.player.y = math.max(padding, math.min(config.VIRTUAL_HEIGHT - padding - playerH, gameScene.player.y))
 end
 
 function gameScene.draw()
 	-- Dark background for game
 	-- Dibujar al jugador
+	-- Draw visible boundary box (padding area)
+	local padding = 48
+	love.graphics.setColor(1, 1, 1, 1) -- Semi-transparent white
+	love.graphics.rectangle("line", padding, padding, config.VIRTUAL_WIDTH - 2 * padding, config.VIRTUAL_HEIGHT - 2 * padding)
+	love.graphics.setColor(1, 1, 1) -- Reset color
 	gameScene.player:draw()
 	
 	-- Draw player as a simple rectangle

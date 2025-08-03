@@ -3,7 +3,7 @@ local sceneManager = require "sceneManager"
 local titleScene = require "scenes/titleScene"
 local gameScene = require "scenes/gameScene"
 local config = require "config"
-
+local PlayerData = require 'assets/data/PlayerDataTables'
 local crt_effect
 local font
 local canvas -- offscreen render target
@@ -43,7 +43,7 @@ function love.load()
 	sceneManager.init()
 	sceneManager.registerScene("title", titleScene)
 	sceneManager.registerScene("game", gameScene)
-	sceneManager.setCurrentScene("title")
+	sceneManager.setCurrentScene("game")
 	
 	titleScene.load()
 	gameScene.load()
