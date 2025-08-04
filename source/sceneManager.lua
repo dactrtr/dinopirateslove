@@ -8,9 +8,9 @@ local currentSceneName = ""
 -- Transition system
 local transition = {
 	active = false,
-	duration = 1.0,
+	duration = 0.5,
 	timer = 0,
-	type = "fade", -- "fade", "slide", "dissolve"
+	type = "dissolve", -- "fade", "slide", "dissolve"
 	fromScene = nil,
 	toScene = nil,
 	fromSceneName = "",
