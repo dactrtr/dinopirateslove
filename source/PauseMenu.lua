@@ -59,7 +59,7 @@ function PauseMenu:draw()
 	
 	-- Menu dimensions
 	local menuWidth = 220
-	local menuHeight = 140
+	local menuHeight = 120
 	local menuX = (VIRTUAL_WIDTH - menuWidth) / 2
 	local menuY = (VIRTUAL_HEIGHT - menuHeight) / 2
 	
@@ -88,11 +88,6 @@ function PauseMenu:draw()
 		
 		love.graphics.printf(button.text, menuX + 15, buttonY, menuWidth - 30, "center")
 	end
-	
-	-- Instructions
-	love.graphics.setColor(0.6, 0.6, 0.6)
-	love.graphics.printf("↑↓ Navigate • Enter/A Select • Esc/B Close", 
-						menuX + 5, menuY + menuHeight - 20, menuWidth - 10, "center")
 end
 
 function PauseMenu:keypressed(key)
