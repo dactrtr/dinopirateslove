@@ -10,11 +10,28 @@ local gameScene = {
 	player = nil,
 	world = nil,
 	timer = nil,
-	pauseMenu = nil
+	pauseMenu = nil,
+	-- Floor rendering components
+	tilesImage = nil,
+	tileQuads = {},
+	map = {},
+	mapWidth = 16,
+	mapHeight = 9,
+	tileSize = 24
 }
 
 local padding = 8
 local playerSize = 48
+
+-- Placeholder levels data - you'll need to replace this with your actual levels data
+local levels = {
+	room = {
+		floor = {
+			tile = 1 -- Default tile index, adjust as needed
+		}
+	}
+}
+local room = "room" -- Current room identifier
 
 function gameScene.load()
 	-- Initialize BUMP world for physics
@@ -32,6 +49,75 @@ function gameScene.load()
 		{text = "Return to Title", action = "title"},
 		{text = "Quit Game", action = "quit"}
 	})
+	
+	-- Mark: floor - Load tile spritesheet and create floor
+	gameScene.loadFloor()
+end
+
+function gameScene.loadFloor()
+	-- Load the tile spritesheet
+	gameScene.tilesImage = love.graphics.newImage('assets/tile/tile.png')
+	
+	-- Calculate how many tiles are in the spritesheet
+	local imageWidth = gameScene.tilesImage:getWidth()
+	local imageHeight = gameScene.tilesImage:getHeight()
+	local tilesPerRow = math.floor(imageWidth / gameScene.tileSize)
+	local tilesPerCol = math.floor(imageHeight / gameScene.tileSize)
+	
+	-- Create quads for each tile in the spritesheet
+	gameScene.tileQuads = {}
+	local tileIndex = 1
+	for row = 0, tilesPerCol - 1 do
+		for col = 0, tilesPerRow - 1 do
+			gameScene.tileQuads[tileIndex] = love.graphics.newQuad(
+				col * gameScene.tileSize,
+				row * gameScene.tileSize,
+				gameScene.tileSize,
+				gameScene.tileSize,
+				imageWidth,
+				imageHeight
+			)
+			tileIndex = tileIndex + 1
+		end
+	end
+	
+	-- Initialize the map array
+	gameScene.map = {}
+	for y = 1, gameScene.mapHeight do
+		gameScene.map[y] = {}
+		for x = 1, gameScene.mapWidth do
+			-- Set each tile to the floor tile from levels data
+			gameScene.map[y][x] = levels[room].floor.tile
+		end
+	end
+end
+
+function gameScene.drawFloor()
+	if not gameScene.tilesImage or not gameScene.tileQuads then
+		return
+	end
+	
+	-- Calculate the starting position to center the map around (200, 120)
+	local startX = 200 - (gameScene.mapWidth * gameScene.tileSize) / 2
+	local startY = 120 - (gameScene.mapHeight * gameScene.tileSize) / 2
+	
+	-- Draw each tile in the map
+	for y = 1, gameScene.mapHeight do
+		for x = 1, gameScene.mapWidth do
+			local tileId = gameScene.map[y][x]
+			if tileId and gameScene.tileQuads[tileId] then
+				local drawX = startX + (x - 1) * gameScene.tileSize
+				local drawY = startY + (y - 1) * gameScene.tileSize
+				
+				love.graphics.draw(
+					gameScene.tilesImage,
+					gameScene.tileQuads[tileId],
+					drawX,
+					drawY
+				)
+			end
+		end
+	end
 end
 
 function gameScene.update(dt)
@@ -51,6 +137,9 @@ function gameScene.update(dt)
 end
 
 function gameScene.draw()
+	-- Draw floor first (background layer)
+	gameScene.drawFloor()
+	
 	-- Draw boundary box
 	love.graphics.setColor(1, 0, 0, 1)
 	love.graphics.rectangle("line", padding, padding, VIRTUAL_WIDTH - 2 * padding, VIRTUAL_HEIGHT - 2 * padding)

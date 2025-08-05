@@ -12,7 +12,7 @@ function love.conf(t)
 	t.window.resizable = true                -- Allow window resizing
 	t.window.minwidth = 400                  -- Minimum window width
 	t.window.minheight = 240                 -- Minimum window height
-	t.window.fullscreen = true               -- Start in fullscreen
+	t.window.fullscreen = false               -- Start in fullscreen
 	t.window.fullscreentype = "desktop"      -- "desktop" or "exclusive"
 	t.window.vsync = 1                       -- Enable vertical sync (0=off, 1=on, -1=adaptive)
 	t.window.msaa = 0                        -- Multi-sampling anti-aliasing samples (0, 2, 4, 8, 16)

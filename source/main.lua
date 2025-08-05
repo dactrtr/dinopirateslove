@@ -38,7 +38,7 @@ function love.load()
 	crt_effect = moonshine(moonshine.effects.scanlines)
 		.chain(moonshine.effects.crt)
 		.chain(moonshine.effects.chromasep)  -- Add chromatic aberration
-		.chain(moonshine.effects.glow)
+		-- .chain(moonshine.effects.glow)
 	
 	-- Set CRT parameters once (moonshine will handle scaling)
 	crt_effect.scanlines.width = 0.5
@@ -55,8 +55,8 @@ function love.load()
 	crt_effect.chromasep.radius = 2.0    -- How far apart the color channels are
 	crt_effect.chromasep.angle = 0       -- Direction of the aberration (0 = horizontal)
 	
-	crt_effect.glow.strength = 1.0
-	crt_effect.glow.min_luma = 0.7  -- Fixed: was 1, now only bright colors glow
+	-- crt_effect.glow.strength = 1.0
+	-- crt_effect.glow.min_luma = 0.7  -- Fixed: was 1, now only bright colors glow
 	
 	-- Initialize scenes
 	sceneManager.init()
