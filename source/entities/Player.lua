@@ -27,7 +27,6 @@ function Player:initialize(x, y, world)
 	world:add(self, self.x + self.collisionOffsetX, self.y + self.collisionOffsetY, self.width, self.height)
 	
 	-- Anim8 animations
-	-- Anim8 animations
 	self.spritesheet = love.graphics.newImage("assets/player.png")
 	local grid = anim8.newGrid(48, 48, self.spritesheet:getWidth(), self.spritesheet:getHeight())
 	

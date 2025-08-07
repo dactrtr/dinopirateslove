@@ -25,7 +25,6 @@ local gameScene = {
 local padding = 12
 
 -- Placeholder levels data - you'll need to replace this with your actual levels data
-local room = "room" -- Current room identifier
 
 function gameScene.load()
 	-- Initialize BUMP world for physics
@@ -104,28 +103,6 @@ function gameScene.renderTileMap(tileData)
 	end
 end
 
--- Alternative function that mimics Playdate's setTileAtPosition approach
-function gameScene.setTileAtPosition(x, y, tileId)
-	if gameScene.map[y] and x >= 1 and x <= gameScene.mapWidth and y >= 1 and y <= gameScene.mapHeight then
-		gameScene.map[y][x] = tileId
-	end
-end
-
--- Function to dynamically resize the map (mimics Playdate's map:setSize)
-function gameScene.setMapSize(width, height)
-	gameScene.mapWidth = width
-	gameScene.mapHeight = height
-	
-	-- Reinitialize map array with new dimensions
-	gameScene.map = {}
-	for y = 1, height do
-		gameScene.map[y] = {}
-		for x = 1, width do
-			gameScene.map[y][x] = 1 -- Default tile
-		end
-	end
-end
-
 function gameScene.drawFloor()
 	if not gameScene.tilesImage or not gameScene.tileQuads then
 		return
@@ -199,18 +176,6 @@ function gameScene.draw()
 
 	love.graphics.setColor(1, 1, 1) -- Reset color before player draw
 	gameScene.player:draw()
-	
-	-- Draw instructions (only if menu is not shown)
-	if not gameScene.pauseMenu:isVisible() then
-		-- love.graphics.setColor(1, 1, 1)
-		-- -- love.graphics.printf("Press ESC or START for menu", 10, VIRTUAL_HEIGHT - 30, VIRTUAL_WIDTH - 20, "left")
-		-- 
-		-- -- Debug info about collision vs sprite rectangles
-		-- love.graphics.printf(string.format("Collision: %.0f,%.0f (%dx%d)", collisionX, collisionY, collisionW, collisionH), 
-		-- 	10, VIRTUAL_HEIGHT - 60, VIRTUAL_WIDTH - 20, "left")
-		-- love.graphics.printf(string.format("Sprite: %.0f,%.0f (%dx%d)", spriteX, spriteY, spriteW, spriteH), 
-		-- 	10, VIRTUAL_HEIGHT - 45, VIRTUAL_WIDTH - 20, "left")
-	end
 	
 	-- Draw pause menu overlay
 	gameScene.pauseMenu:draw()
