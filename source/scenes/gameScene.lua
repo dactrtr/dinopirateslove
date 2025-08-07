@@ -15,9 +15,11 @@ local gameScene = {
 	tilesImage = nil,
 	tileQuads = {},
 	map = {},
-	mapWidth = 16,
-	mapHeight = 9,
-	tileSize = 24
+	mapWidth = 25,  -- Updated from 16 to 25
+	mapHeight = 15, -- Updated from 9 to 15
+	tileSize = 16,
+	-- Tilemap data storage
+	tileMapData = {}
 }
 
 local padding = 8
@@ -81,13 +83,53 @@ function gameScene.loadFloor()
 		end
 	end
 	
+	-- Initialize tilemap data (replace sampleTileMapData with your actual tileMapData[1])
+	gameScene.tileMapData = tileMapData[1]
+	
+	-- Create the map using tilemap data
+	gameScene.renderTileMap(gameScene.tileMapData)
+end
+
+-- Convert Playdate renderTileMap function to Love2D
+function gameScene.renderTileMap(tileData)
+	local height = #tileData
+	local width = #tileData[1]
+	
+	-- Update map dimensions based on tile data
+	gameScene.mapHeight = height
+	gameScene.mapWidth = width
+	
 	-- Initialize the map array
 	gameScene.map = {}
-	for y = 1, gameScene.mapHeight do
+	
+	-- Populate map with tile data (Love2D uses 1-based indexing)
+	for y = 1, height do
 		gameScene.map[y] = {}
-		for x = 1, gameScene.mapWidth do
-			-- Set each tile to the floor tile from levels data
-			gameScene.map[y][x] = levels[room].floor.tile
+		for x = 1, width do
+			-- Set tile from tileData (y,x because tileData is row-major)
+			gameScene.map[y][x] = tileData[y][x]
+		end
+	end
+end
+
+-- Alternative function that mimics Playdate's setTileAtPosition approach
+function gameScene.setTileAtPosition(x, y, tileId)
+	if gameScene.map[y] and x >= 1 and x <= gameScene.mapWidth and y >= 1 and y <= gameScene.mapHeight then
+		gameScene.map[y][x] = tileId
+	end
+end
+
+-- Function to dynamically resize the map (mimics Playdate's map:setSize)
+function gameScene.setMapSize(width, height)
+	gameScene.mapWidth = width
+	gameScene.mapHeight = height
+	
+	-- Reinitialize map array with new dimensions
+	gameScene.map = {}
+	for y = 1, height do
+		gameScene.map[y] = {}
+		for x = 1, width do
+			gameScene.map[y][x] = 1 -- Default tile
 		end
 	end
 end
@@ -139,7 +181,6 @@ end
 function gameScene.draw()
 	-- Draw floor first (background layer)
 	gameScene.drawFloor()
-	
 	-- Draw boundary box
 	love.graphics.setColor(1, 0, 0, 1)
 	love.graphics.rectangle("line", padding, padding, VIRTUAL_WIDTH - 2 * padding, VIRTUAL_HEIGHT - 2 * padding)

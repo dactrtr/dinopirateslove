@@ -3,6 +3,7 @@ local sceneManager = require "sceneManager"
 local titleScene = require "scenes/titleScene"
 local gameScene = require "scenes/gameScene"
 local PlayerData = require 'assets/data/PlayerDataTables'
+local tileMapData = require 'assets/data/tilemap'
 
 -- Virtual resolution constants
 VIRTUAL_WIDTH = 400
