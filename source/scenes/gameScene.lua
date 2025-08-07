@@ -22,17 +22,9 @@ local gameScene = {
 	tileMapData = {}
 }
 
-local padding = 8
-local playerSize = 48
+local padding = 12
 
 -- Placeholder levels data - you'll need to replace this with your actual levels data
-local levels = {
-	room = {
-		floor = {
-			tile = 1 -- Default tile index, adjust as needed
-		}
-	}
-}
 local room = "room" -- Current room identifier
 
 function gameScene.load()
@@ -172,31 +164,52 @@ function gameScene.update(dt)
 		gameScene.timer:update(dt)
 		gameScene.player:update(dt)
 		
-		-- Keep player on screen (boundary check)
-		gameScene.player.x = math.max(padding, math.min(VIRTUAL_WIDTH - padding - playerSize, gameScene.player.x))
-		gameScene.player.y = math.max(padding, math.min(VIRTUAL_HEIGHT - padding - playerSize, gameScene.player.y))
+		-- Keep player collision box on screen (boundary check using collision rectangle)
+		local collisionX, collisionY, collisionW, collisionH = gameScene.player:getCollisionRect()
+		
+		-- Calculate the required sprite position to keep collision box within bounds
+		local minSpriteX = padding - gameScene.player.collisionOffsetX
+		local maxSpriteX = VIRTUAL_WIDTH - padding - collisionW - gameScene.player.collisionOffsetX
+		local minSpriteY = padding - gameScene.player.collisionOffsetY
+		local maxSpriteY = VIRTUAL_HEIGHT - padding - collisionH - gameScene.player.collisionOffsetY
+		
+		-- Clamp player sprite position
+		gameScene.player.x = math.max(minSpriteX, math.min(maxSpriteX, gameScene.player.x))
+		gameScene.player.y = math.max(minSpriteY, math.min(maxSpriteY, gameScene.player.y))
+		
+		-- Update collision position in BUMP world after boundary correction
+		gameScene.player:updateCollisionPosition()
+		
+		-- Example: Check for collisions with other objects
+		local collisions, collisionCount = gameScene.player:checkCollisions()
+		if collisionCount > 0 then
+			-- Handle collisions here
+			for i = 1, collisionCount do
+				local collision = collisions[i]
+				-- You can add logic based on collision.object type
+				-- print("Colliding with:", collision.object)
+			end
+		end
 	end
 end
 
 function gameScene.draw()
 	-- Draw floor first (background layer)
 	gameScene.drawFloor()
-	-- Draw boundary box
-	love.graphics.setColor(1, 0, 0, 1)
-	love.graphics.rectangle("line", padding, padding, VIRTUAL_WIDTH - 2 * padding, VIRTUAL_HEIGHT - 2 * padding)
-	
-	-- Draw player collision box
-	love.graphics.setColor(0, 1, 1, 0.5)
-	love.graphics.rectangle("line", gameScene.player.x, gameScene.player.y, playerSize, playerSize)
-	
-	-- Draw player
+
 	love.graphics.setColor(1, 1, 1) -- Reset color before player draw
 	gameScene.player:draw()
 	
 	-- Draw instructions (only if menu is not shown)
 	if not gameScene.pauseMenu:isVisible() then
-		love.graphics.setColor(1, 1, 1)
-		love.graphics.printf("Press ESC or START for menu", 10, VIRTUAL_HEIGHT - 30, VIRTUAL_WIDTH - 20, "left")
+		-- love.graphics.setColor(1, 1, 1)
+		-- -- love.graphics.printf("Press ESC or START for menu", 10, VIRTUAL_HEIGHT - 30, VIRTUAL_WIDTH - 20, "left")
+		-- 
+		-- -- Debug info about collision vs sprite rectangles
+		-- love.graphics.printf(string.format("Collision: %.0f,%.0f (%dx%d)", collisionX, collisionY, collisionW, collisionH), 
+		-- 	10, VIRTUAL_HEIGHT - 60, VIRTUAL_WIDTH - 20, "left")
+		-- love.graphics.printf(string.format("Sprite: %.0f,%.0f (%dx%d)", spriteX, spriteY, spriteW, spriteH), 
+		-- 	10, VIRTUAL_HEIGHT - 45, VIRTUAL_WIDTH - 20, "left")
 	end
 	
 	-- Draw pause menu overlay
