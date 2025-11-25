@@ -7,7 +7,7 @@ local titleScene = {
 }
 
 function titleScene.load()
-	titleScene.backgroundImage = love.graphics.newImage("assets/screens/pd.png")
+	titleScene.backgroundImage = love.graphics.newImage("assets/images/screens/titlescreen.png")
 end
 
 function titleScene.update(dt)

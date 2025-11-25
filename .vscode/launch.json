@@ -1,0 +1,33 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Play (Local Lua Debugger)",
+            "type": "lua-local",
+            "request": "launch",
+            "program": {
+                "command": "/Applications/love.app/Contents/MacOS/love"
+            },
+            "args": [
+                "${workspaceFolder}/source"
+            ],
+            "scriptRoots": [
+                "${workspaceFolder}/source"
+            ]
+        },
+        {
+            "name": "Play (Local love.app)",
+            "type": "lua-local",
+            "request": "launch",
+            "program": {
+                "command": "${workspaceFolder}/love.app/Contents/MacOS/love"
+            },
+            "args": [
+                "${workspaceFolder}/source"
+            ],
+            "scriptRoots": [
+                "${workspaceFolder}/source"
+            ]
+        }
+    ]
+}

@@ -49,7 +49,7 @@ end
 
 function gameScene.loadFloor()
 	-- Load the tile spritesheet
-	gameScene.tilesImage = love.graphics.newImage('assets/tile/tile.png')
+	gameScene.tilesImage = love.graphics.newImage('assets/images/tile/tile-table-16-16.png')
 	
 	-- Calculate how many tiles are in the spritesheet
 	local imageWidth = gameScene.tilesImage:getWidth()
@@ -75,7 +75,7 @@ function gameScene.loadFloor()
 	end
 	
 	-- Initialize tilemap data (replace sampleTileMapData with your actual tileMapData[1])
-	gameScene.tileMapData = tileMapData[1]
+	gameScene.tileMapData = tileMapData[7]
 	
 	-- Create the map using tilemap data
 	gameScene.renderTileMap(gameScene.tileMapData)
