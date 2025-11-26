@@ -1,4 +1,5 @@
 local sceneManager = {}
+local anim8 = require 'libraries/anim8'
 
 -- Scene management
 local scenes = {}
@@ -10,17 +11,40 @@ local transition = {
 	active = false,
 	duration = 0.5,
 	timer = 0,
-	type = "dissolve", -- "fade", "slide", "dissolve"
+	type = "fade", -- "fade", "slide", "animated"
 	fromScene = nil,
 	toScene = nil,
 	fromSceneName = "",
-	toSceneName = ""
+	toSceneName = "",
+	-- Animated transition data
+	animation = nil,
+	spritesheet = nil,
+	animationName = nil -- "transitionFall", etc.
 }
+
+-- Transition animations cache
+local transitionAnimations = {}
 
 function sceneManager.init()
 	scenes = {}
 	currentScene = nil
 	currentSceneName = ""
+	
+	-- Load transition animations
+	sceneManager.loadTransitionAnimations()
+end
+
+function sceneManager.loadTransitionAnimations()
+	-- Load transitionFall
+	local fallSheet = love.graphics.newImage('assets/images/screens/transitions/transitionFall-table-400-240.png')
+	local fallGrid = anim8.newGrid(400, 240, fallSheet:getWidth(), fallSheet:getHeight())
+	
+	transitionAnimations.transitionFall = {
+		spritesheet = fallSheet,
+		animation = anim8.newAnimation(fallGrid('1-10', 1), 0.05) -- 10 frames, 0.05s each = 0.5s total
+	}
+	
+	-- Add more transitions here as needed
 end
 
 function sceneManager.registerScene(name, scene)
@@ -34,7 +58,7 @@ function sceneManager.setCurrentScene(name)
 	end
 end
 
-function sceneManager.startTransition(fromSceneName, toSceneName, transitionType)
+function sceneManager.startTransition(fromSceneName, toSceneName, transitionType, animationName)
 	if not scenes[toSceneName] then
 		print("Warning: Scene '" .. toSceneName .. "' not found!")
 		return
@@ -47,11 +71,32 @@ function sceneManager.startTransition(fromSceneName, toSceneName, transitionType
 	transition.fromSceneName = fromSceneName
 	transition.toSceneName = toSceneName
 	transition.type = transitionType or "fade"
+	
+	-- Setup animated transition if specified
+	if transitionType == "animated" and animationName then
+		local transData = transitionAnimations[animationName]
+		if transData then
+			transition.animation = transData.animation:clone()
+			transition.spritesheet = transData.spritesheet
+			transition.animationName = animationName
+			transition.animation:gotoFrame(1)
+			transition.duration = 0.5 -- Match animation duration
+		else
+			print("Warning: Animation '" .. animationName .. "' not found, using fade")
+			transition.type = "fade"
+		end
+	end
 end
 
 function sceneManager.update(dt)
 	if transition.active then
 		transition.timer = transition.timer + dt
+		
+		-- Update animated transition
+		if transition.type == "animated" and transition.animation then
+			transition.animation:update(dt)
+		end
+		
 		if transition.timer >= transition.duration then
 			-- Transition complete
 			transition.active = false
@@ -62,6 +107,9 @@ function sceneManager.update(dt)
 			transition.toScene = nil
 			transition.fromSceneName = ""
 			transition.toSceneName = ""
+			transition.animation = nil
+			transition.spritesheet = nil
+			transition.animationName = nil
 		end
 	else
 		-- Update current scene
@@ -124,6 +172,18 @@ function drawTransition()
 			transition.toScene.draw()
 		end
 		love.graphics.pop()
+	
+	elseif transition.type == "animated" then
+		-- Draw to scene first (background)
+		if transition.toScene and transition.toScene.draw then
+			transition.toScene.draw()
+		end
+		
+		-- Draw animated transition overlay
+		if transition.animation and transition.spritesheet then
+			love.graphics.setColor(1, 1, 1, 1)
+			transition.animation:draw(transition.spritesheet, 0, 0)
+		end
 	end
 	
 	love.graphics.setColor(1, 1, 1)  -- Reset color

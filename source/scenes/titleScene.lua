@@ -160,8 +160,8 @@ function titleScene.handleMainMenuInput(key)
 		end
 	elseif key == "return" or key == "kpenter" then
 		if titleScene.currentOption == 1 then
-			-- Start transition to game
-			sceneManager.startTransition("title", "game", "fade")
+			-- Start transition to game with animated transition
+			sceneManager.startTransition("title", "game", "animated", "transitionFall")
 		elseif titleScene.currentOption == 2 then
 			-- Enter settings
 			titleScene.inSettings = true
