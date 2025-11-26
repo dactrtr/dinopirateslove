@@ -18,7 +18,7 @@ function Brocorat:initialize(x, y, moveSpeed, zIndex, player, id, world)
 	                  (PlayerData.sanityCounter or 0)
 	
 	-- Use speed from EnemyData table (fallback to parameter or default)
-	local baseSpeed = EnemyData and EnemyData.brocoratSpeed or 80
+	local baseSpeed = 40
 	self.moveSpeed = moveSpeed or baseSpeed
 	self.initialSpeed = self.moveSpeed
 	self.stunProc = self.moveSpeed * 20 -- if speed is below 0.5 the enemy doesn't move
@@ -66,8 +66,7 @@ function Brocorat:search(player, dt)
 		   (player.x <= self.x + self.sightRadius) and 
 		   (player.y >= self.y - self.sightRadius) and 
 		   (player.y <= self.y + self.sightRadius) then
-			-- Set walk animation before moving
-			self.currentAnimation = self.animations.walk
+			-- Mark as moving, animation will be set in update()
 			self.isMoving = true
 			self:blindSearch(player, dt)
 		else
@@ -85,11 +84,6 @@ function Brocorat:empty()
 end
 
 function Brocorat:update(dt)
-	-- Update animation
-	if self.currentAnimation then
-		self.currentAnimation:update(dt)
-	end
-	
 	-- Store previous position to detect movement
 	local prevX, prevY = self.x, self.y
 	
@@ -104,16 +98,23 @@ function Brocorat:update(dt)
 	-- Check if enemy actually moved
 	local didMove = (math.abs(self.x - prevX) > 0.1 or math.abs(self.y - prevY) > 0.1)
 	
-	-- Update animation based on movement
+	-- Update animation based on movement state
 	if self.isMoving and didMove then
+		-- Enemy is moving, use walk animation
 		if self.currentAnimation ~= self.animations.walk then
 			self.currentAnimation = self.animations.walk
 		end
 	else
+		-- Enemy is not moving, use idle animation
 		if self.currentAnimation ~= self.animations.idle then
 			self.currentAnimation = self.animations.idle
 		end
 		self.isMoving = false
+	end
+	
+	-- Update animation AFTER setting the correct one
+	if self.currentAnimation then
+		self.currentAnimation:update(dt)
 	end
 	
 	-- Sonar effect (commented out)
