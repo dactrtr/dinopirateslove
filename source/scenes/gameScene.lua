@@ -2,6 +2,7 @@ local sceneManager = require "sceneManager"
 local Timer = require 'libraries/hump/timer'
 local bump = require 'libraries/bump'
 local Player = require 'entities.Player'
+local Brocorat = require 'entities.Brocorat'
 
 -- Simple require for PauseMenu
 local PauseMenu = require 'PauseMenu'
@@ -19,7 +20,9 @@ local gameScene = {
 	mapHeight = 15, -- Updated from 9 to 15
 	tileSize = 16,
 	-- Tilemap data storage
-	tileMapData = {}
+	tileMapData = {},
+	-- Enemies
+	enemies = {}
 }
 
 local padding = 12
@@ -45,6 +48,20 @@ function gameScene.load()
 	
 	-- Mark: floor - Load tile spritesheet and create floor
 	gameScene.loadFloor()
+	
+	-- Mark: enemies - Create example enemies
+	gameScene.loadEnemies()
+end
+
+function gameScene.loadEnemies()
+	-- Example: Create a Brocorat enemy (speed will use EnemyData.brocoratSpeed = 80)
+	local brocorat1 = Brocorat(50, 80, nil, 5, gameScene.player, 1, gameScene.world)
+	table.insert(gameScene.enemies, brocorat1)
+	
+	-- You can add more enemies here
+	-- local brocorat2 = Brocorat(250, 160, 0.6, 5, gameScene.player, 2)
+	-- brocorat2.world = gameScene.world
+	-- table.insert(gameScene.enemies, brocorat2)
 end
 
 function gameScene.loadFloor()
@@ -167,6 +184,16 @@ function gameScene.update(dt)
 				-- print("Colliding with:", collision.object)
 			end
 		end
+		
+		-- Update enemies (turn-based: move when player is moving)
+		for i, enemy in ipairs(gameScene.enemies) do
+			enemy:update(dt)
+		end
+		
+		-- Reset player movement flag only when player stops moving
+		if gameScene.player.hasMoved and not gameScene.player.isMoving then
+			gameScene.player.hasMoved = false
+		end
 	end
 end
 
@@ -175,6 +202,13 @@ function gameScene.draw()
 	gameScene.drawFloor()
 
 	love.graphics.setColor(1, 1, 1) -- Reset color before player draw
+	
+	-- Draw enemies
+	for i, enemy in ipairs(gameScene.enemies) do
+		enemy:draw()
+	end
+	
+	-- Draw player on top of enemies
 	gameScene.player:draw()
 	
 	-- Draw pause menu overlay

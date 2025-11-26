@@ -20,7 +20,9 @@ function Player:initialize(x, y, world)
 	self.collisionOffsetX = 8  -- Center the collision box horizontally
 	self.collisionOffsetY = 8  -- Offset collision box vertically
 	
-	self.speed = 100
+	-- Use speed from PlayerData (convert from Playdate speed to Love2D pixels/second)
+	-- Playdate speed 1.7 ~= 100 pixels/second in Love2D
+	self.speed = (PlayerData.speed or 1.7) * 60 -- Convert to pixels per second
 	
 	-- BUMP physics - use collision dimensions and offset position
 	self.world = world
@@ -50,6 +52,10 @@ function Player:initialize(x, y, world)
 	else
 		self.currentAnimation = self.animations.idle
 	end
+	
+	-- Movement tracking for turn-based enemy AI
+	self.isMoving = false
+	self.hasMoved = false -- Flag to trigger enemy movement
 end
 
 -- Get the collision box position and dimensions
@@ -195,6 +201,10 @@ function Player:update(dt)
 		--     end
 		-- end
 	end
+	
+	-- Track if player is moving
+	local wasMoving = self.isMoving
+	self.isMoving = (dx ~= 0 or dy ~= 0)
 
 	-- Update animation
 	if dx > 0 then
@@ -217,6 +227,11 @@ function Player:update(dt)
 	-- Convert collision box position back to sprite position
 	self.x = actualCollisionX - self.collisionOffsetX
 	self.y = actualCollisionY - self.collisionOffsetY
+	
+	-- Set hasMoved flag if player actually moved
+	if self.isMoving and (dx ~= 0 or dy ~= 0) then
+		self.hasMoved = true
+	end
 
 	-- Update animation
 	self.currentAnimation:update(dt)

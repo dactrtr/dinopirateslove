@@ -9,11 +9,33 @@ local tileMapData = require 'assets/data/tilemap'
 VIRTUAL_WIDTH = 400
 VIRTUAL_HEIGHT = 240
 
+-- UI constants
+UI_OVERLAY_OPACITY = 0.8 -- Opacity for menu overlays and backgrounds
+
 -- Global variables
-local crt_effect
+crt_effect = nil -- Made global for settings menu access
 local font
 local canvas -- offscreen render target for virtual resolution
-local crtEnabled = true
+crtEnabled = true -- Made global for settings menu access
+
+-- Settings table for moonshine effects
+moonshinSettings = {
+	scanlines = {
+		width = 0.5,
+		frequency = 240,
+		phase = 1,
+		thickness = 0.5,
+		opacity = 0.4
+	},
+	crt = {
+		distortionFactor = 1.02,
+		feather = 0.02
+	},
+	chromasep = {
+		radius = 2.0,
+		angle = 0
+	}
+}
 
 -- Scaling variables
 local scale = 1
@@ -23,6 +45,23 @@ local offsetY = 0
 -- Gamepad variables
 local joysticks = {}
 local activeJoystick = nil
+
+function applyCRTSettings()
+	if not crt_effect then return end
+	
+	crt_effect.scanlines.width = moonshinSettings.scanlines.width
+	crt_effect.scanlines.frequency = moonshinSettings.scanlines.frequency
+	crt_effect.scanlines.phase = moonshinSettings.scanlines.phase
+	crt_effect.scanlines.thickness = moonshinSettings.scanlines.thickness
+	crt_effect.scanlines.opacity = moonshinSettings.scanlines.opacity
+	
+	crt_effect.crt.distortionFactor = {moonshinSettings.crt.distortionFactor, moonshinSettings.crt.distortionFactor}
+	crt_effect.crt.scaleFactor = {1, 1}
+	crt_effect.crt.feather = moonshinSettings.crt.feather
+	
+	crt_effect.chromasep.radius = moonshinSettings.chromasep.radius
+	crt_effect.chromasep.angle = moonshinSettings.chromasep.angle
+end
 
 function love.load()
 	love.graphics.setDefaultFilter("nearest", "nearest")
@@ -41,20 +80,8 @@ function love.load()
 		.chain(moonshine.effects.chromasep)  -- Add chromatic aberration
 		-- .chain(moonshine.effects.glow)
 	
-	-- Set CRT parameters once (moonshine will handle scaling)
-	crt_effect.scanlines.width = 0.5
-	crt_effect.scanlines.frequency = 240
-	crt_effect.scanlines.phase = 1
-	crt_effect.scanlines.thickness = 0.5
-	crt_effect.scanlines.opacity = 0.4
-	
-	crt_effect.crt.distortionFactor = {1.02, 1.02}
-	crt_effect.crt.scaleFactor = {1, 1}
-	crt_effect.crt.feather = 0.02
-	
-	-- Configure chromatic aberration (subtle effect)
-	crt_effect.chromasep.radius = 2.0    -- How far apart the color channels are
-	crt_effect.chromasep.angle = 0       -- Direction of the aberration (0 = horizontal)
+	-- Set CRT parameters from settings table
+	applyCRTSettings()
 	
 	-- crt_effect.glow.strength = 1.0
 	-- crt_effect.glow.min_luma = 0.7  -- Fixed: was 1, now only bright colors glow
