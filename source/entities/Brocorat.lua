@@ -34,7 +34,7 @@ function Brocorat:initialize(x, y, moveSpeed, zIndex, player, id, world)
 	-- Animation states
 	self.animations = {
 		idle = anim8.newAnimation(grid('4-4', 1), 6/60),
-		walk = anim8.newAnimation(grid('1-8', 1), 6/60, 'pauseAtEnd'),
+		walk = anim8.newAnimation(grid('1-8', 1), 6/60), -- Removed 'pauseAtEnd' to allow looping
 		empty = anim8.newAnimation(grid('15-15', 1), 6/60),
 		shine = anim8.newAnimation(grid('9-14', 1), 6/60),
 		eaten = anim8.newAnimation(grid('16-16', 1), 6/60)
