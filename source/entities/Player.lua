@@ -1,6 +1,11 @@
 -- entities/Player.lua
+-- Main Player class using modular components
 local Class = require 'libraries/middleclass'
-local anim8 = require 'libraries/anim8'
+
+-- Load player modules
+local playerCollisions = require 'entities.player.collisions'
+local playerMovements = require 'entities.player.movements'
+local playerAnimations = require 'entities.player.animations'
 
 local Player = Class('Player')
 
@@ -28,163 +33,53 @@ function Player:initialize(x, y, world)
 	self.world = world
 	world:add(self, self.x + self.collisionOffsetX, self.y + self.collisionOffsetY, self.width, self.height)
 	
-	-- Anim8 animations
+	-- Load animations
 	self.spritesheet = love.graphics.newImage("assets/player.png")
-	local grid = anim8.newGrid(48, 48, self.spritesheet:getWidth(), self.spritesheet:getHeight())
-	
-	self.animations = {
-		idle = anim8.newAnimation(grid('1-4', 1), 0.4),              -- frameDuration = 24 (0.4s a 60fps)
-		right = anim8.newAnimation(grid('5-7', 1), 0.2),             -- frameDuration = 12 (0.2s)
-		left = anim8.newAnimation(grid('8-10', 1), 0.2),
-		down = anim8.newAnimation(grid('11-13', 1), 0.2),
-		up = anim8.newAnimation(grid('14-16', 1), 0.2),
-		deadBrocolli = anim8.newAnimation(grid('17-18', 1), 0.2),
-		lampIdle = anim8.newAnimation(grid('19-22', 1), 0.4),
-		lampRight = anim8.newAnimation(grid('23-25', 1), 0.2),
-		lampLeft = anim8.newAnimation(grid('26-28', 1), 0.2),
-		lampDown = anim8.newAnimation(grid('29-31', 1), 0.2),
-		charge = anim8.newAnimation(grid('32-35', 1), 0.2)
-	}
-	
-	-- Elegir animación inicial según estado
-	if PlayerData.hasLamp and PlayerData.isInDarkness then
-		self.currentAnimation = self.animations.lampIdle
-	else
-		self.currentAnimation = self.animations.idle
-	end
+	self.animations = playerAnimations.load(self.spritesheet)
+	self.currentAnimation = playerAnimations.getInitialAnimation(self.animations)
 	
 	-- Movement tracking for turn-based enemy AI
 	self.isMoving = false
 	self.hasMoved = false -- Flag to trigger enemy movement
 end
 
--- Get the collision box position and dimensions
+-- Collision methods (delegate to collisions module)
 function Player:getCollisionRect()
-	return self.x + self.collisionOffsetX, self.y + self.collisionOffsetY, self.width, self.height
+	return playerCollisions.getCollisionRect(self)
 end
 
--- Get the sprite position and dimensions (for drawing)
 function Player:getSpriteRect()
-	return self.x, self.y, self.spriteWidth, self.spriteHeight
+	return playerCollisions.getSpriteRect(self)
 end
 
--- Update collision box position in BUMP world
 function Player:updateCollisionPosition()
-	local collisionX = self.x + self.collisionOffsetX
-	local collisionY = self.y + self.collisionOffsetY
-	self.world:update(self, collisionX, collisionY)
+	playerCollisions.updateCollisionPosition(self)
 end
--- Returns a table of colliding objects within the specified rectangle
--- @param x, y: top-left corner of the rectangle
--- @param w, h: width and height of the rectangle
--- @param filter: optional collision filter function
+
 function Player:collideRect(x, y, w, h, filter)
-	local items, len = self.world:queryRect(x, y, w, h, filter)
-	
-	-- Format results similar to Playdate SDK
-	local collisions = {}
-	for i = 1, len do
-		local item = items[i]
-		if item ~= self then -- Don't include self in collisions
-			local itemX, itemY, itemW, itemH = self.world:getRect(item)
-			table.insert(collisions, {
-				object = item,
-				x = itemX,
-				y = itemY,
-				width = itemW,
-				height = itemH
-			})
-		end
-	end
-	
-	return collisions, #collisions
+	return playerCollisions.collideRect(self, x, y, w, h, filter)
 end
 
--- Check for collisions at the player's current collision box position
 function Player:checkCollisions()
-	local collisionX, collisionY = self.x + self.collisionOffsetX, self.y + self.collisionOffsetY
-	return self:collideRect(collisionX, collisionY, self.width, self.height)
+	return playerCollisions.checkCollisions(self)
 end
 
--- Check for collisions at a specific sprite position (converts to collision box position)
 function Player:checkCollisionsAt(spriteX, spriteY)
-	local collisionX = spriteX + self.collisionOffsetX
-	local collisionY = spriteY + self.collisionOffsetY
-	return self:collideRect(collisionX, collisionY, self.width, self.height)
+	return playerCollisions.checkCollisionsAt(self, spriteX, spriteY)
 end
 
--- Check for collisions in a specific direction from current position
 function Player:checkCollisionsInDirection(direction, distance)
-	local checkX, checkY = self.x, self.y
-	
-	if direction == "up" then
-		checkY = checkY - distance
-	elseif direction == "down" then
-		checkY = checkY + distance
-	elseif direction == "left" then
-		checkX = checkX - distance
-	elseif direction == "right" then
-		checkX = checkX + distance
-	end
-	
-	return self:checkCollisionsAt(checkX, checkY)
+	return playerCollisions.checkCollisionsInDirection(self, direction, distance)
 end
 
--- Get all objects within a radius of the player (uses collision box center)
 function Player:getObjectsInRadius(radius)
-	local centerX = self.x + self.collisionOffsetX + self.width / 2
-	local centerY = self.y + self.collisionOffsetY + self.height / 2
-	
-	-- Create a square area around the player
-	local x = centerX - radius
-	local y = centerY - radius
-	local w = radius * 2
-	local h = radius * 2
-	
-	local collisions, count = self:collideRect(x, y, w, h)
-	
-	-- Filter by actual distance for circular radius
-	local filtered = {}
-	for i = 1, count do
-		local collision = collisions[i]
-		local objCenterX = collision.x + collision.width / 2
-		local objCenterY = collision.y + collision.height / 2
-		
-		local distance = math.sqrt((centerX - objCenterX)^2 + (centerY - objCenterY)^2)
-		if distance <= radius then
-			collision.distance = distance
-			table.insert(filtered, collision)
-		end
-	end
-	
-	return filtered, #filtered
+	return playerCollisions.getObjectsInRadius(self, radius)
 end
 
+-- Update function
 function Player:update(dt)
-	local dx, dy = 0, 0
-
-	-- Keyboard movement (WASD and arrow keys)
-	if love.keyboard.isDown("w") or love.keyboard.isDown("up") then dy = -self.speed * dt end
-	if love.keyboard.isDown("s") or love.keyboard.isDown("down") then dy = self.speed * dt end
-	if love.keyboard.isDown("a") or love.keyboard.isDown("left") then dx = -self.speed * dt end
-	if love.keyboard.isDown("d") or love.keyboard.isDown("right") then dx = self.speed * dt end
-
-	-- Gamepad movement (left stick)
-	local joysticks = love.joystick.getJoysticks()
-	if #joysticks > 0 then
-		local joy = joysticks[1]
-		local axisX = joy:getAxis(1) -- left stick X
-		local axisY = joy:getAxis(2) -- left stick Y
-
-		-- Apply deadzone
-		local deadzone = 0.2
-		if math.abs(axisX) > deadzone then
-			dx = dx + axisX * self.speed * dt
-		end
-		if math.abs(axisY) > deadzone then
-			dy = dy + axisY * self.speed * dt
-		end
-	end
+	-- Handle input and get movement delta
+	local dx, dy = playerMovements.handleInput(self, dt)
 
 	-- Example usage: Check for collisions before moving
 	if dx ~= 0 or dy ~= 0 then
@@ -202,41 +97,20 @@ function Player:update(dt)
 		-- end
 	end
 	
-	-- Track if player is moving
-	local wasMoving = self.isMoving
-	self.isMoving = (dx ~= 0 or dy ~= 0)
-
-	-- Update animation
-	if dx > 0 then
-		self.currentAnimation = PlayerData.hasLamp and self.animations.lampRight or self.animations.right
-	elseif dx < 0 then
-		self.currentAnimation = PlayerData.hasLamp and self.animations.lampLeft or self.animations.left
-	elseif dy > 0 then
-		self.currentAnimation = PlayerData.hasLamp and self.animations.lampDown or self.animations.down
-	elseif dy < 0 then
-		self.currentAnimation = self.animations.up
-	else
-		self.currentAnimation = PlayerData.hasLamp and self.animations.lampIdle or self.animations.idle
-	end
-
-	-- BUMP collision - move collision box and get sprite position back
-	local newCollisionX = self.x + self.collisionOffsetX + dx
-	local newCollisionY = self.y + self.collisionOffsetY + dy
-	local actualCollisionX, actualCollisionY, cols, len = self.world:move(self, newCollisionX, newCollisionY)
+	-- Update animation based on movement
+	playerAnimations.updateAnimation(self, dx, dy)
 	
-	-- Convert collision box position back to sprite position
-	self.x = actualCollisionX - self.collisionOffsetX
-	self.y = actualCollisionY - self.collisionOffsetY
+	-- Move player with collision detection
+	playerMovements.move(self, dx, dy)
 	
-	-- Set hasMoved flag if player actually moved
-	if self.isMoving and (dx ~= 0 or dy ~= 0) then
-		self.hasMoved = true
-	end
+	-- Update movement state for turn-based AI
+	playerMovements.updateMovementState(self, dx, dy)
 
 	-- Update animation
 	self.currentAnimation:update(dt)
 end
 
+-- Draw function
 function Player:draw()
 	-- Draw the sprite at sprite position
 	self.currentAnimation:draw(self.spritesheet, self.x, self.y)
