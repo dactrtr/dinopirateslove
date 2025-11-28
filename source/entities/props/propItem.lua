@@ -86,11 +86,23 @@ function PropItem:initialize(x, y, type, zIndex, nocollide, isDestroyed, id, wor
     
     -- Default collider setup
     if nocollide == false then
+        -- In Playdate, PropCollider used setCollideRect(-14, -6, width, height)
+        -- This means the collider was centered horizontally and positioned near the bottom
+        -- For a 32x32 sprite with center pivot:
+        -- - Horizontal: center the collider (sprite is 32px, collider varies)
+        -- - Vertical: position near bottom (offset -6 from center means bottom area)
+        
         local cx, cy, cw, ch
         if type == "xtree-1" or type == "xtree-2" then
-            cx, cy, cw, ch = self.x, self.y + 16, 28, 4
+            -- Trees: small collider at base
+            cw, ch = 28, 4
+            cx = self.x + (TILE_SIZE - cw) / 2  -- Center horizontally
+            cy = self.y + TILE_SIZE - ch        -- Bottom of sprite
         else
-            cx, cy, cw, ch = self.x, self.y, 28, 18
+            -- Default props: collider in lower portion
+            cw, ch = 28, 18
+            cx = self.x + (TILE_SIZE - cw) / 2  -- Center horizontally
+            cy = self.y + TILE_SIZE - ch        -- Bottom-aligned
         end
         
         self.propcollider = PropCollider(cx, cy, cw, ch, world)
