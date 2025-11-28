@@ -2,6 +2,7 @@ local sceneManager = require "sceneManager"
 local Timer = require 'libraries/hump/timer'
 local bump = require 'libraries/bump'
 local Player = require 'entities.Player'
+local PropItem = require 'entities.props.propItem'
 local Brocorat = require 'entities.Brocorat'
 local Door = require 'entities.Door'
 local DoorHandler = require 'DoorHandler'
@@ -33,6 +34,8 @@ local gameScene = {
 	doors = {},
 	-- Walls
 	walls = {},
+	-- Props
+	props = {},
 	-- Level management
 	currentRoom = nil,        -- Index in levelsLDTK
 	currentLevelData = nil,   -- Reference to current level
@@ -96,6 +99,9 @@ function gameScene.load()
 	
 	-- Mark: walls - Create walls with gaps for doors
 	gameScene.loadWalls()
+	
+	-- Mark: props - Create props from level data
+	gameScene.loadProps()
 	
 	-- Update room info in pause menu
 	gameScene.updateRoomInfo()
@@ -360,6 +366,44 @@ function gameScene.loadWalls()
 	print("✅ Created " .. #gameScene.walls .. " wall segments")
 end
 
+-- MARK: Props Loading
+function gameScene.loadProps()
+	-- Ensure we have a level loaded
+	if not gameScene.currentLevelData then return end
+	
+	-- Clear existing props
+	for _, prop in ipairs(gameScene.props) do
+		if prop.remove then prop:remove() end
+	end
+	gameScene.props = {}
+	
+	local entities = gameScene.currentLevelData.entities
+	if not entities then return end
+	
+	-- Iterate over all entity types
+	for typeName, entityList in pairs(entities) do
+		for _, entity in ipairs(entityList) do
+			-- Check if it's a prop (layer is "Props")
+			if entity.layer == "Props" then
+				local cf = entity.customFields or {}
+				local x, y = entity.x, entity.y
+				local type = cf.type or typeName:lower() -- Use custom field type or entity name
+				local nocollide = cf.nocollider or false
+				local isDestroyed = cf.destroyed or false
+				local id = entity.iid
+				
+				-- Calculate zIndex based on Y position (simple depth sorting)
+				local zIndex = y
+				
+				local prop = PropItem(x, y, type, zIndex, nocollide, isDestroyed, id, gameScene.world)
+				table.insert(gameScene.props, prop)
+			end
+		end
+	end
+	
+	print("✅ Loaded " .. #gameScene.props .. " props")
+end
+
 
 -- MARK: Level Transition
 function gameScene.changeLevel(nextLevelIid, enterDirection)
@@ -380,17 +424,43 @@ function gameScene.changeLevel(nextLevelIid, enterDirection)
 	end
 	
 	-- Clear current level
+	-- Clear current level entities from world and memory
+	
+	-- Clear enemies
 	for _, enemy in ipairs(gameScene.enemies) do
-		if enemy.remove then
-			enemy:remove()
+		if gameScene.world and enemy.x then -- Check if enemy was added to world
+			if gameScene.world:hasItem(enemy) then
+				gameScene.world:remove(enemy)
+			end
 		end
 	end
 	gameScene.enemies = {}
 	
+	-- Clear doors
 	for _, door in ipairs(gameScene.doors) do
-		door:remove()
+		if gameScene.world and gameScene.world:hasItem(door) then
+			gameScene.world:remove(door)
+		end
 	end
 	gameScene.doors = {}
+	
+	-- Clear walls
+	for _, wall in ipairs(gameScene.walls) do
+		if gameScene.world and gameScene.world:hasItem(wall) then
+			gameScene.world:remove(wall)
+		end
+	end
+	gameScene.walls = {}
+	
+	-- Clear props
+	for _, prop in ipairs(gameScene.props) do
+		if gameScene.world and gameScene.world:hasItem(prop) then
+			gameScene.world:remove(prop)
+		end
+		-- Also remove prop colliders if any (handled by prop:remove())
+		if prop.remove then prop:remove() end
+	end
+	gameScene.props = {}
 	
 	-- Set new level
 	gameScene.currentRoom = nextRoomIndex
@@ -403,6 +473,7 @@ function gameScene.changeLevel(nextLevelIid, enterDirection)
 	gameScene.loadEnemies()
 	gameScene.loadDoors()
 	gameScene.loadWalls()
+	gameScene.loadProps()
 	
 	-- Update room info in pause menu
 	gameScene.updateRoomInfo()
@@ -587,8 +658,16 @@ function gameScene.draw()
 	end
 	
 	-- Draw enemies
-	for i, enemy in ipairs(gameScene.enemies) do
+	for _, enemy in ipairs(gameScene.enemies) do
 		enemy:draw()
+	end
+	
+	-- Draw props
+	-- Sort props by zIndex (y position) for correct depth
+	table.sort(gameScene.props, function(a, b) return a.y < b.y end)
+	
+	for _, prop in ipairs(gameScene.props) do
+		prop:draw()
 	end
 	
 	-- Draw doors (for debugging) - only in debug mode
