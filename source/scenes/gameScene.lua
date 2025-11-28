@@ -200,23 +200,18 @@ function gameScene.loadDoors()
 			local nextLevelIid = nil
 			
 			if neighbourLevels then
+				-- Priority 1: Exact match ONLY
 				for _, neighbour in ipairs(neighbourLevels) do
 					local neighbourDir = neighbour.dir
+					local isExactMatch = false
 					
-					-- Check if this neighbour matches the direction
-					-- Handle both exact matches and diagonal variants
-					local matches = false
-					if direction == "n" and (neighbourDir == "n" or neighbourDir == "^" or neighbourDir == "nw" or neighbourDir == "ne") then
-						matches = true
-					elseif direction == "s" and (neighbourDir == "s" or neighbourDir == "v" or neighbourDir == "sw" or neighbourDir == "se") then
-						matches = true
-					elseif direction == "e" and (neighbourDir == "e" or neighbourDir == ">") then
-						matches = true
-					elseif direction == "w" and (neighbourDir == "w" or neighbourDir == "<") then
-						matches = true
+					if direction == "n" and neighbourDir == "n" then isExactMatch = true
+					elseif direction == "s" and neighbourDir == "s" then isExactMatch = true
+					elseif direction == "e" and neighbourDir == "e" then isExactMatch = true
+					elseif direction == "w" and neighbourDir == "w" then isExactMatch = true
 					end
 					
-					if matches then
+					if isExactMatch then
 						nextLevelIid = neighbour.levelIid
 						break
 					end
@@ -224,11 +219,24 @@ function gameScene.loadDoors()
 			end
 			
 			if nextLevelIid then
+				-- Find the room number for this IID
+				local nextRoomNumber = nil
+				if levelsLDTK then
+					for _, level in ipairs(levelsLDTK) do
+						if level.uniqueIdentifer == nextLevelIid then
+							if level.customFields and level.customFields.roomNumber then
+								nextRoomNumber = level.customFields.roomNumber
+							end
+							break
+						end
+					end
+				end
+				
 				-- Create door
-				local door = Door.new(direction, "open", nextLevelIid, gameScene.world)
+				local door = Door.new(direction, "open", nextLevelIid, gameScene.world, nextRoomNumber)
 				table.insert(gameScene.doors, door)
 				
-				print("🚪 Created door: " .. doorName .. " (" .. direction .. ") -> " .. nextLevelIid .. " at (" .. door.x .. ", " .. door.y .. ")")
+				print("🚪 Created door: " .. doorName .. " (" .. direction .. ") -> " .. nextLevelIid .. " (Room " .. tostring(nextRoomNumber) .. ") at (" .. door.x .. ", " .. door.y .. ")")
 			else
 				print("⚠️ WARNING: No neighbour found for door '" .. doorName .. "' (direction: " .. direction .. ")")
 			end
@@ -402,7 +410,7 @@ function gameScene.changeLevel(nextLevelIid, enterDirection)
 	-- Reposition player based on entry direction
 	if enterDirection and gameScene.player then
 		local spawnCoordinates = {
-			top = {x = 196, y = 196},
+			top = {x = 196, y = 156},
 			down = {x = 196, y = 32},
 			right = {x = 32, y = 116},
 			left = {x = 364, y = 116}

@@ -63,7 +63,7 @@ local function convertDirection(ldtkDir)
 	return converted
 end
 
-function Door.new(direction, status, nextLevelIid, world)
+function Door.new(direction, status, nextLevelIid, world, destinationRoomNumber)
 	local self = setmetatable({}, Door)
 	self.class = Door -- Reference to class for type checking
 	
@@ -71,6 +71,7 @@ function Door.new(direction, status, nextLevelIid, world)
 	self.direction = convertDirection(direction)
 	self.status = status or "open"  -- "open" or "closed"
 	self.nextLevelIid = nextLevelIid
+	self.destinationRoomNumber = destinationRoomNumber
 	
 	-- Get position for this direction
 	local pos = positions[self.direction]
@@ -124,9 +125,21 @@ end
 function Door:draw()
 	-- Optional: Draw debug rectangles for doors
 	if DRAW_DEBUG_DOORS then
-		love.graphics.setColor(0, 1, 0, 0.3)  -- Green semi-transparent
+		love.graphics.setColor(0, 1, 0, 0.5) -- Green semi-transparent
 		love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
-		love.graphics.setColor(1, 1, 1)  -- Reset color
+		
+		-- Draw destination room number
+		if self.destinationRoomNumber then
+			love.graphics.setColor(1, 1, 1, 1) -- White text
+			local text = "Room " .. tostring(self.destinationRoomNumber)
+			-- Center text
+			local font = love.graphics.getFont()
+			local textWidth = font:getWidth(text)
+			local textHeight = font:getHeight()
+			love.graphics.print(text, self.x + (self.width - textWidth)/2, self.y + (self.height - textHeight)/2)
+		end
+		
+		love.graphics.setColor(1, 1, 1) -- Reset color
 	end
 end
 
