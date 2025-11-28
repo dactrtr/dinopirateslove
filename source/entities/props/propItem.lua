@@ -47,8 +47,10 @@ local propStates = {
 }
 
 function PropItem:initialize(x, y, type, zIndex, nocollide, isDestroyed, id, world)
-    self.x = x
-    self.y = y
+    -- LDTK uses center pivot, Love2D draws from top-left
+    -- Adjust position by subtracting half the tile size
+    self.x = x - (TILE_SIZE / 2)
+    self.y = y - (TILE_SIZE / 2)
     self.type = type
     self.id = id
     self.world = world
@@ -84,18 +86,11 @@ function PropItem:initialize(x, y, type, zIndex, nocollide, isDestroyed, id, wor
     
     -- Default collider setup
     if nocollide == false then
-        -- Add self to world as the main collision body? 
-        -- Or use PropCollider as a separate entity?
-        -- The Playdate code uses a separate PropCollider for the physics body
-        -- and the PropItem itself seems to be the sprite.
-        -- In BUMP, we can just add the PropItem itself if it's simple, 
-        -- but PropCollider allows for different collision rects.
-        
         local cx, cy, cw, ch
         if type == "xtree-1" or type == "xtree-2" then
-            cx, cy, cw, ch = x, y+16, 28, 4
+            cx, cy, cw, ch = self.x, self.y + 16, 28, 4
         else
-            cx, cy, cw, ch = x, y, 28, 18
+            cx, cy, cw, ch = self.x, self.y, 28, 18
         end
         
         self.propcollider = PropCollider(cx, cy, cw, ch, world)
@@ -156,12 +151,12 @@ function PropItem:initialize(x, y, type, zIndex, nocollide, isDestroyed, id, wor
             self.propcollider = nil
         end
         
-        -- Add specific collider
+        -- Add specific collider using adjusted positions
         local rect = specificHoles[type]
         -- rect is {x_offset, y_offset, width, height}
-        self.propcollider = PropCollider(x + rect[1], y + rect[2], rect[3], rect[4], world)
+        self.propcollider = PropCollider(self.x + rect[1], self.y + rect[2], rect[3], rect[4], world)
         
-        print("🕳️  Hole created:", type, "at", x, y)
+        print("🕳️  Hole created:", type, "at", self.x, self.y)
     end
     
     self.zIndex = zIndex
