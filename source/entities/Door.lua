@@ -3,6 +3,7 @@
 
 local Door = {}
 Door.__index = Door
+Door.name = "Door" -- Class name for identification
 
 -- Position mapping for doors based on direction
 -- Positions are calculated to center doors in wall gaps
@@ -64,6 +65,7 @@ end
 
 function Door.new(direction, status, nextLevelIid, world)
 	local self = setmetatable({}, Door)
+	self.class = Door -- Reference to class for type checking
 	
 	-- Convert direction if needed
 	self.direction = convertDirection(direction)

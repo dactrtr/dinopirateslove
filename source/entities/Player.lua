@@ -100,8 +100,34 @@ function Player:update(dt)
 	-- Update animation based on movement
 	playerAnimations.updateAnimation(self, dx, dy)
 	
+	-- Define collision filter
+	local function collisionFilter(item, other)
+		if other.isWall then -- Walls (we added isWall = true to walls in gameScene)
+			return 'slide'
+		elseif other.class and other.class.name == "Door" then
+			return 'cross' -- Trigger overlap but don't stop
+		elseif other.class and other.class.name == "Brocorat" then
+			return 'touch'
+		end
+		-- Default
+		return 'slide'
+	end
+	
 	-- Move player with collision detection
-	playerMovements.move(self, dx, dy)
+	local cols, len = playerMovements.move(self, dx, dy, collisionFilter)
+	
+	-- Handle collisions
+	for i = 1, len do
+		local col = cols[i]
+		local other = col.other
+		
+		-- Check for Door collision
+		if other.class and other.class.name == "Door" then
+			-- Use DoorHandler to handle transition
+			local DoorHandler = require 'DoorHandler'
+			DoorHandler.handleDoorCollision(other, self)
+		end
+	end
 	
 	-- Update movement state for turn-based AI
 	playerMovements.updateMovementState(self, dx, dy)

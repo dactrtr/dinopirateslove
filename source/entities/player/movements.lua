@@ -34,11 +34,11 @@ function movements.handleInput(player, dt)
 end
 
 -- Move player with BUMP collision detection
-function movements.move(player, dx, dy)
+function movements.move(player, dx, dy, filter)
 	-- BUMP collision - move collision box and get sprite position back
 	local newCollisionX = player.x + player.collisionOffsetX + dx
 	local newCollisionY = player.y + player.collisionOffsetY + dy
-	local actualCollisionX, actualCollisionY, cols, len = player.world:move(player, newCollisionX, newCollisionY)
+	local actualCollisionX, actualCollisionY, cols, len = player.world:move(player, newCollisionX, newCollisionY, filter)
 	
 	-- Convert collision box position back to sprite position
 	player.x = actualCollisionX - player.collisionOffsetX

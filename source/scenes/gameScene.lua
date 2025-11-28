@@ -272,7 +272,7 @@ function gameScene.loadWalls()
 	-- Top wall (with gap if door exists)
 	if not hasDoorTop then
 		-- Full top wall
-		local wall = {x = 0, y = 0, w = VIRTUAL_WIDTH, h = wallThickness}
+		local wall = {x = 0, y = 0, w = VIRTUAL_WIDTH, h = wallThickness, isWall = true}
 		gameScene.world:add(wall, wall.x, wall.y, wall.w, wall.h)
 		table.insert(gameScene.walls, wall)
 	else
@@ -280,11 +280,11 @@ function gameScene.loadWalls()
 		local gapCenter = 203
 		local gapWidth = 50
 		-- Left segment
-		local wallLeft = {x = 0, y = 0, w = gapCenter - gapWidth/2, h = wallThickness}
+		local wallLeft = {x = 0, y = 0, w = gapCenter - gapWidth/2, h = wallThickness, isWall = true}
 		gameScene.world:add(wallLeft, wallLeft.x, wallLeft.y, wallLeft.w, wallLeft.h)
 		table.insert(gameScene.walls, wallLeft)
 		-- Right segment
-		local wallRight = {x = gapCenter + gapWidth/2, y = 0, w = VIRTUAL_WIDTH - (gapCenter + gapWidth/2), h = wallThickness}
+		local wallRight = {x = gapCenter + gapWidth/2, y = 0, w = VIRTUAL_WIDTH - (gapCenter + gapWidth/2), h = wallThickness, isWall = true}
 		gameScene.world:add(wallRight, wallRight.x, wallRight.y, wallRight.w, wallRight.h)
 		table.insert(gameScene.walls, wallRight)
 	end
@@ -292,7 +292,7 @@ function gameScene.loadWalls()
 	-- Bottom wall (with gap if door exists)
 	if not hasDoorDown then
 		-- Full bottom wall
-		local wall = {x = 0, y = VIRTUAL_HEIGHT - wallThickness, w = VIRTUAL_WIDTH, h = wallThickness}
+		local wall = {x = 0, y = VIRTUAL_HEIGHT - wallThickness, w = VIRTUAL_WIDTH, h = wallThickness, isWall = true}
 		gameScene.world:add(wall, wall.x, wall.y, wall.w, wall.h)
 		table.insert(gameScene.walls, wall)
 	else
@@ -300,11 +300,11 @@ function gameScene.loadWalls()
 		local gapCenter = 203
 		local gapWidth = 50
 		-- Left segment
-		local wallLeft = {x = 0, y = VIRTUAL_HEIGHT - wallThickness, w = gapCenter - gapWidth/2, h = wallThickness}
+		local wallLeft = {x = 0, y = VIRTUAL_HEIGHT - wallThickness, w = gapCenter - gapWidth/2, h = wallThickness, isWall = true}
 		gameScene.world:add(wallLeft, wallLeft.x, wallLeft.y, wallLeft.w, wallLeft.h)
 		table.insert(gameScene.walls, wallLeft)
 		-- Right segment
-		local wallRight = {x = gapCenter + gapWidth/2, y = VIRTUAL_HEIGHT - wallThickness, w = VIRTUAL_WIDTH - (gapCenter + gapWidth/2), h = wallThickness}
+		local wallRight = {x = gapCenter + gapWidth/2, y = VIRTUAL_HEIGHT - wallThickness, w = VIRTUAL_WIDTH - (gapCenter + gapWidth/2), h = wallThickness, isWall = true}
 		gameScene.world:add(wallRight, wallRight.x, wallRight.y, wallRight.w, wallRight.h)
 		table.insert(gameScene.walls, wallRight)
 	end
@@ -312,7 +312,7 @@ function gameScene.loadWalls()
 	-- Left wall (with gap if door exists)
 	if not hasDoorLeft then
 		-- Full left wall
-		local wall = {x = 0, y = 0, w = wallThickness, h = VIRTUAL_HEIGHT}
+		local wall = {x = 0, y = 0, w = wallThickness, h = VIRTUAL_HEIGHT, isWall = true}
 		gameScene.world:add(wall, wall.x, wall.y, wall.w, wall.h)
 		table.insert(gameScene.walls, wall)
 	else
@@ -320,11 +320,11 @@ function gameScene.loadWalls()
 		local gapCenter = 122
 		local gapHeight = 50
 		-- Top segment
-		local wallTop = {x = 0, y = 0, w = wallThickness, h = gapCenter - gapHeight/2}
+		local wallTop = {x = 0, y = 0, w = wallThickness, h = gapCenter - gapHeight/2, isWall = true}
 		gameScene.world:add(wallTop, wallTop.x, wallTop.y, wallTop.w, wallTop.h)
 		table.insert(gameScene.walls, wallTop)
 		-- Bottom segment
-		local wallBottom = {x = 0, y = gapCenter + gapHeight/2, w = wallThickness, h = VIRTUAL_HEIGHT - (gapCenter + gapHeight/2)}
+		local wallBottom = {x = 0, y = gapCenter + gapHeight/2, w = wallThickness, h = VIRTUAL_HEIGHT - (gapCenter + gapHeight/2), isWall = true}
 		gameScene.world:add(wallBottom, wallBottom.x, wallBottom.y, wallBottom.w, wallBottom.h)
 		table.insert(gameScene.walls, wallBottom)
 	end
@@ -332,7 +332,7 @@ function gameScene.loadWalls()
 	-- Right wall (with gap if door exists)
 	if not hasDoorRight then
 		-- Full right wall
-		local wall = {x = VIRTUAL_WIDTH - wallThickness, y = 0, w = wallThickness, h = VIRTUAL_HEIGHT}
+		local wall = {x = VIRTUAL_WIDTH - wallThickness, y = 0, w = wallThickness, h = VIRTUAL_HEIGHT, isWall = true}
 		gameScene.world:add(wall, wall.x, wall.y, wall.w, wall.h)
 		table.insert(gameScene.walls, wall)
 	else
@@ -340,11 +340,11 @@ function gameScene.loadWalls()
 		local gapCenter = 122
 		local gapHeight = 50
 		-- Top segment
-		local wallTop = {x = VIRTUAL_WIDTH - wallThickness, y = 0, w = wallThickness, h = gapCenter - gapHeight/2}
+		local wallTop = {x = VIRTUAL_WIDTH - wallThickness, y = 0, w = wallThickness, h = gapCenter - gapHeight/2, isWall = true}
 		gameScene.world:add(wallTop, wallTop.x, wallTop.y, wallTop.w, wallTop.h)
 		table.insert(gameScene.walls, wallTop)
 		-- Bottom segment
-		local wallBottom = {x = VIRTUAL_WIDTH - wallThickness, y = gapCenter + gapHeight/2, w = wallThickness, h = VIRTUAL_HEIGHT - (gapCenter + gapHeight/2)}
+		local wallBottom = {x = VIRTUAL_WIDTH - wallThickness, y = gapCenter + gapHeight/2, w = wallThickness, h = VIRTUAL_HEIGHT - (gapCenter + gapHeight/2), isWall = true}
 		gameScene.world:add(wallBottom, wallBottom.x, wallBottom.y, wallBottom.w, wallBottom.h)
 		table.insert(gameScene.walls, wallBottom)
 	end

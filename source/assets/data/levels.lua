@@ -1193,8 +1193,7 @@ levelsLDTK = {
 	  tile = 6,
 	  DoorsConnection = {
 		"Top",
-		"Down",
-		"Lower"
+		"Down"
 	  },
 	  play = nil
 	},
@@ -2157,6 +2156,36 @@ levelsLDTK = {
 		  }
 		}
 	  },
+	  Brocorat = {
+		{
+		  id = "Brocorat",
+		  iid = "547cdf30-ac70-11f0-8539-afad52eb2b26",
+		  layer = "Enemies",
+		  x = 84,
+		  y = 172,
+		  width = 32,
+		  height = 32,
+		  color = 14120515,
+		  customFields = {
+			speed = 0.5,
+			dead = false
+		  }
+		},
+		{
+		  id = "Brocorat",
+		  iid = "580605f0-ac70-11f0-8539-0d60ca94c541",
+		  layer = "Enemies",
+		  x = 268,
+		  y = 180,
+		  width = 32,
+		  height = 32,
+		  color = 14120515,
+		  customFields = {
+			speed = 0.5,
+			dead = false
+		  }
+		}
+	  },
 	  Trash = {
 		{
 		  id = "Trash",
@@ -3024,7 +3053,7 @@ levelsLDTK = {
 	  comic_wasPlayed = false,
 	  level = 3,
 	  roomNumber = 21,
-	  tile = 1,
+	  tile = 21,
 	  DoorsConnection = {
 		"Top"
 	  },
@@ -3558,6 +3587,1020 @@ levelsLDTK = {
 	  level = 3,
 	  roomNumber = 30,
 	  tile = 30,
+	  DoorsConnection = {
+		"Top"
+	  },
+	  play = nil
+	},
+	layers = {
+	  "Tilemap.png"
+	},
+	entities = {}
+  },
+{
+	identifier = "Room_31",
+	uniqueIdentifer = "6339e3a0-ac70-11f0-998c-ef6847708f0e",
+	x = -400,
+	y = 0,
+	width = 400,
+	height = 240,
+	bgColor = "#696A79",
+	neighbourLevels = {
+	  {
+		levelIid = "0c0281e0-ac70-11f0-998c-95fd1ad330a3",
+		dir = "e"
+	  },
+	  {
+		levelIid = "1eb07590-ac70-11f0-998c-cf509f3ef0bc",
+		dir = "s"
+	  },
+	  {
+		levelIid = "2139b880-ac70-11f0-998c-f5d424530b7f",
+		dir = "se"
+	  }
+	},
+	customFields = {
+	  shadow = false,
+	  light = 0,
+	  visited = false,
+	  comic_name = nil,
+	  comic_wasPlayed = false,
+	  level = 2,
+	  roomNumber = 21,
+	  tile = 2,
+	  DoorsConnection = {
+		"Top"
+	  },
+	  play = nil
+	},
+	layers = {
+	  "Tilemap.png"
+	},
+	entities = {}
+  },
+{
+	identifier = "Room_32",
+	uniqueIdentifer = "0c0281e0-ac70-11f0-998c-95fd1ad330a3",
+	x = 0,
+	y = 0,
+	width = 400,
+	height = 240,
+	bgColor = "#696A79",
+	neighbourLevels = {
+	  {
+		levelIid = "ae5a31c0-ac70-11f0-9560-a1abd660ccf1",
+		dir = ">"
+	  },
+	  {
+		levelIid = "6339e3a0-ac70-11f0-998c-ef6847708f0e",
+		dir = "w"
+	  },
+	  {
+		levelIid = "10505830-ac70-11f0-998c-55d8b4b4f879",
+		dir = "e"
+	  },
+	  {
+		levelIid = "1eb07590-ac70-11f0-998c-cf509f3ef0bc",
+		dir = "sw"
+	  },
+	  {
+		levelIid = "2139b880-ac70-11f0-998c-f5d424530b7f",
+		dir = "s"
+	  },
+	  {
+		levelIid = "23b93777-ac70-11f0-998c-8fe9cae02b21",
+		dir = "se"
+	  }
+	},
+	customFields = {
+	  shadow = false,
+	  light = 0,
+	  visited = false,
+	  comic_name = nil,
+	  comic_wasPlayed = false,
+	  level = 2,
+	  roomNumber = 1,
+	  tile = 2,
+	  DoorsConnection = {
+		"Top"
+	  },
+	  play = nil
+	},
+	layers = {
+	  "Tilemap.png"
+	},
+	entities = {}
+  },
+{
+	identifier = "Room_33",
+	uniqueIdentifer = "10505830-ac70-11f0-998c-55d8b4b4f879",
+	x = 400,
+	y = 0,
+	width = 400,
+	height = 240,
+	bgColor = "#696A79",
+	neighbourLevels = {
+	  {
+		levelIid = "abdd36b0-ac70-11f0-998c-673887a050e6",
+		dir = ">"
+	  },
+	  {
+		levelIid = "0c0281e0-ac70-11f0-998c-95fd1ad330a3",
+		dir = "w"
+	  },
+	  {
+		levelIid = "12995dd0-ac70-11f0-998c-1b8631dc4502",
+		dir = "e"
+	  },
+	  {
+		levelIid = "2139b880-ac70-11f0-998c-f5d424530b7f",
+		dir = "sw"
+	  },
+	  {
+		levelIid = "23b93777-ac70-11f0-998c-8fe9cae02b21",
+		dir = "s"
+	  },
+	  {
+		levelIid = "271dbf30-ac70-11f0-998c-eff03b419e1f",
+		dir = "se"
+	  }
+	},
+	customFields = {
+	  shadow = false,
+	  light = 0,
+	  visited = false,
+	  comic_name = nil,
+	  comic_wasPlayed = false,
+	  level = 2,
+	  roomNumber = 2,
+	  tile = 2,
+	  DoorsConnection = {
+		"Top"
+	  },
+	  play = nil
+	},
+	layers = {
+	  "Tilemap.png"
+	},
+	entities = {}
+  },
+{
+	identifier = "Room_34",
+	uniqueIdentifer = "12995dd0-ac70-11f0-998c-1b8631dc4502",
+	x = 800,
+	y = 0,
+	width = 400,
+	height = 240,
+	bgColor = "#696A79",
+	neighbourLevels = {
+	  {
+		levelIid = "2dc4bd30-ac70-11f0-998c-2ba6c3750080",
+		dir = ">"
+	  },
+	  {
+		levelIid = "10505830-ac70-11f0-998c-55d8b4b4f879",
+		dir = "w"
+	  },
+	  {
+		levelIid = "156e76d0-ac70-11f0-998c-096a39368923",
+		dir = "e"
+	  },
+	  {
+		levelIid = "23b93777-ac70-11f0-998c-8fe9cae02b21",
+		dir = "sw"
+	  },
+	  {
+		levelIid = "271dbf30-ac70-11f0-998c-eff03b419e1f",
+		dir = "s"
+	  },
+	  {
+		levelIid = "2a300840-ac70-11f0-998c-8f209da81536",
+		dir = "se"
+	  }
+	},
+	customFields = {
+	  shadow = false,
+	  light = 0,
+	  visited = false,
+	  comic_name = nil,
+	  comic_wasPlayed = false,
+	  level = 2,
+	  roomNumber = 3,
+	  tile = 2,
+	  DoorsConnection = {
+		"Top"
+	  },
+	  play = nil
+	},
+	layers = {
+	  "Tilemap.png"
+	},
+	entities = {}
+  },
+{
+	identifier = "Room_35",
+	uniqueIdentifer = "156e76d0-ac70-11f0-998c-096a39368923",
+	x = 1200,
+	y = 0,
+	width = 400,
+	height = 240,
+	bgColor = "#696A79",
+	neighbourLevels = {
+	  {
+		levelIid = "310fc980-ac70-11f0-998c-05b91a46387d",
+		dir = ">"
+	  },
+	  {
+		levelIid = "12995dd0-ac70-11f0-998c-1b8631dc4502",
+		dir = "w"
+	  },
+	  {
+		levelIid = "18297820-ac70-11f0-998c-93854477c827",
+		dir = "e"
+	  },
+	  {
+		levelIid = "271dbf30-ac70-11f0-998c-eff03b419e1f",
+		dir = "sw"
+	  },
+	  {
+		levelIid = "2a300840-ac70-11f0-998c-8f209da81536",
+		dir = "s"
+	  },
+	  {
+		levelIid = "2ccecf00-ac70-11f0-998c-cf1ba2f9a183",
+		dir = "se"
+	  }
+	},
+	customFields = {
+	  shadow = false,
+	  light = 0,
+	  visited = false,
+	  comic_name = nil,
+	  comic_wasPlayed = false,
+	  level = 2,
+	  roomNumber = 4,
+	  tile = 2,
+	  DoorsConnection = {
+		"Top"
+	  },
+	  play = nil
+	},
+	layers = {
+	  "Tilemap.png"
+	},
+	entities = {}
+  },
+{
+	identifier = "Room_36",
+	uniqueIdentifer = "18297820-ac70-11f0-998c-93854477c827",
+	x = 1600,
+	y = 0,
+	width = 400,
+	height = 240,
+	bgColor = "#696A79",
+	neighbourLevels = {
+	  {
+		levelIid = "35082cd0-ac70-11f0-998c-d16d78429f5c",
+		dir = ">"
+	  },
+	  {
+		levelIid = "156e76d0-ac70-11f0-998c-096a39368923",
+		dir = "w"
+	  },
+	  {
+		levelIid = "1b0bb080-ac70-11f0-998c-0ddd448f9064",
+		dir = "e"
+	  },
+	  {
+		levelIid = "2a300840-ac70-11f0-998c-8f209da81536",
+		dir = "sw"
+	  },
+	  {
+		levelIid = "2ccecf00-ac70-11f0-998c-cf1ba2f9a183",
+		dir = "s"
+	  },
+	  {
+		levelIid = "b807fba0-ac70-11f0-998c-2936349d0665",
+		dir = "se"
+	  }
+	},
+	customFields = {
+	  shadow = false,
+	  light = 0,
+	  visited = false,
+	  comic_name = nil,
+	  comic_wasPlayed = false,
+	  level = 2,
+	  roomNumber = 5,
+	  tile = 2,
+	  DoorsConnection = {
+		"Top"
+	  },
+	  play = nil
+	},
+	layers = {
+	  "Tilemap.png"
+	},
+	entities = {}
+  },
+{
+	identifier = "Room_37",
+	uniqueIdentifer = "1b0bb080-ac70-11f0-998c-0ddd448f9064",
+	x = 2000,
+	y = 0,
+	width = 400,
+	height = 240,
+	bgColor = "#696A79",
+	neighbourLevels = {
+	  {
+		levelIid = "18297820-ac70-11f0-998c-93854477c827",
+		dir = "w"
+	  },
+	  {
+		levelIid = "2ccecf00-ac70-11f0-998c-cf1ba2f9a183",
+		dir = "sw"
+	  },
+	  {
+		levelIid = "b807fba0-ac70-11f0-998c-2936349d0665",
+		dir = "s"
+	  }
+	},
+	customFields = {
+	  shadow = false,
+	  light = 0,
+	  visited = false,
+	  comic_name = nil,
+	  comic_wasPlayed = false,
+	  level = 2,
+	  roomNumber = 35,
+	  tile = 2,
+	  DoorsConnection = {
+		"Top"
+	  },
+	  play = nil
+	},
+	layers = {
+	  "Tilemap.png"
+	},
+	entities = {}
+  },
+{
+	identifier = "Room_38",
+	uniqueIdentifer = "1eb07590-ac70-11f0-998c-cf509f3ef0bc",
+	x = -400,
+	y = 240,
+	width = 400,
+	height = 240,
+	bgColor = "#696A79",
+	neighbourLevels = {
+	  {
+		levelIid = "6339e3a0-ac70-11f0-998c-ef6847708f0e",
+		dir = "n"
+	  },
+	  {
+		levelIid = "0c0281e0-ac70-11f0-998c-95fd1ad330a3",
+		dir = "ne"
+	  },
+	  {
+		levelIid = "2139b880-ac70-11f0-998c-f5d424530b7f",
+		dir = "e"
+	  },
+	  {
+		levelIid = "bbd49400-ac70-11f0-998c-858ac5e5930b",
+		dir = "s"
+	  },
+	  {
+		levelIid = "be6fd850-ac70-11f0-998c-4f44b96a410c",
+		dir = "se"
+	  }
+	},
+	customFields = {
+	  shadow = false,
+	  light = 0,
+	  visited = false,
+	  comic_name = nil,
+	  comic_wasPlayed = false,
+	  level = 2,
+	  roomNumber = 22,
+	  tile = 2,
+	  DoorsConnection = {
+		"Top"
+	  },
+	  play = nil
+	},
+	layers = {
+	  "Tilemap.png"
+	},
+	entities = {}
+  },
+{
+	identifier = "Room_39",
+	uniqueIdentifer = "2139b880-ac70-11f0-998c-f5d424530b7f",
+	x = 0,
+	y = 240,
+	width = 400,
+	height = 240,
+	bgColor = "#696A79",
+	neighbourLevels = {
+	  {
+		levelIid = "37dad4d0-ac70-11f0-998c-e3c63970ecdd",
+		dir = ">"
+	  },
+	  {
+		levelIid = "6339e3a0-ac70-11f0-998c-ef6847708f0e",
+		dir = "nw"
+	  },
+	  {
+		levelIid = "0c0281e0-ac70-11f0-998c-95fd1ad330a3",
+		dir = "n"
+	  },
+	  {
+		levelIid = "10505830-ac70-11f0-998c-55d8b4b4f879",
+		dir = "ne"
+	  },
+	  {
+		levelIid = "1eb07590-ac70-11f0-998c-cf509f3ef0bc",
+		dir = "w"
+	  },
+	  {
+		levelIid = "23b93777-ac70-11f0-998c-8fe9cae02b21",
+		dir = "e"
+	  },
+	  {
+		levelIid = "bbd49400-ac70-11f0-998c-858ac5e5930b",
+		dir = "sw"
+	  },
+	  {
+		levelIid = "be6fd850-ac70-11f0-998c-4f44b96a410c",
+		dir = "s"
+	  },
+	  {
+		levelIid = "c0dc4470-ac70-11f0-998c-497612e0536f",
+		dir = "se"
+	  }
+	},
+	customFields = {
+	  shadow = false,
+	  light = 0,
+	  visited = false,
+	  comic_name = nil,
+	  comic_wasPlayed = false,
+	  level = 2,
+	  roomNumber = 6,
+	  tile = 2,
+	  DoorsConnection = {
+		"Top"
+	  },
+	  play = nil
+	},
+	layers = {
+	  "Tilemap.png"
+	},
+	entities = {}
+  },
+{
+	identifier = "Room_40",
+	uniqueIdentifer = "23b93777-ac70-11f0-998c-8fe9cae02b21",
+	x = 400,
+	y = 240,
+	width = 400,
+	height = 240,
+	bgColor = "#696A79",
+	neighbourLevels = {
+	  {
+		levelIid = "3b081ff0-ac70-11f0-998c-67e6b510262c",
+		dir = ">"
+	  },
+	  {
+		levelIid = "0c0281e0-ac70-11f0-998c-95fd1ad330a3",
+		dir = "nw"
+	  },
+	  {
+		levelIid = "10505830-ac70-11f0-998c-55d8b4b4f879",
+		dir = "n"
+	  },
+	  {
+		levelIid = "12995dd0-ac70-11f0-998c-1b8631dc4502",
+		dir = "ne"
+	  },
+	  {
+		levelIid = "2139b880-ac70-11f0-998c-f5d424530b7f",
+		dir = "w"
+	  },
+	  {
+		levelIid = "271dbf30-ac70-11f0-998c-eff03b419e1f",
+		dir = "e"
+	  },
+	  {
+		levelIid = "be6fd850-ac70-11f0-998c-4f44b96a410c",
+		dir = "sw"
+	  },
+	  {
+		levelIid = "c0dc4470-ac70-11f0-998c-497612e0536f",
+		dir = "s"
+	  },
+	  {
+		levelIid = "c37083e0-ac70-11f0-998c-41014ccafb8f",
+		dir = "se"
+	  }
+	},
+	customFields = {
+	  shadow = false,
+	  light = 0,
+	  visited = false,
+	  comic_name = nil,
+	  comic_wasPlayed = false,
+	  level = 2,
+	  roomNumber = 7,
+	  tile = 2,
+	  DoorsConnection = {
+		"Top"
+	  },
+	  play = nil
+	},
+	layers = {
+	  "Tilemap.png"
+	},
+	entities = {}
+  },
+{
+	identifier = "Room_41",
+	uniqueIdentifer = "271dbf30-ac70-11f0-998c-eff03b419e1f",
+	x = 800,
+	y = 240,
+	width = 400,
+	height = 240,
+	bgColor = "#696A79",
+	neighbourLevels = {
+	  {
+		levelIid = "3d752854-ac70-11f0-998c-5dddbfac239d",
+		dir = ">"
+	  },
+	  {
+		levelIid = "10505830-ac70-11f0-998c-55d8b4b4f879",
+		dir = "nw"
+	  },
+	  {
+		levelIid = "12995dd0-ac70-11f0-998c-1b8631dc4502",
+		dir = "n"
+	  },
+	  {
+		levelIid = "156e76d0-ac70-11f0-998c-096a39368923",
+		dir = "ne"
+	  },
+	  {
+		levelIid = "23b93777-ac70-11f0-998c-8fe9cae02b21",
+		dir = "w"
+	  },
+	  {
+		levelIid = "2a300840-ac70-11f0-998c-8f209da81536",
+		dir = "e"
+	  },
+	  {
+		levelIid = "c0dc4470-ac70-11f0-998c-497612e0536f",
+		dir = "sw"
+	  },
+	  {
+		levelIid = "c37083e0-ac70-11f0-998c-41014ccafb8f",
+		dir = "s"
+	  },
+	  {
+		levelIid = "c60e1220-ac70-11f0-998c-cbe47e589876",
+		dir = "se"
+	  }
+	},
+	customFields = {
+	  shadow = false,
+	  light = 0,
+	  visited = false,
+	  comic_name = nil,
+	  comic_wasPlayed = false,
+	  level = 2,
+	  roomNumber = 8,
+	  tile = 2,
+	  DoorsConnection = {
+		"Top"
+	  },
+	  play = nil
+	},
+	layers = {
+	  "Tilemap.png"
+	},
+	entities = {}
+  },
+{
+	identifier = "Room_42",
+	uniqueIdentifer = "2a300840-ac70-11f0-998c-8f209da81536",
+	x = 1200,
+	y = 240,
+	width = 400,
+	height = 240,
+	bgColor = "#696A79",
+	neighbourLevels = {
+	  {
+		levelIid = "40386700-ac70-11f0-998c-e53e1b32800c",
+		dir = ">"
+	  },
+	  {
+		levelIid = "12995dd0-ac70-11f0-998c-1b8631dc4502",
+		dir = "nw"
+	  },
+	  {
+		levelIid = "156e76d0-ac70-11f0-998c-096a39368923",
+		dir = "n"
+	  },
+	  {
+		levelIid = "18297820-ac70-11f0-998c-93854477c827",
+		dir = "ne"
+	  },
+	  {
+		levelIid = "271dbf30-ac70-11f0-998c-eff03b419e1f",
+		dir = "w"
+	  },
+	  {
+		levelIid = "2ccecf00-ac70-11f0-998c-cf1ba2f9a183",
+		dir = "e"
+	  },
+	  {
+		levelIid = "c37083e0-ac70-11f0-998c-41014ccafb8f",
+		dir = "sw"
+	  },
+	  {
+		levelIid = "c60e1220-ac70-11f0-998c-cbe47e589876",
+		dir = "s"
+	  },
+	  {
+		levelIid = "d138f520-ac70-11f0-998c-e18e7b9af98b",
+		dir = "se"
+	  }
+	},
+	customFields = {
+	  shadow = false,
+	  light = 0,
+	  visited = false,
+	  comic_name = nil,
+	  comic_wasPlayed = false,
+	  level = 2,
+	  roomNumber = 9,
+	  tile = 2,
+	  DoorsConnection = {
+		"Top"
+	  },
+	  play = nil
+	},
+	layers = {
+	  "Tilemap.png"
+	},
+	entities = {}
+  },
+{
+	identifier = "Room_43",
+	uniqueIdentifer = "2ccecf00-ac70-11f0-998c-cf1ba2f9a183",
+	x = 1600,
+	y = 240,
+	width = 400,
+	height = 240,
+	bgColor = "#696A79",
+	neighbourLevels = {
+	  {
+		levelIid = "43980cc0-ac70-11f0-998c-a70f320b4eb0",
+		dir = ">"
+	  },
+	  {
+		levelIid = "156e76d0-ac70-11f0-998c-096a39368923",
+		dir = "nw"
+	  },
+	  {
+		levelIid = "18297820-ac70-11f0-998c-93854477c827",
+		dir = "n"
+	  },
+	  {
+		levelIid = "1b0bb080-ac70-11f0-998c-0ddd448f9064",
+		dir = "ne"
+	  },
+	  {
+		levelIid = "2a300840-ac70-11f0-998c-8f209da81536",
+		dir = "w"
+	  },
+	  {
+		levelIid = "b807fba0-ac70-11f0-998c-2936349d0665",
+		dir = "e"
+	  },
+	  {
+		levelIid = "c60e1220-ac70-11f0-998c-cbe47e589876",
+		dir = "sw"
+	  },
+	  {
+		levelIid = "d138f520-ac70-11f0-998c-e18e7b9af98b",
+		dir = "s"
+	  },
+	  {
+		levelIid = "d44fd210-ac70-11f0-998c-bfaaf93876b9",
+		dir = "se"
+	  }
+	},
+	customFields = {
+	  shadow = false,
+	  light = 0,
+	  visited = false,
+	  comic_name = nil,
+	  comic_wasPlayed = false,
+	  level = 2,
+	  roomNumber = 10,
+	  tile = 2,
+	  DoorsConnection = {
+		"Top"
+	  },
+	  play = nil
+	},
+	layers = {
+	  "Tilemap.png"
+	},
+	entities = {}
+  },
+{
+	identifier = "Room_44",
+	uniqueIdentifer = "b807fba0-ac70-11f0-998c-2936349d0665",
+	x = 2000,
+	y = 240,
+	width = 400,
+	height = 240,
+	bgColor = "#696A79",
+	neighbourLevels = {
+	  {
+		levelIid = "18297820-ac70-11f0-998c-93854477c827",
+		dir = "nw"
+	  },
+	  {
+		levelIid = "1b0bb080-ac70-11f0-998c-0ddd448f9064",
+		dir = "n"
+	  },
+	  {
+		levelIid = "2ccecf00-ac70-11f0-998c-cf1ba2f9a183",
+		dir = "w"
+	  },
+	  {
+		levelIid = "d138f520-ac70-11f0-998c-e18e7b9af98b",
+		dir = "sw"
+	  },
+	  {
+		levelIid = "d44fd210-ac70-11f0-998c-bfaaf93876b9",
+		dir = "s"
+	  }
+	},
+	customFields = {
+	  shadow = false,
+	  light = 0,
+	  visited = false,
+	  comic_name = nil,
+	  comic_wasPlayed = false,
+	  level = 2,
+	  roomNumber = 34,
+	  tile = 2,
+	  DoorsConnection = {
+		"Top"
+	  },
+	  play = nil
+	},
+	layers = {
+	  "Tilemap.png"
+	},
+	entities = {}
+  },
+{
+	identifier = "Room_45",
+	uniqueIdentifer = "bbd49400-ac70-11f0-998c-858ac5e5930b",
+	x = -400,
+	y = 480,
+	width = 400,
+	height = 240,
+	bgColor = "#696A79",
+	neighbourLevels = {
+	  {
+		levelIid = "1eb07590-ac70-11f0-998c-cf509f3ef0bc",
+		dir = "n"
+	  },
+	  {
+		levelIid = "2139b880-ac70-11f0-998c-f5d424530b7f",
+		dir = "ne"
+	  },
+	  {
+		levelIid = "be6fd850-ac70-11f0-998c-4f44b96a410c",
+		dir = "e"
+	  },
+	  {
+		levelIid = "e3c508f0-ac70-11f0-998c-c77d9699dc06",
+		dir = "s"
+	  },
+	  {
+		levelIid = "ec2496f7-ac70-11f0-998c-2311e49654db",
+		dir = "se"
+	  }
+	},
+	customFields = {
+	  shadow = false,
+	  light = 0,
+	  visited = false,
+	  comic_name = nil,
+	  comic_wasPlayed = false,
+	  level = 2,
+	  roomNumber = 24,
+	  tile = 2,
+	  DoorsConnection = {
+		"Top"
+	  },
+	  play = nil
+	},
+	layers = {
+	  "Tilemap.png"
+	},
+	entities = {}
+  },
+{
+	identifier = "Room_46",
+	uniqueIdentifer = "be6fd850-ac70-11f0-998c-4f44b96a410c",
+	x = 0,
+	y = 480,
+	width = 400,
+	height = 240,
+	bgColor = "#696A79",
+	neighbourLevels = {
+	  {
+		levelIid = "46b2e150-ac70-11f0-998c-232538b976f9",
+		dir = ">"
+	  },
+	  {
+		levelIid = "1eb07590-ac70-11f0-998c-cf509f3ef0bc",
+		dir = "nw"
+	  },
+	  {
+		levelIid = "2139b880-ac70-11f0-998c-f5d424530b7f",
+		dir = "n"
+	  },
+	  {
+		levelIid = "23b93777-ac70-11f0-998c-8fe9cae02b21",
+		dir = "ne"
+	  },
+	  {
+		levelIid = "bbd49400-ac70-11f0-998c-858ac5e5930b",
+		dir = "w"
+	  },
+	  {
+		levelIid = "c0dc4470-ac70-11f0-998c-497612e0536f",
+		dir = "e"
+	  },
+	  {
+		levelIid = "e3c508f0-ac70-11f0-998c-c77d9699dc06",
+		dir = "sw"
+	  },
+	  {
+		levelIid = "ec2496f7-ac70-11f0-998c-2311e49654db",
+		dir = "s"
+	  },
+	  {
+		levelIid = "ee21ed90-ac70-11f0-998c-db8d4aa4e275",
+		dir = "se"
+	  }
+	},
+	customFields = {
+	  shadow = false,
+	  light = 0,
+	  visited = false,
+	  comic_name = nil,
+	  comic_wasPlayed = false,
+	  level = 2,
+	  roomNumber = 11,
+	  tile = 2,
+	  DoorsConnection = {
+		"Top"
+	  },
+	  play = nil
+	},
+	layers = {
+	  "Tilemap.png"
+	},
+	entities = {}
+  },
+{
+	identifier = "Room_47",
+	uniqueIdentifer = "c0dc4470-ac70-11f0-998c-497612e0536f",
+	x = 400,
+	y = 480,
+	width = 400,
+	height = 240,
+	bgColor = "#696A79",
+	neighbourLevels = {
+	  {
+		levelIid = "4a0bd050-ac70-11f0-998c-b14d359446e6",
+		dir = ">"
+	  },
+	  {
+		levelIid = "2139b880-ac70-11f0-998c-f5d424530b7f",
+		dir = "nw"
+	  },
+	  {
+		levelIid = "23b93777-ac70-11f0-998c-8fe9cae02b21",
+		dir = "n"
+	  },
+	  {
+		levelIid = "271dbf30-ac70-11f0-998c-eff03b419e1f",
+		dir = "ne"
+	  },
+	  {
+		levelIid = "be6fd850-ac70-11f0-998c-4f44b96a410c",
+		dir = "w"
+	  },
+	  {
+		levelIid = "c37083e0-ac70-11f0-998c-41014ccafb8f",
+		dir = "e"
+	  },
+	  {
+		levelIid = "ec2496f7-ac70-11f0-998c-2311e49654db",
+		dir = "sw"
+	  },
+	  {
+		levelIid = "ee21ed90-ac70-11f0-998c-db8d4aa4e275",
+		dir = "s"
+	  },
+	  {
+		levelIid = "f01ab050-ac70-11f0-998c-25b128f234d3",
+		dir = "se"
+	  }
+	},
+	customFields = {
+	  shadow = false,
+	  light = 0,
+	  visited = false,
+	  comic_name = nil,
+	  comic_wasPlayed = false,
+	  level = 2,
+	  roomNumber = 12,
+	  tile = 2,
+	  DoorsConnection = {
+		"Top"
+	  },
+	  play = nil
+	},
+	layers = {
+	  "Tilemap.png"
+	},
+	entities = {}
+  },
+{
+	identifier = "Room_48",
+	uniqueIdentifer = "c37083e0-ac70-11f0-998c-41014ccafb8f",
+	x = 800,
+	y = 480,
+	width = 400,
+	height = 240,
+	bgColor = "#696A79",
+	neighbourLevels = {
+	  {
+		levelIid = "4cf534a4-ac70-11f0-998c-6712312c62dc",
+		dir = ">"
+	  },
+	  {
+		levelIid = "23b93777-ac70-11f0-998c-8fe9cae02b21",
+		dir = "nw"
+	  },
+	  {
+		levelIid = "271dbf30-ac70-11f0-998c-eff03b419e1f",
+		dir = "n"
+	  },
+	  {
+		levelIid = "2a300840-ac70-11f0-998c-8f209da81536",
+		dir = "ne"
+	  },
+	  {
+		levelIid = "c0dc4470-ac70-11f0-998c-497612e0536f",
+		dir = "w"
+	  },
+	  {
+		levelIid = "c60e1220-ac70-11f0-998c-cbe47e589876",
+		dir = "e"
+	  },
+	  {
+		levelIid = "ee21ed90-ac70-11f0-998c-db8d4aa4e275",
+		dir = "sw"
+	  },
+	  {
+		levelIid = "f01ab050-ac70-11f0-998c-25b128f234d3",
+		dir = "s"
+	  },
+	  {
+		levelIid = "f40f9130-ac70-11f0-998c-ff914bfa046a",
+		dir = "se"
+	  }
+	},
+	customFields = {
+	  shadow = false,
+	  light = 0,
+	  visited = false,
+	  comic_name = nil,
+	  comic_wasPlayed = false,
+	  level = 2,
+	  roomNumber = 13,
+	  tile = 2,
 	  DoorsConnection = {
 		"Top"
 	  },
