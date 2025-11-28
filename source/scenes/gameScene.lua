@@ -413,7 +413,7 @@ function gameScene.changeLevel(nextLevelIid, enterDirection)
 			top = {x = 196, y = 156},
 			down = {x = 196, y = 32},
 			right = {x = 32, y = 116},
-			left = {x = 364, y = 116}
+			left = {x = 344, y = 116}
 		}
 		
 		local spawn = spawnCoordinates[enterDirection]
