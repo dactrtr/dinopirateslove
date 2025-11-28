@@ -3,9 +3,15 @@ local Timer = require 'libraries/hump/timer'
 local bump = require 'libraries/bump'
 local Player = require 'entities.Player'
 local Brocorat = require 'entities.Brocorat'
+local Door = require 'entities.Door'
+local DoorHandler = require 'DoorHandler'
 
 -- Simple require for PauseMenu
 local PauseMenu = require 'PauseMenu'
+
+-- Load level data
+require 'assets.data.levels'  -- levelsLDTK
+require 'assets.data.tilemap' -- tileMapData
 
 local gameScene = {
 	player = nil,
@@ -22,26 +28,59 @@ local gameScene = {
 	-- Tilemap data storage
 	tileMapData = {},
 	-- Enemies
-	enemies = {}
+	enemies = {},
+	-- Doors
+	doors = {},
+	-- Walls
+	walls = {},
+	-- Level management
+	currentRoom = nil,        -- Index in levelsLDTK
+	currentLevelData = nil,   -- Reference to current level
+	-- Debug mode
+	debugMode = false         -- Toggle for debug visualizations
 }
 
 local padding = 12
 
+-- MARK: Level Management Functions
+function gameScene.setFloor(levelNumber, roomNumber)
+	for i, levelData in ipairs(levelsLDTK) do
+		if levelData.customFields.level == levelNumber and levelData.customFields.roomNumber == roomNumber then
+			gameScene.currentRoom = i
+			gameScene.currentLevelData = levelsLDTK[i]
+			print("✅ Level loaded: " .. levelData.identifier .. " (Level " .. levelNumber .. ", Room " .. roomNumber .. ")")
+			return
+		end
+	end
+	print("⚠️ Warning: Level " .. levelNumber .. ", Room " .. roomNumber .. " not found")
+end
+
+
 -- Placeholder levels data - you'll need to replace this with your actual levels data
 
 function gameScene.load()
+	-- Debug mode starts disabled
+	DRAW_DEBUG_DOORS = false
+	
 	-- Initialize BUMP world for physics
 	gameScene.world = bump.newWorld(32) -- 32 = cell size
 	
 	-- Initialize HUMP timer
 	gameScene.timer = Timer.new()
 	
+	-- Set initial level (Level 4, Room 2 as example - you can change this)
+	gameScene.setFloor(4, 2)
+	
 	-- Create player
 	gameScene.player = Player(200, 120, gameScene.world)
+	
+	-- Initialize DoorHandler with gameScene reference
+	DoorHandler.setGameScene(gameScene)
 	
 	-- Initialize pause menu with custom buttons for this scene
 	gameScene.pauseMenu = PauseMenu.new({
 		{text = "Resume", action = "resume"},
+		{text = "Toggle Debug", action = "toggledebug"},
 		{text = "Return to Title", action = "title"},
 		{text = "Quit Game", action = "quit"}
 	})
@@ -51,20 +90,343 @@ function gameScene.load()
 	
 	-- Mark: enemies - Create example enemies
 	gameScene.loadEnemies()
+	
+	-- Mark: doors - Create doors from neighbourLevels
+	gameScene.loadDoors()
+	
+	-- Mark: walls - Create walls with gaps for doors
+	gameScene.loadWalls()
+	
+	-- Update room info in pause menu
+	gameScene.updateRoomInfo()
+end
+
+-- Update room information in pause menu
+function gameScene.updateRoomInfo()
+	if gameScene.pauseMenu and gameScene.currentLevelData then
+		local level = gameScene.currentLevelData.customFields.level or "?"
+		local room = gameScene.currentLevelData.customFields.roomNumber or "?"
+		local roomName = gameScene.currentLevelData.identifier or "Unknown"
+		
+		local info = string.format("Level %s - Room %s", level, room)
+		gameScene.pauseMenu:setRoomInfo(info)
+	end
 end
 
 function gameScene.loadEnemies()
-	-- Example: Create a Brocorat enemy (speed will use EnemyData.brocoratSpeed = 80)
-	local brocorat1 = Brocorat(50, 80, nil, 5, gameScene.player, 1, gameScene.world)
-	table.insert(gameScene.enemies, brocorat1)
+	-- Ensure we have a level loaded
+	if not gameScene.currentLevelData then
+		print("❌ ERROR: No level data loaded for enemies.")
+		return
+	end
 	
-	-- You can add more enemies here
-	-- local brocorat2 = Brocorat(250, 160, 0.6, 5, gameScene.player, 2)
-	-- brocorat2.world = gameScene.world
-	-- table.insert(gameScene.enemies, brocorat2)
+	-- Clear existing enemies
+	gameScene.enemies = {}
+	
+	local entities = gameScene.currentLevelData.entities
+	
+	if not entities then
+		print("ℹ️ No entities in this level")
+		return
+	end
+	
+	-- Load Brocorat enemies
+	if entities.Brocorat then
+		for _, enemy in ipairs(entities.Brocorat) do
+			local cf = enemy.customFields or {}
+			local x, y = enemy.x, enemy.y
+			local speed = cf.speed or 1
+			local dead = cf.dead or false
+			local id = enemy.iid
+			
+			if not dead then
+				print("🥦 Creating Brocorat at (" .. x .. ", " .. y .. ")")
+				local brocorat = Brocorat(x, y, nil, speed, gameScene.player, id, gameScene.world)
+				table.insert(gameScene.enemies, brocorat)
+			else
+				print("💀 Brocorat at (" .. x .. ", " .. y .. ") is dead, skipping")
+			end
+		end
+	end
+	
+	-- TODO: Add support for other enemy types (Bosscolli, CrewMember, etc.)
+	-- if entities.Bosscolli then ... end
+	-- if entities.CrewMember then ... end
+	
+	print("✅ Loaded " .. #gameScene.enemies .. " enemies")
 end
 
+function gameScene.loadDoors()
+	-- Ensure we have a level loaded
+	if not gameScene.currentLevelData then
+		print("❌ ERROR: No level data loaded for doors.")
+		return
+	end
+	
+	-- Clear existing doors
+	for _, door in ipairs(gameScene.doors) do
+		door:remove()
+	end
+	gameScene.doors = {}
+	
+	local customFields = gameScene.currentLevelData.customFields
+	local doorsConnection = customFields and customFields.DoorsConnection
+	local neighbourLevels = gameScene.currentLevelData.neighbourLevels
+	
+	print("🔍 DEBUG: Loading doors for " .. gameScene.currentLevelData.identifier)
+	print("🔍 DEBUG: DoorsConnection:", doorsConnection and table.concat(doorsConnection, ", ") or "nil")
+	
+	if not doorsConnection or #doorsConnection == 0 then
+		print("ℹ️ No doors in this level (no DoorsConnection)")
+		return
+	end
+	
+	-- Map DoorsConnection strings to direction codes
+	local directionMap = {
+		Top = "n",
+		Down = "s",
+		Left = "w",
+		Right = "e"
+	}
+	
+	-- Create doors based on DoorsConnection
+	for _, doorName in ipairs(doorsConnection) do
+		local direction = directionMap[doorName]
+		
+		if not direction then
+			print("⚠️ WARNING: Unknown door name '" .. doorName .. "'")
+		else
+			-- Find the neighbour in that direction
+			local nextLevelIid = nil
+			
+			if neighbourLevels then
+				for _, neighbour in ipairs(neighbourLevels) do
+					local neighbourDir = neighbour.dir
+					
+					-- Check if this neighbour matches the direction
+					-- Handle both exact matches and diagonal variants
+					local matches = false
+					if direction == "n" and (neighbourDir == "n" or neighbourDir == "^" or neighbourDir == "nw" or neighbourDir == "ne") then
+						matches = true
+					elseif direction == "s" and (neighbourDir == "s" or neighbourDir == "v" or neighbourDir == "sw" or neighbourDir == "se") then
+						matches = true
+					elseif direction == "e" and (neighbourDir == "e" or neighbourDir == ">") then
+						matches = true
+					elseif direction == "w" and (neighbourDir == "w" or neighbourDir == "<") then
+						matches = true
+					end
+					
+					if matches then
+						nextLevelIid = neighbour.levelIid
+						break
+					end
+				end
+			end
+			
+			if nextLevelIid then
+				-- Create door
+				local door = Door.new(direction, "open", nextLevelIid, gameScene.world)
+				table.insert(gameScene.doors, door)
+				
+				print("🚪 Created door: " .. doorName .. " (" .. direction .. ") -> " .. nextLevelIid .. " at (" .. door.x .. ", " .. door.y .. ")")
+			else
+				print("⚠️ WARNING: No neighbour found for door '" .. doorName .. "' (direction: " .. direction .. ")")
+			end
+		end
+	end
+	
+	print("✅ Loaded " .. #gameScene.doors .. " doors")
+end
+
+-- MARK: Wall Creation
+function gameScene.loadWalls()
+	-- Clear existing walls
+	for _, wall in ipairs(gameScene.walls) do
+		if gameScene.world then
+			gameScene.world:remove(wall)
+		end
+	end
+	gameScene.walls = {}
+	
+	-- Get door positions to create gaps
+	local hasDoorTop = false
+	local hasDoorDown = false
+	local hasDoorLeft = false
+	local hasDoorRight = false
+	
+	if gameScene.currentLevelData and gameScene.currentLevelData.customFields then
+		local doorsConnection = gameScene.currentLevelData.customFields.DoorsConnection
+		if doorsConnection then
+			for _, doorName in ipairs(doorsConnection) do
+				if doorName == "Top" then hasDoorTop = true
+				elseif doorName == "Down" then hasDoorDown = true
+				elseif doorName == "Left" then hasDoorLeft = true
+				elseif doorName == "Right" then hasDoorRight = true
+				end
+			end
+		end
+	end
+	
+	local wallThickness = 8
+	
+	-- Top wall (with gap if door exists)
+	if not hasDoorTop then
+		-- Full top wall
+		local wall = {x = 0, y = 0, w = VIRTUAL_WIDTH, h = wallThickness}
+		gameScene.world:add(wall, wall.x, wall.y, wall.w, wall.h)
+		table.insert(gameScene.walls, wall)
+	else
+		-- Top wall with gap in center
+		local gapCenter = 203
+		local gapWidth = 50
+		-- Left segment
+		local wallLeft = {x = 0, y = 0, w = gapCenter - gapWidth/2, h = wallThickness}
+		gameScene.world:add(wallLeft, wallLeft.x, wallLeft.y, wallLeft.w, wallLeft.h)
+		table.insert(gameScene.walls, wallLeft)
+		-- Right segment
+		local wallRight = {x = gapCenter + gapWidth/2, y = 0, w = VIRTUAL_WIDTH - (gapCenter + gapWidth/2), h = wallThickness}
+		gameScene.world:add(wallRight, wallRight.x, wallRight.y, wallRight.w, wallRight.h)
+		table.insert(gameScene.walls, wallRight)
+	end
+	
+	-- Bottom wall (with gap if door exists)
+	if not hasDoorDown then
+		-- Full bottom wall
+		local wall = {x = 0, y = VIRTUAL_HEIGHT - wallThickness, w = VIRTUAL_WIDTH, h = wallThickness}
+		gameScene.world:add(wall, wall.x, wall.y, wall.w, wall.h)
+		table.insert(gameScene.walls, wall)
+	else
+		-- Bottom wall with gap in center
+		local gapCenter = 203
+		local gapWidth = 50
+		-- Left segment
+		local wallLeft = {x = 0, y = VIRTUAL_HEIGHT - wallThickness, w = gapCenter - gapWidth/2, h = wallThickness}
+		gameScene.world:add(wallLeft, wallLeft.x, wallLeft.y, wallLeft.w, wallLeft.h)
+		table.insert(gameScene.walls, wallLeft)
+		-- Right segment
+		local wallRight = {x = gapCenter + gapWidth/2, y = VIRTUAL_HEIGHT - wallThickness, w = VIRTUAL_WIDTH - (gapCenter + gapWidth/2), h = wallThickness}
+		gameScene.world:add(wallRight, wallRight.x, wallRight.y, wallRight.w, wallRight.h)
+		table.insert(gameScene.walls, wallRight)
+	end
+	
+	-- Left wall (with gap if door exists)
+	if not hasDoorLeft then
+		-- Full left wall
+		local wall = {x = 0, y = 0, w = wallThickness, h = VIRTUAL_HEIGHT}
+		gameScene.world:add(wall, wall.x, wall.y, wall.w, wall.h)
+		table.insert(gameScene.walls, wall)
+	else
+		-- Left wall with gap in center
+		local gapCenter = 122
+		local gapHeight = 50
+		-- Top segment
+		local wallTop = {x = 0, y = 0, w = wallThickness, h = gapCenter - gapHeight/2}
+		gameScene.world:add(wallTop, wallTop.x, wallTop.y, wallTop.w, wallTop.h)
+		table.insert(gameScene.walls, wallTop)
+		-- Bottom segment
+		local wallBottom = {x = 0, y = gapCenter + gapHeight/2, w = wallThickness, h = VIRTUAL_HEIGHT - (gapCenter + gapHeight/2)}
+		gameScene.world:add(wallBottom, wallBottom.x, wallBottom.y, wallBottom.w, wallBottom.h)
+		table.insert(gameScene.walls, wallBottom)
+	end
+	
+	-- Right wall (with gap if door exists)
+	if not hasDoorRight then
+		-- Full right wall
+		local wall = {x = VIRTUAL_WIDTH - wallThickness, y = 0, w = wallThickness, h = VIRTUAL_HEIGHT}
+		gameScene.world:add(wall, wall.x, wall.y, wall.w, wall.h)
+		table.insert(gameScene.walls, wall)
+	else
+		-- Right wall with gap in center
+		local gapCenter = 122
+		local gapHeight = 50
+		-- Top segment
+		local wallTop = {x = VIRTUAL_WIDTH - wallThickness, y = 0, w = wallThickness, h = gapCenter - gapHeight/2}
+		gameScene.world:add(wallTop, wallTop.x, wallTop.y, wallTop.w, wallTop.h)
+		table.insert(gameScene.walls, wallTop)
+		-- Bottom segment
+		local wallBottom = {x = VIRTUAL_WIDTH - wallThickness, y = gapCenter + gapHeight/2, w = wallThickness, h = VIRTUAL_HEIGHT - (gapCenter + gapHeight/2)}
+		gameScene.world:add(wallBottom, wallBottom.x, wallBottom.y, wallBottom.w, wallBottom.h)
+		table.insert(gameScene.walls, wallBottom)
+	end
+	
+	print("✅ Created " .. #gameScene.walls .. " wall segments")
+end
+
+
+-- MARK: Level Transition
+function gameScene.changeLevel(nextLevelIid, enterDirection)
+	print("🔄 Changing level to IID: " .. nextLevelIid)
+	
+	-- Find the level by IID
+	local nextRoomIndex = nil
+	for i, levelData in ipairs(levelsLDTK) do
+		if levelData.uniqueIdentifer == nextLevelIid then
+			nextRoomIndex = i
+			break
+		end
+	end
+	
+	if not nextRoomIndex then
+		print("❌ ERROR: Level with IID " .. nextLevelIid .. " not found!")
+		return
+	end
+	
+	-- Clear current level
+	for _, enemy in ipairs(gameScene.enemies) do
+		if enemy.remove then
+			enemy:remove()
+		end
+	end
+	gameScene.enemies = {}
+	
+	for _, door in ipairs(gameScene.doors) do
+		door:remove()
+	end
+	gameScene.doors = {}
+	
+	-- Set new level
+	gameScene.currentRoom = nextRoomIndex
+	gameScene.currentLevelData = levelsLDTK[nextRoomIndex]
+	
+	print("✅ Switched to: " .. gameScene.currentLevelData.identifier)
+	
+	-- Reload level components
+	gameScene.loadFloor()
+	gameScene.loadEnemies()
+	gameScene.loadDoors()
+	gameScene.loadWalls()
+	
+	-- Update room info in pause menu
+	gameScene.updateRoomInfo()
+	
+	-- Reposition player based on entry direction
+	if enterDirection and gameScene.player then
+		local spawnCoordinates = {
+			top = {x = 196, y = 196},
+			down = {x = 196, y = 32},
+			right = {x = 32, y = 116},
+			left = {x = 364, y = 116}
+		}
+		
+		local spawn = spawnCoordinates[enterDirection]
+		if spawn then
+			gameScene.player.x = spawn.x
+			gameScene.player.y = spawn.y
+			-- Update collision position in BUMP
+			gameScene.player:updateCollisionPosition()
+			print("📍 Player spawned at: (" .. spawn.x .. ", " .. spawn.y .. ")")
+		end
+	end
+end
+
+
 function gameScene.loadFloor()
+	-- Ensure we have a level loaded
+	if not gameScene.currentLevelData then
+		print("❌ ERROR: No level data loaded. Call setFloor() first.")
+		return
+	end
+	
 	-- Load the tile spritesheet
 	gameScene.tilesImage = love.graphics.newImage('assets/images/tile/tile-table-16-16.png')
 	
@@ -91,8 +453,12 @@ function gameScene.loadFloor()
 		end
 	end
 	
-	-- Initialize tilemap data (replace sampleTileMapData with your actual tileMapData[1])
-	gameScene.tileMapData = tileMapData[7]
+	-- Get tile index from current level's customFields
+	local tileIndex = gameScene.currentLevelData.customFields.tile or 1
+	print("📍 Loading tilemap index: " .. tileIndex)
+	
+	-- Initialize tilemap data from the level's tile index
+	gameScene.tileMapData = tileMapData[tileIndex]
 	
 	-- Create the map using tilemap data
 	gameScene.renderTileMap(gameScene.tileMapData)
@@ -203,13 +569,49 @@ function gameScene.draw()
 
 	love.graphics.setColor(1, 1, 1) -- Reset color before player draw
 	
+	-- Draw walls (red rectangles) - only in debug mode
+	if gameScene.debugMode then
+		love.graphics.setColor(1, 0, 0, 1) -- Red color
+		for _, wall in ipairs(gameScene.walls) do
+			love.graphics.rectangle("fill", wall.x, wall.y, wall.w, wall.h)
+		end
+		love.graphics.setColor(1, 1, 1) -- Reset color
+	end
+	
 	-- Draw enemies
 	for i, enemy in ipairs(gameScene.enemies) do
 		enemy:draw()
 	end
 	
+	-- Draw doors (for debugging) - only in debug mode
+	if gameScene.debugMode then
+		for i, door in ipairs(gameScene.doors) do
+			if door.draw then
+				door:draw()
+			end
+		end
+	end
+	
 	-- Draw player on top of enemies
 	gameScene.player:draw()
+	
+	-- Draw collision boxes in debug mode
+	if gameScene.debugMode then
+		love.graphics.setColor(0, 1, 1, 0.3) -- Cyan semi-transparent
+		
+		-- Draw player collision box
+		local px, py, pw, ph = gameScene.player:getCollisionRect()
+		love.graphics.rectangle("line", px, py, pw, ph)
+		
+		-- Draw enemy collision boxes
+		for _, enemy in ipairs(gameScene.enemies) do
+			if enemy.x and enemy.y and enemy.width and enemy.height then
+				love.graphics.rectangle("line", enemy.x, enemy.y, enemy.width, enemy.height)
+			end
+		end
+		
+		love.graphics.setColor(1, 1, 1) -- Reset color
+	end
 	
 	-- Draw pause menu overlay
 	gameScene.pauseMenu:draw()
@@ -253,6 +655,13 @@ function gameScene.handleMenuAction(action)
 	if action == "resume" then
 		-- Menu is already hidden by the PauseMenu component
 		-- Nothing else needed for resume
+	elseif action == "toggledebug" then
+		-- Toggle debug mode
+		gameScene.debugMode = not gameScene.debugMode
+		DRAW_DEBUG_DOORS = gameScene.debugMode
+		print("🔧 Debug mode: " .. (gameScene.debugMode and "ON" or "OFF"))
+		-- Keep menu open so user can see the change
+		gameScene.pauseMenu:show()
 	elseif action == "title" then
 		sceneManager.startTransition("game", "title", "slide")
 	elseif action == "quit" then

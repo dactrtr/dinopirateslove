@@ -13,6 +13,9 @@ function PauseMenu.new(buttons)
 		{text = "Quit Game", action = "quit"}
 	}
 	
+	-- Room information to display
+	self.roomInfo = nil
+	
 	-- Input state tracking for gamepad
 	self.lastInputs = {
 		up = false,
@@ -59,7 +62,7 @@ function PauseMenu:draw()
 	
 	-- Menu dimensions
 	local menuWidth = 220
-	local menuHeight = 120
+	local menuHeight = 140  -- Increased height to accommodate room info
 	local menuX = (VIRTUAL_WIDTH - menuWidth) / 2
 	local menuY = (VIRTUAL_HEIGHT - menuHeight) / 2
 	
@@ -71,11 +74,18 @@ function PauseMenu:draw()
 	
 	-- Menu title
 	love.graphics.setColor(1, 1, 1)
-	love.graphics.printf("PAUSED", menuX, menuY + 15, menuWidth, "center")
+	love.graphics.printf("PAUSED", menuX, menuY + 10, menuWidth, "center")
 	
-	-- Menu buttons
+	-- Room information (if available)
+	if self.roomInfo then
+		love.graphics.setColor(0.7, 0.9, 1) -- Light blue color
+		love.graphics.printf(self.roomInfo, menuX, menuY + 28, menuWidth, "center")
+	end
+	
+	-- Menu buttons (adjusted Y position)
+	local buttonStartY = self.roomInfo and 55 or 45
 	for i, button in ipairs(self.buttons) do
-		local buttonY = menuY + 45 + (i - 1) * 25
+		local buttonY = menuY + buttonStartY + (i - 1) * 25
 		
 		-- Highlight selected button
 		if i == self.selectedButton then
@@ -168,6 +178,10 @@ end
 
 function PauseMenu:addButton(text, action)
 	table.insert(self.buttons, {text = text, action = action})
+end
+
+function PauseMenu:setRoomInfo(info)
+	self.roomInfo = info
 end
 
 return PauseMenu
