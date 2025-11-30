@@ -19,11 +19,13 @@ function Player:initialize(x, y, world)
 	
 	-- Collision box dimensions (can be different from sprite)
 	self.width = 32  -- Smaller collision box
-	self.height = 40
+	self.height = 32
 	
 	-- Collision box offset from sprite position
-	self.collisionOffsetX = 8  -- Center the collision box horizontally
-	self.collisionOffsetY = 8  -- Offset collision box vertically
+	-- Since sprite is now drawn from center, we need to adjust offsets
+	-- Collision box should be centered relative to sprite center
+	self.collisionOffsetX = -(self.width / 2)  -- Center the collision box horizontally
+	self.collisionOffsetY = -(self.height / 2)  -- Center the collision box vertically
 	
 	-- Use speed from PlayerData (convert from Playdate speed to Love2D pixels/second)
 	-- Playdate speed 1.7 ~= 100 pixels/second in Love2D
@@ -138,8 +140,18 @@ end
 
 -- Draw function
 function Player:draw()
-	-- Draw the sprite at sprite position
-	self.currentAnimation:draw(self.spritesheet, self.x, self.y)
+	-- Draw the sprite at sprite position, using center as origin
+	-- ox, oy parameters set the origin to the center of the sprite
+	self.currentAnimation:draw(
+		self.spritesheet, 
+		self.x, 
+		self.y, 
+		0, -- rotation
+		1, -- scaleX
+		1, -- scaleY
+		self.spriteWidth / 2, -- ox: origin X (center)
+		self.spriteHeight / 2  -- oy: origin Y (center)
+	)
 	
 	-- Optional: Draw collision box for debugging (remove in production)
 	-- love.graphics.setColor(1, 0, 0, 0.3) -- Red with transparency

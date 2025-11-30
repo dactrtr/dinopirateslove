@@ -10,7 +10,7 @@ Door.name = "Door" -- Class name for identification
 local positions = {
 	-- Right: gap at y=122, door height=50, so y = 122 - 25 = 97
 	-- x at right edge minus door width: 400 - 16 = 384
-	right = {x = 384, y = 97},
+	right = {x = 390, y = 97},
 	
 	-- Left: gap at y=122, door height=50, so y = 122 - 25 = 97
 	-- x at left edge: 0
@@ -18,7 +18,7 @@ local positions = {
 	
 	-- Down: gap at x=203, door width=50, so x = 203 - 25 = 178
 	-- y at bottom edge minus door height: 240 - 16 = 224
-	down = {x = 178, y = 224},
+	down = {x = 178, y = 228},
 	
 	-- Top: gap at x=203, door width=50, so x = 203 - 25 = 178
 	-- y at top edge: 0
@@ -28,10 +28,10 @@ local positions = {
 -- Collision rectangle sizes based on direction
 local function getCollisionRect(direction)
 	local rects = {
-		right = {w = 16, h = 50},
-		left = {w = 14, h = 50},
-		down = {w = 50, h = 16},
-		top = {w = 50, h = 16}
+		right = {w = 8, h = 50},
+		left = {w = 8, h = 50},
+		down = {w = 50, h = 8},
+		top = {w = 50, h = 8}
 	}
 	return rects[direction]
 end

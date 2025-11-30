@@ -6,6 +6,7 @@ local PropItem = require 'entities.props.propItem'
 local Brocorat = require 'entities.Brocorat'
 local Door = require 'entities.Door'
 local DoorHandler = require 'DoorHandler'
+local utilities = require 'utilities'
 
 -- Simple require for PauseMenu
 local PauseMenu = require 'PauseMenu'
@@ -43,7 +44,7 @@ local gameScene = {
 	debugMode = false         -- Toggle for debug visualizations
 }
 
-local padding = 12
+local padding = 8
 
 -- MARK: Level Management Functions
 function gameScene.setFloor(levelNumber, roomNumber)
@@ -392,10 +393,13 @@ function gameScene.loadProps()
 				local isDestroyed = cf.destroyed or false
 				local id = entity.iid
 				
-				-- Calculate zIndex based on Y position (simple depth sorting)
-				local zIndex = y
+				-- Create the prop first to get adjusted positions
+				local prop = PropItem(x, y, type, nil, nocollide, isDestroyed, id, gameScene.world)
 				
-				local prop = PropItem(x, y, type, zIndex, nocollide, isDestroyed, id, gameScene.world)
+				-- Calculate zIndex based on bottom of sprite (after position adjustment)
+				-- This ensures consistent depth sorting that doesn't change
+				prop.zIndex = prop.y + prop.height
+				
 				table.insert(gameScene.props, prop)
 			end
 		end
@@ -478,22 +482,23 @@ function gameScene.changeLevel(nextLevelIid, enterDirection)
 	-- Update room info in pause menu
 	gameScene.updateRoomInfo()
 	
+	
 	-- Reposition player based on entry direction
 	if enterDirection and gameScene.player then
-		local spawnCoordinates = {
-			top = {x = 196, y = 156},
-			down = {x = 196, y = 32},
-			right = {x = 32, y = 116},
-			left = {x = 344, y = 116}
-		}
+		-- Spawn player just inside the door (8 pixels offset from door position)
+		-- Door positions from Door.lua:
+		-- top: x=178, y=0 (width=50, height=8)
+		-- down: x=178, y=228 (width=50, height=8)
+		-- left: x=0, y=97 (width=8, height=50)
+		-- right: x=390, y=97 (width=8, height=50)
 		
-		local spawn = spawnCoordinates[enterDirection]
+		local spawn = utilities.spawnCoordinates[enterDirection]
 		if spawn then
 			gameScene.player.x = spawn.x
 			gameScene.player.y = spawn.y
 			-- Update collision position in BUMP
 			gameScene.player:updateCollisionPosition()
-			print("📍 Player spawned at: (" .. spawn.x .. ", " .. spawn.y .. ")")
+			print("📍 Player spawned at: (" .. spawn.x .. ", " .. spawn.y .. ") from " .. enterDirection .. " door")
 		end
 	end
 end
@@ -648,57 +653,47 @@ function gameScene.draw()
 
 	love.graphics.setColor(1, 1, 1) -- Reset color before player draw
 	
-	-- Draw walls (red rectangles) - only in debug mode
-	if gameScene.debugMode then
-		love.graphics.setColor(1, 0, 0, 1) -- Red color
-		for _, wall in ipairs(gameScene.walls) do
-			love.graphics.rectangle("fill", wall.x, wall.y, wall.w, wall.h)
-		end
-		love.graphics.setColor(1, 1, 1) -- Reset color
-	end
+	-- DEPTH SORTING: Combine all entities and sort by Y position (zIndex)
+	-- This replicates Playdate's zIndex behavior
+	local drawables = {}
 	
-	-- Draw enemies
+	-- Add player
+	table.insert(drawables, {
+		obj = gameScene.player,
+		y = gameScene.player.y + gameScene.player.collisionOffsetY + gameScene.player.height, -- Use bottom of collision box
+		type = "player"
+	})
+	
+	-- Add enemies
 	for _, enemy in ipairs(gameScene.enemies) do
-		enemy:draw()
+		table.insert(drawables, {
+			obj = enemy,
+			y = enemy.y + enemy.height, -- Use bottom of sprite
+			type = "enemy"
+		})
 	end
 	
-	-- Draw props
-	-- Sort props by zIndex (y position) for correct depth
-	table.sort(gameScene.props, function(a, b) return a.y < b.y end)
-	
+	-- Add props
 	for _, prop in ipairs(gameScene.props) do
-		prop:draw()
+		-- Props can have custom zIndex or use Y position
+		local sortY = prop.zIndex or (prop.y + prop.height)
+		table.insert(drawables, {
+			obj = prop,
+			y = sortY,
+			type = "prop"
+		})
 	end
 	
-	-- Draw doors (for debugging) - only in debug mode
-	if gameScene.debugMode then
-		for i, door in ipairs(gameScene.doors) do
-			if door.draw then
-				door:draw()
-			end
-		end
+	-- Sort by Y position (back to front)
+	table.sort(drawables, function(a, b) return a.y < b.y end)
+	
+	-- Draw all entities in sorted order
+	for _, drawable in ipairs(drawables) do
+		drawable.obj:draw()
 	end
 	
-	-- Draw player on top of enemies
-	gameScene.player:draw()
-	
-	-- Draw collision boxes in debug mode
-	if gameScene.debugMode then
-		love.graphics.setColor(0, 1, 1, 0.3) -- Cyan semi-transparent
-		
-		-- Draw player collision box
-		local px, py, pw, ph = gameScene.player:getCollisionRect()
-		love.graphics.rectangle("line", px, py, pw, ph)
-		
-		-- Draw enemy collision boxes
-		for _, enemy in ipairs(gameScene.enemies) do
-			if enemy.x and enemy.y and enemy.width and enemy.height then
-				love.graphics.rectangle("line", enemy.x, enemy.y, enemy.width, enemy.height)
-			end
-		end
-		
-		love.graphics.setColor(1, 1, 1) -- Reset color
-	end
+	-- Draw all debug visualizations using utilities module
+	utilities.drawDebugInfo(gameScene)
 	
 	-- Draw pause menu overlay
 	gameScene.pauseMenu:draw()
