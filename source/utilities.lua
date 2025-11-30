@@ -58,7 +58,16 @@ end
 function utilities.drawEnemiesCollision(enemies)
 	for _, enemy in ipairs(enemies) do
 		if enemy.x and enemy.y and enemy.width and enemy.height then
-			utilities.drawCollisionBox(enemy.x, enemy.y, enemy.width, enemy.height, {1, 0, 1, 0.3}) -- Magenta
+			-- Account for collision offset if it exists
+			local offsetX = enemy.collisionOffsetX or 0
+			local offsetY = enemy.collisionOffsetY or 0
+			utilities.drawCollisionBox(
+				enemy.x + offsetX, 
+				enemy.y + offsetY, 
+				enemy.width, 
+				enemy.height, 
+				{1, 0, 1, 0.3} -- Magenta
+			)
 		end
 	end
 end
