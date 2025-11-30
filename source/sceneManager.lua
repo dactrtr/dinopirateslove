@@ -174,14 +174,18 @@ function drawTransition()
 		love.graphics.pop()
 	
 	elseif transition.type == "animated" then
-		-- Draw animated transition overlay with full opacity (no transparency)
-		-- Don't draw the background scene to prevent seeing through
+		-- Draw to scene first (background)
+		if transition.toScene and transition.toScene.draw then
+			transition.toScene.draw()
+		end
+		
+		-- Draw animated transition overlay
+		-- Use premultiplied alpha blend mode to treat white as opaque
 		if transition.animation and transition.spritesheet then
-			-- Set blend mode to replace (no blending) to ensure full opacity
-			love.graphics.setBlendMode("replace", "premultiplied")
-			love.graphics.setColor(1, 1, 1, 1) -- Full opacity
+			love.graphics.setBlendMode("alpha", "premultiplied")
+			love.graphics.setColor(1, 1, 1, 1)
 			transition.animation:draw(transition.spritesheet, 0, 0)
-			-- Reset blend mode to default
+			-- Reset to default blend mode
 			love.graphics.setBlendMode("alpha", "alphamultiply")
 		end
 	end
