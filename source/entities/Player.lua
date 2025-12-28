@@ -139,7 +139,7 @@ function Player:update(dt)
 end
 
 -- Draw function
-function Player:draw()
+function Player:draw(debug)
 	-- Draw the sprite at sprite position, using center as origin
 	-- ox, oy parameters set the origin to the center of the sprite
 	self.currentAnimation:draw(
@@ -153,10 +153,12 @@ function Player:draw()
 		self.spriteHeight / 2  -- oy: origin Y (center)
 	)
 	
-	-- Optional: Draw collision box for debugging (remove in production)
-	-- love.graphics.setColor(1, 0, 0, 0.3) -- Red with transparency
-	-- love.graphics.rectangle("fill", self.x + self.collisionOffsetX, self.y + self.collisionOffsetY, self.width, self.height)
-	-- love.graphics.setColor(1, 1, 1, 1) -- Reset color
+	-- Draw collision box for debugging (violet color)
+	if debug then
+		love.graphics.setColor(0.58, 0, 0.82, 0.5) -- Violet with transparency
+		love.graphics.rectangle("fill", self.x + self.collisionOffsetX, self.y + self.collisionOffsetY, self.width, self.height)
+		love.graphics.setColor(1, 1, 1, 1) -- Reset color
+	end
 end
 
 return Player

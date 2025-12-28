@@ -689,7 +689,7 @@ function gameScene.draw()
 	
 	-- Draw all entities in sorted order
 	for _, drawable in ipairs(drawables) do
-		drawable.obj:draw()
+		drawable.obj:draw(gameScene.debugMode)
 	end
 	
 	-- Draw all debug visualizations using utilities module
