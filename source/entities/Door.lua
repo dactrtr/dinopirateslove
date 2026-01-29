@@ -5,37 +5,6 @@ local Door = {}
 Door.__index = Door
 Door.name = "Door" -- Class name for identification
 
--- Position mapping for doors based on direction
--- Positions are calculated to center doors in wall gaps
-local positions = {
-	-- Right: gap at y=122, door height=50, so y = 122 - 25 = 97
-	-- x at right edge minus door width: 400 - 16 = 384
-	right = {x = 390, y = 97},
-	
-	-- Left: gap at y=122, door height=50, so y = 122 - 25 = 97
-	-- x at left edge: 0
-	left = {x = 0, y = 97},
-	
-	-- Down: gap at x=203, door width=50, so x = 203 - 25 = 178
-	-- y at bottom edge minus door height: 240 - 16 = 224
-	down = {x = 178, y = 228},
-	
-	-- Top: gap at x=203, door width=50, so x = 203 - 25 = 178
-	-- y at top edge: 0
-	top = {x = 178, y = 0}
-}
-
--- Collision rectangle sizes based on direction
-local function getCollisionRect(direction)
-	local rects = {
-		right = {w = 8, h = 50},
-		left = {w = 8, h = 50},
-		down = {w = 50, h = 8},
-		top = {w = 50, h = 8}
-	}
-	return rects[direction]
-end
-
 -- Convert LDTK direction to game direction
 local function convertDirection(ldtkDir)
 	local conversion = {
@@ -51,7 +20,12 @@ local function convertDirection(ldtkDir)
 		ne = "top",    -- northeast -> top
 		se = "down",   -- southeast -> down
 		sw = "down",   -- southwest -> down
-		nw = "top"     -- northwest -> top
+		nw = "top",     -- northwest -> top
+		-- String names from DoorsConnection
+		Top = "top",
+		Down = "down",
+		Left = "left",
+		Right = "right"
 	}
 	
 	local converted = conversion[ldtkDir]
@@ -63,7 +37,7 @@ local function convertDirection(ldtkDir)
 	return converted
 end
 
-function Door.new(direction, status, nextLevelIid, world, destinationRoomNumber)
+function Door.new(x, y, w, h, direction, status, nextLevelIid, world, destinationRoomNumber)
 	local self = setmetatable({}, Door)
 	self.class = Door -- Reference to class for type checking
 	
@@ -73,15 +47,11 @@ function Door.new(direction, status, nextLevelIid, world, destinationRoomNumber)
 	self.nextLevelIid = nextLevelIid
 	self.destinationRoomNumber = destinationRoomNumber
 	
-	-- Get position for this direction
-	local pos = positions[self.direction]
-	self.x = pos.x
-	self.y = pos.y
-	
-	-- Get collision rectangle
-	local rect = getCollisionRect(self.direction)
-	self.width = rect.w
-	self.height = rect.h
+	-- Use provided positions and dimensions
+	self.x = x
+	self.y = y
+	self.width = w or 16
+	self.height = h or 16
 	
 	-- Add to BUMP world for collision detection
 	self.world = world

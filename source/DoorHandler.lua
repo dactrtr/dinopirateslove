@@ -16,12 +16,17 @@ function DoorHandler.handleDoorCollision(door, player)
 		return
 	end
 	
-	-- Set spawn position for next room
-	door:prevRoom(door.direction)
+	-- Calculate relative position ratio within the door to preserve alignment
+	-- If moving vertically, we care about X. If moving horizontally, we care about Y.
+	local exitRatio = 0.5 -- Default to center
+	if door.direction == "top" or door.direction == "down" then
+		exitRatio = (player.x - door.x) / door.width
+	else
+		exitRatio = (player.y - door.y) / door.height
+	end
 	
-	-- Trigger level transition
-	local enterDirection = door.direction
-	DoorHandler.gameScene.changeLevel(door.nextLevelIid, enterDirection)
+	-- Trigger level transition with alignment info
+	DoorHandler.gameScene.changeLevel(door.nextLevelIid, door.direction, player, exitRatio)
 	
 	print("🚪 Transitioning through door: " .. door.direction)
 end

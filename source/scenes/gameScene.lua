@@ -176,49 +176,38 @@ function gameScene.loadDoors()
 	end
 	gameScene.doors = {}
 	
-	local customFields = gameScene.currentLevelData.customFields
-	local doorsConnection = customFields and customFields.DoorsConnection
+	local entities = gameScene.currentLevelData.entities
 	local neighbourLevels = gameScene.currentLevelData.neighbourLevels
 	
 	print("🔍 DEBUG: Loading doors for " .. gameScene.currentLevelData.identifier)
-	print("🔍 DEBUG: DoorsConnection:", doorsConnection and table.concat(doorsConnection, ", ") or "nil")
 	
-	if not doorsConnection or #doorsConnection == 0 then
-		print("ℹ️ No doors in this level (no DoorsConnection)")
+	if not entities or not entities.Doors then
+		print("ℹ️ No Doors entities in this level")
 		return
 	end
 	
-	-- Map DoorsConnection strings to direction codes
-	local directionMap = {
+	-- Map DoorsConnection strings to cardinal direction codes used in neighbourLevels
+	local connectionToDir = {
 		Top = "n",
 		Down = "s",
 		Left = "w",
 		Right = "e"
 	}
 	
-	-- Create doors based on DoorsConnection
-	for _, doorName in ipairs(doorsConnection) do
-		local direction = directionMap[doorName]
+	-- Create doors based on Doors entities
+	for _, doorEntity in ipairs(entities.Doors) do
+		local cf = doorEntity.customFields or {}
+		local connection = cf.DoorsConnection -- e.g., "Down"
+		local direction = connectionToDir[connection]
 		
 		if not direction then
-			print("⚠️ WARNING: Unknown door name '" .. doorName .. "'")
+			print("⚠️ WARNING: Unknown DoorsConnection '" .. tostring(connection) .. "'")
 		else
-			-- Find the neighbour in that direction
+			-- Find the neighbour level matching this direction
 			local nextLevelIid = nil
-			
 			if neighbourLevels then
-				-- Priority 1: Exact match ONLY
 				for _, neighbour in ipairs(neighbourLevels) do
-					local neighbourDir = neighbour.dir
-					local isExactMatch = false
-					
-					if direction == "n" and neighbourDir == "n" then isExactMatch = true
-					elseif direction == "s" and neighbourDir == "s" then isExactMatch = true
-					elseif direction == "e" and neighbourDir == "e" then isExactMatch = true
-					elseif direction == "w" and neighbourDir == "w" then isExactMatch = true
-					end
-					
-					if isExactMatch then
+					if neighbour.dir == direction then
 						nextLevelIid = neighbour.levelIid
 						break
 					end
@@ -226,145 +215,81 @@ function gameScene.loadDoors()
 			end
 			
 			if nextLevelIid then
-				-- Find the room number for this IID
+				-- Find the room number for this IID if possible (for debug)
 				local nextRoomNumber = nil
 				if levelsLDTK then
-					for _, level in ipairs(levelsLDTK) do
-						if level.uniqueIdentifer == nextLevelIid then
-							if level.customFields and level.customFields.roomNumber then
-								nextRoomNumber = level.customFields.roomNumber
+					for _, room in ipairs(levelsLDTK) do
+						if room.uniqueIdentifer == nextLevelIid then
+							if room.customFields then
+								nextRoomNumber = room.customFields.roomNumber
 							end
 							break
 						end
 					end
 				end
 				
-				-- Create door
-				local door = Door.new(direction, "open", nextLevelIid, gameScene.world, nextRoomNumber)
+				-- Calculate offsets (same as in drawFloor)
+				local startX = 200 - (gameScene.mapWidth * gameScene.tileSize) / 2
+				local startY = 120 - (gameScene.mapHeight * gameScene.tileSize) / 2
+				
+				-- Create door using entity position and dimensions
+				-- We use the entity's x, y, width, height directly from LDtk, + screen offsets
+				-- Subtract half dimensions to center the hitbox on the coordinate
+				local door = Door.new(
+					doorEntity.x + startX - doorEntity.width / 2, 
+					doorEntity.y + startY - doorEntity.height / 2, 
+					doorEntity.width, 
+					doorEntity.height,
+					connection, 
+					"open", 
+					nextLevelIid, 
+					gameScene.world, 
+					nextRoomNumber
+				)
 				table.insert(gameScene.doors, door)
 				
-				print("🚪 Created door: " .. doorName .. " (" .. direction .. ") -> " .. nextLevelIid .. " (Room " .. tostring(nextRoomNumber) .. ") at (" .. door.x .. ", " .. door.y .. ")")
+				print("🚪 Created door: " .. connection .. " (" .. direction .. ") -> " .. nextLevelIid .. 
+					" (Room " .. tostring(nextRoomNumber) .. ") at (" .. door.x .. ", " .. door.y .. ") [" .. door.width .. "x" .. door.height .. "]")
 			else
-				print("⚠️ WARNING: No neighbour found for door '" .. doorName .. "' (direction: " .. direction .. ")")
+				print("⚠️ WARNING: No neighbour found for door direction '" .. direction .. "'")
 			end
 		end
 	end
 	
-	print("✅ Loaded " .. #gameScene.doors .. " doors")
+	print("✅ Loaded " .. #gameScene.doors .. " doors from entities")
 end
 
 -- MARK: Wall Creation
 function gameScene.loadWalls()
-	-- Clear existing walls
+	-- Clear existing walls from world
 	for _, wall in ipairs(gameScene.walls) do
-		if gameScene.world then
+		if gameScene.world and gameScene.world:hasItem(wall) then
 			gameScene.world:remove(wall)
 		end
 	end
 	gameScene.walls = {}
 	
-	-- Get door positions to create gaps
-	local hasDoorTop = false
-	local hasDoorDown = false
-	local hasDoorLeft = false
-	local hasDoorRight = false
-	
-	if gameScene.currentLevelData and gameScene.currentLevelData.customFields then
-		local doorsConnection = gameScene.currentLevelData.customFields.DoorsConnection
-		if doorsConnection then
-			for _, doorName in ipairs(doorsConnection) do
-				if doorName == "Top" then hasDoorTop = true
-				elseif doorName == "Down" then hasDoorDown = true
-				elseif doorName == "Left" then hasDoorLeft = true
-				elseif doorName == "Right" then hasDoorRight = true
-				end
-			end
-		end
+	-- Ensure we have tile data
+	if not gameScene.tileMapData then
+		print("⚠️ Warning: No tile data for wall creation")
+		return
 	end
+
+	-- Calculate offsets (same as in drawFloor)
+	local startX = 200 - (gameScene.mapWidth * gameScene.tileSize) / 2
+	local startY = 120 - (gameScene.mapHeight * gameScene.tileSize) / 2
+
+	-- Create walls from tile data
+	print("🧱 Generating walls from tilemap...")
+	gameScene.walls = utilities.CreateTileColliders(
+		gameScene.tileMapData, 
+		gameScene.world, 
+		gameScene.tileSize, 
+		startX, 
+		startY
+	)
 	
-	local wallThickness = 8
-	
-	-- Top wall (with gap if door exists)
-	if not hasDoorTop then
-		-- Full top wall
-		local wall = {x = 0, y = 0, w = VIRTUAL_WIDTH, h = wallThickness, isWall = true}
-		gameScene.world:add(wall, wall.x, wall.y, wall.w, wall.h)
-		table.insert(gameScene.walls, wall)
-	else
-		-- Top wall with gap in center
-		local gapCenter = 203
-		local gapWidth = 50
-		-- Left segment
-		local wallLeft = {x = 0, y = 0, w = gapCenter - gapWidth/2, h = wallThickness, isWall = true}
-		gameScene.world:add(wallLeft, wallLeft.x, wallLeft.y, wallLeft.w, wallLeft.h)
-		table.insert(gameScene.walls, wallLeft)
-		-- Right segment
-		local wallRight = {x = gapCenter + gapWidth/2, y = 0, w = VIRTUAL_WIDTH - (gapCenter + gapWidth/2), h = wallThickness, isWall = true}
-		gameScene.world:add(wallRight, wallRight.x, wallRight.y, wallRight.w, wallRight.h)
-		table.insert(gameScene.walls, wallRight)
-	end
-	
-	-- Bottom wall (with gap if door exists)
-	if not hasDoorDown then
-		-- Full bottom wall
-		local wall = {x = 0, y = VIRTUAL_HEIGHT - wallThickness, w = VIRTUAL_WIDTH, h = wallThickness, isWall = true}
-		gameScene.world:add(wall, wall.x, wall.y, wall.w, wall.h)
-		table.insert(gameScene.walls, wall)
-	else
-		-- Bottom wall with gap in center
-		local gapCenter = 203
-		local gapWidth = 50
-		-- Left segment
-		local wallLeft = {x = 0, y = VIRTUAL_HEIGHT - wallThickness, w = gapCenter - gapWidth/2, h = wallThickness, isWall = true}
-		gameScene.world:add(wallLeft, wallLeft.x, wallLeft.y, wallLeft.w, wallLeft.h)
-		table.insert(gameScene.walls, wallLeft)
-		-- Right segment
-		local wallRight = {x = gapCenter + gapWidth/2, y = VIRTUAL_HEIGHT - wallThickness, w = VIRTUAL_WIDTH - (gapCenter + gapWidth/2), h = wallThickness, isWall = true}
-		gameScene.world:add(wallRight, wallRight.x, wallRight.y, wallRight.w, wallRight.h)
-		table.insert(gameScene.walls, wallRight)
-	end
-	
-	-- Left wall (with gap if door exists)
-	if not hasDoorLeft then
-		-- Full left wall
-		local wall = {x = 0, y = 0, w = wallThickness, h = VIRTUAL_HEIGHT, isWall = true}
-		gameScene.world:add(wall, wall.x, wall.y, wall.w, wall.h)
-		table.insert(gameScene.walls, wall)
-	else
-		-- Left wall with gap in center
-		local gapCenter = 122
-		local gapHeight = 50
-		-- Top segment
-		local wallTop = {x = 0, y = 0, w = wallThickness, h = gapCenter - gapHeight/2, isWall = true}
-		gameScene.world:add(wallTop, wallTop.x, wallTop.y, wallTop.w, wallTop.h)
-		table.insert(gameScene.walls, wallTop)
-		-- Bottom segment
-		local wallBottom = {x = 0, y = gapCenter + gapHeight/2, w = wallThickness, h = VIRTUAL_HEIGHT - (gapCenter + gapHeight/2), isWall = true}
-		gameScene.world:add(wallBottom, wallBottom.x, wallBottom.y, wallBottom.w, wallBottom.h)
-		table.insert(gameScene.walls, wallBottom)
-	end
-	
-	-- Right wall (with gap if door exists)
-	if not hasDoorRight then
-		-- Full right wall
-		local wall = {x = VIRTUAL_WIDTH - wallThickness, y = 0, w = wallThickness, h = VIRTUAL_HEIGHT, isWall = true}
-		gameScene.world:add(wall, wall.x, wall.y, wall.w, wall.h)
-		table.insert(gameScene.walls, wall)
-	else
-		-- Right wall with gap in center
-		local gapCenter = 122
-		local gapHeight = 50
-		-- Top segment
-		local wallTop = {x = VIRTUAL_WIDTH - wallThickness, y = 0, w = wallThickness, h = gapCenter - gapHeight/2, isWall = true}
-		gameScene.world:add(wallTop, wallTop.x, wallTop.y, wallTop.w, wallTop.h)
-		table.insert(gameScene.walls, wallTop)
-		-- Bottom segment
-		local wallBottom = {x = VIRTUAL_WIDTH - wallThickness, y = gapCenter + gapHeight/2, w = wallThickness, h = VIRTUAL_HEIGHT - (gapCenter + gapHeight/2), isWall = true}
-		gameScene.world:add(wallBottom, wallBottom.x, wallBottom.y, wallBottom.w, wallBottom.h)
-		table.insert(gameScene.walls, wallBottom)
-	end
-	
-	print("✅ Created " .. #gameScene.walls .. " wall segments")
+	print("✅ Created " .. #gameScene.walls .. " optimized wall segments from tilemap")
 end
 
 -- MARK: Props Loading
@@ -410,8 +335,8 @@ end
 
 
 -- MARK: Level Transition
-function gameScene.changeLevel(nextLevelIid, enterDirection)
-	print("🔄 Changing level to IID: " .. nextLevelIid)
+function gameScene.changeLevel(nextLevelIid, enterDirection, player, exitRatio)
+	print("🔄 Changing level to IID: " .. nextLevelIid .. " (Exit Ratio: " .. tostring(exitRatio) .. ")")
 	
 	-- Find the level by IID
 	local nextRoomIndex = nil
@@ -427,12 +352,11 @@ function gameScene.changeLevel(nextLevelIid, enterDirection)
 		return
 	end
 	
-	-- Clear current level
 	-- Clear current level entities from world and memory
 	
 	-- Clear enemies
 	for _, enemy in ipairs(gameScene.enemies) do
-		if gameScene.world and enemy.x then -- Check if enemy was added to world
+		if gameScene.world and enemy.x then 
 			if gameScene.world:hasItem(enemy) then
 				gameScene.world:remove(enemy)
 			end
@@ -461,7 +385,6 @@ function gameScene.changeLevel(nextLevelIid, enterDirection)
 		if gameScene.world and gameScene.world:hasItem(prop) then
 			gameScene.world:remove(prop)
 		end
-		-- Also remove prop colliders if any (handled by prop:remove())
 		if prop.remove then prop:remove() end
 	end
 	gameScene.props = {}
@@ -485,20 +408,57 @@ function gameScene.changeLevel(nextLevelIid, enterDirection)
 	
 	-- Reposition player based on entry direction
 	if enterDirection and gameScene.player then
-		-- Spawn player just inside the door (8 pixels offset from door position)
-		-- Door positions from Door.lua:
-		-- top: x=178, y=0 (width=50, height=8)
-		-- down: x=178, y=228 (width=50, height=8)
-		-- left: x=0, y=97 (width=8, height=50)
-		-- right: x=390, y=97 (width=8, height=50)
+		-- Map enter direction to the expected door direction in the NEW room
+		local oppositeDir = {
+			top = "down",
+			down = "top",
+			left = "right",
+			right = "left"
+		}
+		local targetDir = oppositeDir[enterDirection]
 		
-		local spawn = utilities.spawnCoordinates[enterDirection]
-		if spawn then
-			gameScene.player.x = spawn.x
-			gameScene.player.y = spawn.y
+		-- Find the door in the new room that we are entering from
+		local entranceDoor = nil
+		for _, door in ipairs(gameScene.doors) do
+			if door.direction == targetDir then
+				entranceDoor = door
+				break
+			end
+		end
+		
+		if entranceDoor then
+			-- Spawn player centered relative to the door width/height based on exitRatio
+			local spawnX, spawnY
+			local offset = 20 -- Offset away from the wall to prevent immediate re-trigger
+			
+			if targetDir == "top" then
+				spawnX = entranceDoor.x + exitRatio * entranceDoor.width
+				spawnY = entranceDoor.y + entranceDoor.height + offset
+			elseif targetDir == "down" then
+				spawnX = entranceDoor.x + exitRatio * entranceDoor.width
+				spawnY = entranceDoor.y - offset
+			elseif targetDir == "left" then
+				spawnX = entranceDoor.x + entranceDoor.width + offset
+				spawnY = entranceDoor.y + exitRatio * entranceDoor.height
+			elseif targetDir == "right" then
+				spawnX = entranceDoor.x - offset
+				spawnY = entranceDoor.y + exitRatio * entranceDoor.height
+			end
+			
+			gameScene.player.x = spawnX
+			gameScene.player.y = spawnY
 			-- Update collision position in BUMP
 			gameScene.player:updateCollisionPosition()
-			print("📍 Player spawned at: (" .. spawn.x .. ", " .. spawn.y .. ") from " .. enterDirection .. " door")
+			print("📍 Player aligned spawn at: (" .. spawnX .. ", " .. spawnY .. ") from " .. targetDir .. " door")
+		else
+			-- Fallback to old behavior if no matching door found
+			print("⚠️ WARNING: No " .. tostring(targetDir) .. " door found in new room. Using fallback spawn.")
+			local spawn = utilities.spawnCoordinates[enterDirection]
+			if spawn then
+				gameScene.player.x = spawn.x
+				gameScene.player.y = spawn.y
+				gameScene.player:updateCollisionPosition()
+			end
 		end
 	end
 end
