@@ -7,8 +7,9 @@ local movements = {}
 function movements.handleInput(player, dt)
 	local dx, dy = 0, 0
 
-	-- Don't allow movement if talking
-	if PlayerData.isTalking then return dx, dy end
+	-- Don't allow movement if talking or in cutscene
+	if PlayerData.isTalking or PlayerData.isCutscene then return dx, dy end
+
 
 	-- Keyboard movement (WASD and arrow keys)
 

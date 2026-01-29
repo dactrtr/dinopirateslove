@@ -112,8 +112,9 @@ function Player:update(dt)
 	local function collisionFilter(item, other)
 		if other.isWall then -- Walls (we added isWall = true to walls in gameScene)
 			return 'slide'
-		elseif other.isTrigger then
-			return 'cross' -- Allow overlap with triggers
+		elseif other.isTrigger or other.isHole or other.isSlime then
+			return 'cross' -- Allow overlap with triggers, holes, and slime
+
 		elseif other.class and other.class.name == "Door" then
 			return 'cross' -- Trigger overlap but don't stop
 		elseif other.class and other.class.name == "Brocorat" then

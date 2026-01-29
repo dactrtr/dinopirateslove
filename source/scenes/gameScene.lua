@@ -7,6 +7,8 @@ local Brocorat = require 'entities.Brocorat'
 local Door = require 'entities.Door'
 local DoorHandler = require 'DoorHandler'
 local utilities = require 'utilities'
+local InteractionHUD = require 'entities.UI.interactionHUD'
+
 
 -- Simple require for PauseMenu
 local PauseMenu = require 'PauseMenu'
@@ -39,7 +41,11 @@ local gameScene = {
 	props = {},
 	-- Triggers
 	triggers = {},
+	-- Interaction HUD
+	interactionHUD = nil,
 	-- Level management
+
+
 
 	currentRoom = nil,        -- Index in levelsLDTK
 	currentLevelData = nil,   -- Reference to current level
@@ -48,6 +54,108 @@ local gameScene = {
 }
 
 local padding = 8
+
+-- MARK: Trigger Helpers
+local function checkCondition(condition)
+	if condition == "isTiny" then return PlayerData.isTiny end
+	if condition == "!isTiny" then return not PlayerData.isTiny end
+	
+	-- items.hasLamp
+	local itemKey = condition:match("^items%.(.+)")
+	if itemKey then return PlayerData.items[itemKey] end
+	
+	-- skills.canFlash
+	local skillKey = condition:match("^skills%.(.+)")
+	if skillKey then return PlayerData.skills[skillKey] end
+	
+	-- Numerical comparisons: battery < 20, mapPercent > 50
+	local var, op, val = condition:match("([%a%d]+)([><!=]=?)(%d+)")
+	if var and op and val then
+		local currentVal = PlayerData[var]
+		val = tonumber(val)
+		if currentVal then
+			if op == ">" then return currentVal > val
+			elseif op == "<" then return currentVal < val
+			elseif op == ">=" then return currentVal >= val
+			elseif op == "<=" then return currentVal <= val
+			elseif op == "==" then return currentVal == val
+			elseif op == "!=" then return currentVal ~= val
+			end
+		end
+	end
+	
+	return false
+end
+
+local function getTriggerScript(trigger)
+	if trigger.conditionalScripts and #trigger.conditionalScripts > 0 then
+		for _, entry in ipairs(trigger.conditionalScripts) do
+			local condition, script = entry:match("([^:]+):(.+)")
+			if condition and script then
+				if checkCondition(condition) then
+					return script
+				end
+			end
+		end
+	end
+	
+	if PlayerData.isTiny and trigger.tinyScript then
+		return trigger.tinyScript
+	end
+	
+	return trigger.script
+end
+
+function gameScene.removeTrigger(trigger)
+	for i, t in ipairs(gameScene.triggers) do
+		if t == trigger then
+			if gameScene.world and gameScene.world:hasItem(trigger) then
+				gameScene.world:remove(trigger)
+			end
+			table.remove(gameScene.triggers, i)
+			break
+		end
+	end
+end
+
+local function handleTriggerActivation(trigger, script)
+	if not script then return end
+	
+	local isOneTime = false
+	local cleanScript = script
+	
+	if script:sub(-1) == "!" then
+		isOneTime = true
+		cleanScript = script:sub(1, -2)
+	end
+	
+	-- Automatic Story triggers are one-time by default if legacy field used
+	if not trigger.conditionalScripts or #trigger.conditionalScripts == 0 then
+		if trigger.type == "Story" or trigger.type == "Cutscene" or trigger.type == "Counter" then
+			isOneTime = true
+		end
+	end
+	
+	if trigger.type == "Counter" then
+		PlayerData.storyCounter = (PlayerData.storyCounter or 0) + 1
+		isOneTime = true
+		print("📈 Story Counter incremented: " .. PlayerData.storyCounter)
+	elseif trigger.type == "Cutscene" then
+		PlayerData.isCutscene = true
+		-- TODO: Trigger actual cutscene / comic
+		print("🎬 Triggering cutscene: " .. cleanScript)
+	else
+		-- Default: Dialog
+		if gameScene.player and gameScene.player.dialogUI then
+			gameScene.player.dialogUI:addScreen(cleanScript)
+		end
+	end
+	
+	if isOneTime then
+		gameScene.removeTrigger(trigger)
+	end
+end
+
 
 -- MARK: Level Management Functions
 function gameScene.setFloor(levelNumber, roomNumber)
@@ -110,7 +218,12 @@ function gameScene.load()
 	-- Mark: triggers - Create triggers from level data
 	gameScene.loadTriggers()
 	
+	-- Load interaction HUD icons
+	gameScene.interactionHUD = InteractionHUD()
+	
 	-- Update room info in pause menu
+
+
 
 	gameScene.updateRoomInfo()
 end
@@ -365,6 +478,9 @@ function gameScene.loadTriggers()
 			script = cf.script,
 			type = cf.type or "Search",
 			conditionalScripts = cf.conditionalScripts or {},
+			usedTrigger = cf.usedTrigger or false,
+			mapPercent = cf.mapPercent or 0,
+			tinyScript = cf.tinyScript,
 			isTrigger = true
 		}
 		
@@ -372,6 +488,7 @@ function gameScene.loadTriggers()
 		gameScene.world:add(trigger, trigger.x, trigger.y, trigger.width, trigger.height)
 		table.insert(gameScene.triggers, trigger)
 	end
+
 	
 	print("✅ Loaded " .. #gameScene.triggers .. " triggers")
 end
@@ -659,8 +776,20 @@ function gameScene.update(dt)
 		if gameScene.player.hasMoved and not gameScene.player.isMoving then
 			gameScene.player.hasMoved = false
 		end
+
+		-- Handle automatic triggers
+		gameScene.checkAutomaticTriggers()
+
+		-- Update interaction HUD
+		if gameScene.interactionHUD then
+			gameScene.drawTriggerIcons() -- Updates visibility and state
+			gameScene.interactionHUD:update(dt)
+		end
+
 	end
 end
+
+
 
 function gameScene.draw()
 	-- Draw floor first (background layer)
@@ -712,16 +841,21 @@ function gameScene.draw()
 		gameScene.player.dialogUI:draw()
 	end
 
+	-- Draw interaction HUD icons above player
+	if gameScene.interactionHUD and gameScene.player then
+		gameScene.interactionHUD:draw(gameScene.player.x, gameScene.player.y)
+	end
 	
 	-- Draw all debug visualizations using utilities module
+
 	utilities.drawDebugInfo(gameScene)
 	
 	gameScene.pauseMenu:draw()
 end
 
--- Handle trigger interaction
+-- Handle trigger interaction (Manual)
 function gameScene.checkTriggerInteraction()
-	if not gameScene.player or PlayerData.isTalking then return end
+	if not gameScene.player or PlayerData.isTalking or PlayerData.isCutscene then return end
 	
 	-- Check what player is overlapping
 	local px, py, pw, ph = gameScene.player:getCollisionRect()
@@ -729,14 +863,44 @@ function gameScene.checkTriggerInteraction()
 	
 	for i = 1, len do
 		local item = items[i]
-		if item.isTrigger and item.script then
-			print("🎭 Triggering script: " .. item.script)
-			gameScene.player.dialogUI:addScreen(item.script)
-			return true
+		if item.isTrigger then
+			-- Manual types or default
+			if item.type == "Search" or item.type == "Call" or not item.type then
+				local script = getTriggerScript(item)
+				if script then
+					print("🔍 Manually triggering: " .. script .. " (Type: " .. tostring(item.type) .. ")")
+					handleTriggerActivation(item, script)
+					return true
+				end
+			end
 		end
 	end
 	return false
 end
+
+-- Handle automatic triggers
+function gameScene.checkAutomaticTriggers()
+	if not gameScene.player or PlayerData.isTalking or PlayerData.isCutscene then return end
+	
+	local px, py, pw, ph = gameScene.player:getCollisionRect()
+	local items, len = gameScene.world:queryRect(px, py, pw, ph)
+	
+	for i = 1, len do
+		local item = items[i]
+		if item.isTrigger then
+			-- Automatic types
+			if item.type == "Story" or item.type == "Cutscene" or item.type == "Counter" then
+				local script = getTriggerScript(item)
+				if script then
+					print("🎭 Automatically triggering: " .. script .. " (Type: " .. tostring(item.type) .. ")")
+					handleTriggerActivation(item, script)
+					return -- Activate only one per frame
+				end
+			end
+		end
+	end
+end
+
 
 function gameScene.keypressed(key)
 	-- If talking, any 'confirm' key advances dialog
@@ -812,6 +976,37 @@ function gameScene.handleMenuAction(action)
 		sceneManager.startTransition("game", "title", "slide")
 	elseif action == "quit" then
 		love.event.quit()
+	end
+end
+
+-- Draw interaction HUD icons for manual triggers
+function gameScene.drawTriggerIcons()
+	if not gameScene.player or PlayerData.isTalking or PlayerData.isCutscene then 
+		if gameScene.interactionHUD then gameScene.interactionHUD:setVisible(false) end
+		return 
+	end
+	
+	local px, py, pw, ph = gameScene.player:getCollisionRect()
+	local items, len = gameScene.world:queryRect(px, py, pw, ph)
+	
+	local foundTrigger = false
+	for i = 1, len do
+		local item = items[i]
+		if item.isTrigger then
+			-- Manual triggers show icons
+			if item.type == "Search" or item.type == "Call" or not item.type then
+				if gameScene.interactionHUD then
+					gameScene.interactionHUD:setState(item.type)
+					gameScene.interactionHUD:setVisible(true)
+					foundTrigger = true
+					break
+				end
+			end
+		end
+	end
+	
+	if not foundTrigger and gameScene.interactionHUD then
+		gameScene.interactionHUD:setVisible(false)
 	end
 end
 

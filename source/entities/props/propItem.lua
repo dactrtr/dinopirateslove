@@ -1,199 +1,178 @@
 local Class = require 'libraries/middleclass'
-local PropCollider = require 'entities.props.propCollider'
+local anim8 = require 'libraries/anim8'
 
 local PropItem = Class('PropItem')
 
 -- Static assets
 local propsImage = nil
-local propsQuads = {}
+local propsGrid = nil
 local TILE_SIZE = 32
+local SHEET_COLS = 7 -- 224 / 32
 
--- Animation state mapping (name -> frame index)
--- Based on Playdate code: addState('name', start, end)
-local propStates = {
-    chair = 1,
-    fellchair = 2,
-    box = 3,
-    trash = 4,
-    toxic = 5,
-    table = 6,
-    fellTable = 7,
-    blood = 8,
-    blood2 = 9,
-    deadrat = 10,
-    ["xtree-1"] = 11,
-    ["xtree-2"] = 12,
-    ["xtree-3"] = 13,
-    ["xtree-4"] = 14,
-    microwave = 15,
-    gifts = 16,
-    gift = 17,
-    smallTable = 18,
-    fridge1 = 19,
-    fridge2 = 20,
-    kitchenStorage = 21,
-    pot = 22,
-    knifeKettle = 23,
-    holeTopLeft = 24,
-    holeLeft = 25,
-    holeBottomLeft = 26,
-    holeTop = 27,
-    holeCenter = 28,
-    holeBottom = 29,
-    holeTopRight = 30,
-    holeRight = 31,
-    holeBottomRight = 32,
-    debris = 33
+-- State name to frame indices/animations mapping
+local propConfigs = {
+    -- Basic items
+    chair = { frame = 1 },
+    fellchair = { frame = 2 },
+    box = { frame = 3 },
+    trash = { frame = 4 },
+    toxic = { frame = 5 },
+    table = { frame = 6 },
+    fellTable = { frame = 7 },
+    blood = { frame = 8, nocollide = true },
+    blood2 = { frame = 9, nocollide = true },
+    deadrat = { frame = 10 },
+    ["xtree-1"] = { frame = 11, collideRect = {2, 30, 28, 12} },
+    ["xtree-2"] = { frame = 12, collideRect = {2, 30, 28, 12} },
+    ["xtree-3"] = { frame = 13 },
+    ["xtree-4"] = { frame = 14 },
+    microwave = { frame = 15 },
+    gifts = { frame = 16 },
+    gift = { frame = 17 },
+    smallTable = { frame = 18 },
+    fridge1 = { frame = 19 },
+    fridge2 = { frame = 20 },
+    kitchenStorage = { frame = 21 },
+    pot = { frame = 22 },
+    knifeKettle = { frame = 23 },
+    
+    -- Holes
+    holeTopLeft     = { frame = 24, isHole = true, isEdible = false, collideRect = {10, 10, 22, 22} },
+    holeLeft        = { frame = 25, isHole = true, isEdible = false, collideRect = {10, 0, 22, 32} },
+    holeBottomLeft  = { frame = 26, isHole = true, isEdible = false, collideRect = {10, 0, 22, 22} },
+    holeTop         = { frame = 27, isHole = true, isEdible = false, collideRect = {0, 10, 32, 22} },
+    holeCenter      = { frame = 28, isHole = true, isEdible = false, collideRect = {0, 0, 32, 32} },
+    holeBottom      = { frame = 29, isHole = true, isEdible = false, collideRect = {0, 0, 32, 22} },
+    holeTopRight    = { frame = 30, isHole = true, isEdible = false, collideRect = {0, 10, 22, 22} },
+    holeRight       = { frame = 31, isHole = true, isEdible = false, collideRect = {0, 0, 22, 32} },
+    holeBottomRight = { frame = 32, isHole = true, isEdible = false, collideRect = {0, 0, 22, 22} },
+    
+    debris = { frame = 33, nocollide = true },
+    
+    -- PC family
+    pcBase      = { frame = 34 },
+    pcScreen    = { frame = 35, collideRect = {2, 30, 28, 12} },
+    pcBase2     = { frame = 36 },
+    pcLoad      = { frames = {37, 38, 39}, duration = 0.2, collideRect = {2, 30, 28, 12} },
+    pcBase3     = { frame = 40 },
+    pcScreen2   = { frame = 41, collideRect = {2, 30, 28, 12} },
+    pcScreen3   = { frame = 42, collideRect = {2, 30, 28, 12} },
+    pcSiriSad   = { frame = 43, collideRect = {2, 30, 28, 12} },
+    pcSiriHappy = { frame = 44, collideRect = {2, 30, 28, 12} },
+    
+    minifier    = { frame = 45, collideRect = {0, 12, 32, 18} },
+    slime       = { frame = 46, isSlime = true, isEdible = false, collideRect = {0, 0, 32, 32} },
 }
 
+-- Mappings an index to col, row
+local function f(n)
+    local row = math.ceil(n / SHEET_COLS)
+    local col = n - (row - 1) * SHEET_COLS
+    return col, row
+end
+
 function PropItem:initialize(x, y, type, zIndex, nocollide, isDestroyed, id, world)
-    -- LDTK uses center pivot, Love2D draws from top-left
-    -- Adjust position by subtracting half the tile size
+    -- LDtk center pivot correction
     self.x = x - (TILE_SIZE / 2)
     self.y = y - (TILE_SIZE / 2)
     self.type = type
     self.id = id
     self.world = world
-    self.class = PropItem
     self.isProp = true
     
-    -- Load assets if not loaded
+    -- Load static assets once
     if not propsImage then
         propsImage = love.graphics.newImage('assets/images/props/props-table-32-32.png')
         propsImage:setFilter("nearest", "nearest")
-        
-        -- Generate quads
-        local width, height = propsImage:getDimensions()
-        local cols = math.floor(width / TILE_SIZE)
-        local rows = math.floor(height / TILE_SIZE)
-        
-        for i = 0, rows * cols - 1 do
-            local qx = (i % cols) * TILE_SIZE
-            local qy = math.floor(i / cols) * TILE_SIZE
-            table.insert(propsQuads, love.graphics.newQuad(qx, qy, TILE_SIZE, TILE_SIZE, width, height))
-        end
+        propsGrid = anim8.newGrid(TILE_SIZE, TILE_SIZE, propsImage:getWidth(), propsImage:getHeight())
     end
     
-    self.currentFrame = propStates[type] or 1
+    local config = propConfigs[type] or {}
     
-    -- Default properties
-    self.isEdible = true
-    self.isHole = false
-    self.width = 32
-    self.height = 32
-    self.nocollide = nocollide
-    self.isDestroyed = isDestroyed
-    
-    -- Default collider setup
-    if nocollide == false then
-        -- In Playdate, PropCollider used setCollideRect(-14, -6, width, height)
-        -- This means the collider was centered horizontally and positioned near the bottom
-        -- For a 32x32 sprite with center pivot:
-        -- - Horizontal: center the collider (sprite is 32px, collider varies)
-        -- - Vertical: position near bottom (offset -6 from center means bottom area)
-        
-        local cx, cy, cw, ch
-        if type == "xtree-1" or type == "xtree-2" then
-            -- Trees: small collider at base
-            cw, ch = 28, 4
-            cx = self.x + (TILE_SIZE - cw) / 2  -- Center horizontally
-            cy = self.y + TILE_SIZE - ch        -- Bottom of sprite
-        else
-            -- Default props: collider in lower portion
-            cw, ch = 28, 18
-            cx = self.x + (TILE_SIZE - cw) / 2  -- Center horizontally
-            cy = self.y + TILE_SIZE - ch        -- Bottom-aligned
+    -- Setup Animation using linear mapping
+    if config.frames then
+        local frames = {}
+        for _, frameIdx in ipairs(config.frames) do
+            local col, row = f(frameIdx)
+            table.insert(frames, propsGrid(col, row)[1])
         end
-        
-        self.propcollider = PropCollider(cx, cy, cw, ch, world)
+        self.animation = anim8.newAnimation(frames, config.duration or 0.1)
+    else
+        local fIdx = config.frame or 1
+        local col, row = f(fIdx)
+        self.animation = anim8.newAnimation(propsGrid(col, row), 1)
     end
     
-    -- HOLE TYPES CONFIGURATION
-    local holeTypes = {
-        -- Holes where player falls through (no collision, no prop collider)
-        holeTop = { isHole = true, collideRect = nil, removePropCollider = true },
-        holeCenter = { isHole = true, collideRect = nil, removePropCollider = true },
-        holeBottom = { isHole = true, collideRect = nil, removePropCollider = true },
-        holeTopLeft = { isHole = true, collideRect = nil, removePropCollider = true },
-        holeBottomLeft = { isHole = true, collideRect = nil, removePropCollider = true },
-        holeTopRight = { isHole = true, collideRect = nil, removePropCollider = true },
-        holeBottomRight = { isHole = true, collideRect = nil, removePropCollider = true },
-        
-        -- Edge holes with partial collision
-        holeLeft = { isHole = true, collideRect = {10, 0, 22, 32}, removePropCollider = true },
-        holeRight = { isHole = true, collideRect = {0, 0, 22, 32}, removePropCollider = true },
-        -- holeCenter duplicate in original code, ignoring the second one which had collision
-        -- holeTopLeft duplicate...
-        -- I'll stick to the logic: if it's a hole, we might want to remove the default collider
-        -- and add a specific one.
-    }
+    -- Properties
+    self.isEdible = config.isEdible ~= false
+    self.isHole = config.isHole or false
+    self.isSlime = config.isSlime or false
+    self.nocollide = (nocollide == true or config.nocollide == true)
+    self.isDestroyed = (isDestroyed == true)
     
-    -- Re-implementing the specific hole logic from Playdate code carefully
-    -- The original code had duplicate keys in the table, Lua takes the last one.
-    -- Let's look at the last definitions in the original file:
-    -- holeLeft: collideRect = {10, 0, 22, 32}
-    -- holeRight: collideRect = {0, 0, 22, 32}
-    -- holeCenter: collideRect = {0, 0, 32, 32}
-    -- holeTopLeft: collideRect = {10, 10, 22, 22}
-    -- holeTop: collideRect = {0, 10, 32, 22}
-    -- holeTopRight: collideRect = {0, 10, 22, 22}
-    -- holeBottomRight: collideRect = {0, 0, 22, 22}
-    -- holeBottom: collideRect = {0, 0, 32, 22}
-    -- holeBottomLeft: collideRect = {10, 0, 22, 22}
+    -- Collision setup directly on PropItem
+    self.width = TILE_SIZE
+    self.height = TILE_SIZE
     
-    local specificHoles = {
-         holeLeft = {10, 0, 22, 32},
-         holeRight = {0, 0, 22, 32},
-         holeCenter = {0, 0, 32, 32},
-         holeTopLeft = {10, 10, 22, 22},
-         holeTop = {0, 10, 32, 22},
-         holeTopRight = {0, 10, 22, 22},
-         holeBottomRight = {0, 0, 22, 22},
-         holeBottom = {0, 0, 32, 22},
-         holeBottomLeft = {10, 0, 22, 22}
-    }
+    -- BUMP uses top-left, we calculate collider relative to self.x, self.y
+    local cr = config.collideRect or {2, 10, 28, 18} -- Default prop collider
+    self.colOffsetX = cr[1]
+    self.colOffsetY = cr[2]
+    self.colWidth = cr[3]
+    self.colHeight = cr[4]
     
-    if specificHoles[type] then
-        self.isHole = true
-        self.isEdible = false
-        
-        -- Remove default collider
-        if self.propcollider then
-            self.propcollider:remove()
-            self.propcollider = nil
-        end
-        
-        -- Add specific collider using adjusted positions
-        local rect = specificHoles[type]
-        -- rect is {x_offset, y_offset, width, height}
-        self.propcollider = PropCollider(self.x + rect[1], self.y + rect[2], rect[3], rect[4], world)
-        
-        print("🕳️  Hole created:", type, "at", self.x, self.y)
+    if not self.nocollide and not self.isDestroyed then
+        world:add(self, self.x + self.colOffsetX, self.y + self.colOffsetY, self.colWidth, self.colHeight)
     end
     
-    self.zIndex = zIndex
+    -- Z-Index logic
+    self.zIndex = zIndex or (self.y + self.height)
+    if self.nocollide or self.isDestroyed or self.isHole or self.isSlime or self.type == 'minifier' then
+        -- Low static Z
+        self.zIndex = 50 -- Below characters
+    end
 end
 
 function PropItem:update(dt)
-    -- Update zIndex if needed for sorting (gameScene handles sorting usually)
-end
-
-function PropItem:draw()
-    if propsImage and propsQuads[self.currentFrame] then
-        love.graphics.draw(propsImage, propsQuads[self.currentFrame], self.x, self.y)
+    if self.animation then
+        self.animation:update(dt)
     end
     
-    -- Debug drawing
-    if DRAW_DEBUG_DOORS and self.propcollider then
-         love.graphics.setColor(1, 0, 1, 0.5) -- Purple for props
-         love.graphics.rectangle("fill", self.propcollider.x, self.propcollider.y, self.propcollider.width, self.propcollider.height)
-         love.graphics.setColor(1, 1, 1)
+    -- Dynamic Z-depth update if moving or not a static background-like prop
+    if not (self.nocollide or self.isDestroyed or self.isHole or self.isSlime or self.type == 'minifier') then
+        self.zIndex = self.y + self.height
     end
+end
+
+function PropItem:draw(debug)
+    if propsImage and self.animation then
+        self.animation:draw(propsImage, self.x, self.y)
+    end
+    
+    -- Debug draw
+    if debug and not self.nocollide and not self.isDestroyed then
+        love.graphics.setColor(1, 0, 1, 0.4) -- Purple for props
+        love.graphics.rectangle("fill", self.x + self.colOffsetX, self.y + self.colOffsetY, self.colWidth, self.colHeight)
+        love.graphics.setColor(1, 1, 1, 1)
+    end
+end
+
+function PropItem:destroyProp()
+    self.isDestroyed = true
+    if self.world and self.world:hasItem(self) then
+        self.world:remove(self)
+    end
+    -- Switch to debris animation state
+    local fIdx = propConfigs.debris.frame
+    local col, row = f(fIdx)
+    self.animation = anim8.newAnimation(propsGrid(col, row), 1)
+    self.nocollide = true
+    self.zIndex = 50
 end
 
 function PropItem:remove()
-    if self.propcollider then
-        self.propcollider:remove()
+    if self.world and self.world:hasItem(self) then
+        self.world:remove(self)
     end
 end
 
