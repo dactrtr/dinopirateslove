@@ -72,6 +72,23 @@ function utilities.drawEnemiesCollision(enemies)
 	end
 end
 
+-- Draw all trigger collision boxes
+function utilities.drawTriggersCollision(triggers)
+	for _, trigger in ipairs(triggers) do
+		if trigger.x and trigger.y and trigger.width and trigger.height then
+			utilities.drawCollisionBox(
+				trigger.x, 
+				trigger.y, 
+				trigger.width, 
+				trigger.height, 
+				{1, 0.5, 0, 0.3} -- Orange
+			)
+		end
+	end
+end
+
+
+
 -- Draw wall rectangles
 function utilities.drawWalls(walls)
 	love.graphics.setColor(1, 0, 0, 1) -- Red color
@@ -101,13 +118,14 @@ function utilities.drawDebugInfo(gameScene)
 	-- Draw doors
 	utilities.drawDoors(gameScene.doors)
 	
-	-- Draw collision boxes
 	utilities.drawPlayerCollision(gameScene.player)
 	utilities.drawEnemiesCollision(gameScene.enemies)
+	utilities.drawTriggersCollision(gameScene.triggers)
 	
 	-- Draw spawn coordinates
 	utilities.drawSpawnPoints(utilities.spawnCoordinates)
 end
+
 
 -- Create optimized wall colliders from tile data
 function utilities.CreateTileColliders(tileData, world, tileSize, offsetX, offsetY)

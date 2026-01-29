@@ -1,0 +1,90 @@
+-- These are example strings.
+"menuResumeGame" =		"Resume"
+"menuNewGame" =			"New Game"
+"menuOptions" =			"Options"
+"menuCredits" =			"Credits"
+
+"nolamp-01" = "I need a lamp"
+"nokeys" = "I dont have the key to enter"
+"gotcha-01" = "got you!!"
+"hugexmas-01" = "Wow so majestic, such a big tree, maybe I can hide here?"
+
+"hugexmas-02" = "I got the *Plumber* need to jump to the top and grab that star, and coins, get a lot of coins"
+
+"hugexmas-03" = "ah that’s just my *pirate* need of collect coins, or anything, collect, collect."
+"whyxmas-01" = "Still don’t understand this *Xmas* thing, why we celebrate? we are pirates, we are dinosaurs"
+"wakeup-01" = "wow that was a good *dino nap*, better than those beauty naps.."
+
+"wakeup-02" = "where's everybody? we were about to open the Dinomas gifts"
+
+"wakeup-03" = "where's my *captain hat*!? what kind of captain doesn't have a hat ahhh"
+
+"brocomess-01" = "is this.. broccoli?"
+
+"microwaveburn-01" = "ohh that's our *party microwave*?"
+
+"microwaveburn-02" = "its totally destroyed!! and it was my mom's microwave!!"
+
+"microwaveburn-03" = "I should have agreed with Dino Resources about the *introduction to microwaves*.."
+
+"sometrash-01" = "just some trash.."
+
+"giftfor100-01" = "for sure this one is mine.."
+
+"giftfor100-02" = "*it reads*: for crew member 100, our best 100 crew member."
+
+"giftfor233-01" = "as the younglings say *YOLO*, time to open some gifts.."
+
+"giftfor233-02" = "obviously the big one is for me because I'm the best captain ever.."
+
+"giftfor233-03" = "*it reads*: for crew member 233, our best 233 member."
+
+"kitchenweapons-02" = "Why we keep using human cutlery?, is too small for us, only *crew members* can use them.."
+
+"tinyKnife" = "woooo if a knife is huge, is still a knife?"
+
+"inneficientcutting-01" = "jeez, this is the most inefficient way to cut some broccoli, looks more like a fight.."
+
+"inneficientcutting-02" = "..that's why we have tiny knives.. maybe we need that  *Using knives* DR presentation.."
+
+"entrancemess-01" = "what happened here? another fight to enter first?, we have a line and waiting seats.."
+
+"entrancemess-02" = "we aren't animals in this ship, we are pirates but civilized."
+"justboxes-01" = "just boxes.."
+
+"noteslook-01" = "is that.."
+
+"noteslook-02" = "*My Super Dino Happy Cat Secret Captain Journal*!!!"
+
+"noteslook-03" = "all my secrets exposed.."
+
+"notespickup-01" = "Oh no it's all touched and filthy, my secrets.."
+
+"notespickup-02" = "aww my crew it's so lovely they leave me a picture and they wrote messages.."
+
+"notespickup-03" = "this is the *real meaning* of Dinomas, our friends are like our family.."
+
+"notespickup-04" = "*it reads*: To our former Captain, you were almost like a real Captain."
+
+"notespickup-05" = "what they mean with *former*, those idiots I'm gonna grab them one by one and slap them.."
+
+"investigation-01" = "I step on some crap!"
+"phonecall-01" = "Hello, this is a phone call"
+
+"phonecall-02" = "is it working?"
+
+"notnormalbrocoli-01" = "this doesn't look like normal broccoli..."
+
+"notnormalbrocoli-02" = "looks tasty, maybe should I try it?"
+
+"notnormalbrocoli-03" = "no, last time I ate something from the ground ended losing an eye, can’t do that again."
+
+"mygift-01" = "I found a gift?? whats this??"
+
+"mygift-02" = "A DINOWATCH 4 PRO, it has some health metrics"
+
+"mygift-03" = "and I can check message..."
+
+"mygift-04" = "from “dino not human resources” this is a employee watch, isnt even a pro is a SE"
+
+"mygift-05" = "if I hold A I can check my tasks and my health metric..."

@@ -6,6 +6,8 @@ local Class = require 'libraries/middleclass'
 local playerCollisions = require 'entities.player.collisions'
 local playerMovements = require 'entities.player.movements'
 local playerAnimations = require 'entities.player.animations'
+local DialogScreen = require 'entities.UI.dialog.dialogScreen'
+
 
 local Player = Class('Player')
 
@@ -43,7 +45,11 @@ function Player:initialize(x, y, world)
 	-- Movement tracking for turn-based enemy AI
 	self.isMoving = false
 	self.hasMoved = false -- Flag to trigger enemy movement
+	
+	-- Initialize dialog system
+	self.dialogUI = DialogScreen()
 end
+
 
 -- Collision methods (delegate to collisions module)
 function Player:getCollisionRect()
@@ -106,6 +112,8 @@ function Player:update(dt)
 	local function collisionFilter(item, other)
 		if other.isWall then -- Walls (we added isWall = true to walls in gameScene)
 			return 'slide'
+		elseif other.isTrigger then
+			return 'cross' -- Allow overlap with triggers
 		elseif other.class and other.class.name == "Door" then
 			return 'cross' -- Trigger overlap but don't stop
 		elseif other.class and other.class.name == "Brocorat" then
@@ -114,6 +122,7 @@ function Player:update(dt)
 		-- Default
 		return 'slide'
 	end
+
 	
 	-- Move player with collision detection
 	local cols, len = playerMovements.move(self, dx, dy, collisionFilter)
@@ -136,7 +145,13 @@ function Player:update(dt)
 
 	-- Update animation
 	self.currentAnimation:update(dt)
+
+	-- Update dialog UI
+	if self.dialogUI then
+		self.dialogUI:update(dt)
+	end
 end
+
 
 -- Draw function
 function Player:draw(debug)
@@ -160,5 +175,14 @@ function Player:draw(debug)
 		love.graphics.setColor(1, 1, 1, 1) -- Reset color
 	end
 end
+
+
+-- Dialog navigation
+function Player:displayDialog()
+	if self.dialogUI and self.dialogUI.active then
+		self.dialogUI:nextDialog()
+	end
+end
+
 
 return Player

@@ -2,11 +2,13 @@ local sceneManager = require "sceneManager"
 -- local config = require "config"
 local titleScene = {
 	currentOption = 1,
-	options = { "Start Game", "Settings", "Quit" },
+	options = { "Start Game", "Settings", "Reset Progress", "Quit" },
 	backgroundImage = nil,
 	-- Settings menu state
 	inSettings = false,
 	settingsOption = 1,
+	resetFeedbackTimer = 0,
+
 	settingsOptions = {
 		{name = "CRT Enabled", type = "toggle", setting = "crtEnabled"},
 		{name = "Scanlines Opacity", type = "slider", setting = {"scanlines", "opacity"}, min = 0, max = 1, step = 0.05},
@@ -24,8 +26,11 @@ function titleScene.load()
 end
 
 function titleScene.update(dt)
-	-- Title scene logic (if needed)
+	if titleScene.resetFeedbackTimer > 0 then
+		titleScene.resetFeedbackTimer = titleScene.resetFeedbackTimer - dt
+	end
 end
+
 
 function titleScene.draw()
 	-- Draw background image
@@ -77,7 +82,14 @@ function titleScene.drawMainMenu()
 		end
 		love.graphics.print(option, leftMargin, y)
 	end
+
+	-- Draw reset feedback
+	if titleScene.resetFeedbackTimer > 0 then
+		love.graphics.setColor(0, 1, 0, math.min(1, titleScene.resetFeedbackTimer)) -- Fade out
+		love.graphics.printf("PROGRESS RESET!", 0, startY - 40, screenWidth, "center")
+	end
 end
+
 
 function titleScene.drawSettings()
 	local screenWidth = VIRTUAL_WIDTH
@@ -167,10 +179,18 @@ function titleScene.handleMainMenuInput(key)
 			titleScene.inSettings = true
 			titleScene.settingsOption = 1
 		elseif titleScene.currentOption == 3 then
+			-- Reset progress
+			if ResetPlayerData then
+				ResetPlayerData()
+				titleScene.resetFeedbackTimer = 2.0
+				print("♻️ Progress has been reset from Title Screen")
+			end
+		elseif titleScene.currentOption == 4 then
 			love.event.quit()
 		end
 	end
 end
+
 
 function titleScene.handleSettingsInput(key)
 	local option = titleScene.settingsOptions[titleScene.settingsOption]

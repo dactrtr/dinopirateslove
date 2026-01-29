@@ -5,6 +5,14 @@ local gameScene = require "scenes/gameScene"
 local PlayerData = require 'assets/data/PlayerDataTables'
 local tileMapData = require 'assets/data/tilemap'
 
+-- Initialize Graphics compatibility layer BEFORE script data
+Graphics = require 'libraries/graphics_compat'
+Graphics.loadStrings("en.strings")
+
+-- Load script data (defines global 'script' table)
+require 'assets.data.script'
+
+
 -- Virtual resolution constants
 VIRTUAL_WIDTH = 400
 VIRTUAL_HEIGHT = 240

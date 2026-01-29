@@ -37,7 +37,10 @@ local gameScene = {
 	walls = {},
 	-- Props
 	props = {},
+	-- Triggers
+	triggers = {},
 	-- Level management
+
 	currentRoom = nil,        -- Index in levelsLDTK
 	currentLevelData = nil,   -- Reference to current level
 	-- Debug mode
@@ -104,7 +107,11 @@ function gameScene.load()
 	-- Mark: props - Create props from level data
 	gameScene.loadProps()
 	
+	-- Mark: triggers - Create triggers from level data
+	gameScene.loadTriggers()
+	
 	-- Update room info in pause menu
+
 	gameScene.updateRoomInfo()
 end
 
@@ -331,7 +338,44 @@ function gameScene.loadProps()
 	end
 	
 	print("✅ Loaded " .. #gameScene.props .. " props")
+
 end
+
+-- MARK: Triggers Loading
+function gameScene.loadTriggers()
+	if not gameScene.currentLevelData then return end
+	
+	-- Clear existing triggers
+	gameScene.triggers = {}
+	
+	local entities = gameScene.currentLevelData.entities
+	if not entities or not entities.Triggers then return end
+	
+	local startX = 200 - (gameScene.mapWidth * gameScene.tileSize) / 2
+	local startY = 120 - (gameScene.mapHeight * gameScene.tileSize) / 2
+	
+	for _, triggerEntity in ipairs(entities.Triggers) do
+		local cf = triggerEntity.customFields or {}
+		
+		local trigger = {
+			x = triggerEntity.x + startX - triggerEntity.width / 2,
+			y = triggerEntity.y + startY - triggerEntity.height / 2,
+			width = triggerEntity.width,
+			height = triggerEntity.height,
+			script = cf.script,
+			type = cf.type or "Search",
+			conditionalScripts = cf.conditionalScripts or {},
+			isTrigger = true
+		}
+		
+		-- Add to BUMP world as a 'cross' type
+		gameScene.world:add(trigger, trigger.x, trigger.y, trigger.width, trigger.height)
+		table.insert(gameScene.triggers, trigger)
+	end
+	
+	print("✅ Loaded " .. #gameScene.triggers .. " triggers")
+end
+
 
 
 -- MARK: Level Transition
@@ -388,6 +432,15 @@ function gameScene.changeLevel(nextLevelIid, enterDirection, player, exitRatio)
 		if prop.remove then prop:remove() end
 	end
 	gameScene.props = {}
+
+	-- Clear triggers from BUMP world
+	for _, trigger in ipairs(gameScene.triggers) do
+		if gameScene.world and gameScene.world:hasItem(trigger) then
+			gameScene.world:remove(trigger)
+		end
+	end
+	gameScene.triggers = {}
+
 	
 	-- Set new level
 	gameScene.currentRoom = nextRoomIndex
@@ -401,8 +454,10 @@ function gameScene.changeLevel(nextLevelIid, enterDirection, player, exitRatio)
 	gameScene.loadDoors()
 	gameScene.loadWalls()
 	gameScene.loadProps()
+	gameScene.loadTriggers()
 	
 	-- Update room info in pause menu
+
 	gameScene.updateRoomInfo()
 	
 	
@@ -652,15 +707,54 @@ function gameScene.draw()
 		drawable.obj:draw(gameScene.debugMode)
 	end
 	
+	-- Draw dialog UI on top of everything
+	if gameScene.player and gameScene.player.dialogUI then
+		gameScene.player.dialogUI:draw()
+	end
+
+	
 	-- Draw all debug visualizations using utilities module
 	utilities.drawDebugInfo(gameScene)
 	
-	-- Draw pause menu overlay
 	gameScene.pauseMenu:draw()
 end
 
+-- Handle trigger interaction
+function gameScene.checkTriggerInteraction()
+	if not gameScene.player or PlayerData.isTalking then return end
+	
+	-- Check what player is overlapping
+	local px, py, pw, ph = gameScene.player:getCollisionRect()
+	local items, len = gameScene.world:queryRect(px, py, pw, ph)
+	
+	for i = 1, len do
+		local item = items[i]
+		if item.isTrigger and item.script then
+			print("🎭 Triggering script: " .. item.script)
+			gameScene.player.dialogUI:addScreen(item.script)
+			return true
+		end
+	end
+	return false
+end
+
 function gameScene.keypressed(key)
+	-- If talking, any 'confirm' key advances dialog
+	if PlayerData.isTalking then
+		if key == "z" or key == "return" or key == "space" then
+			gameScene.player:displayDialog()
+			return
+		end
+	else
+		-- Check for interaction on confirm keys
+		if key == "z" or key == "return" or key == "space" then
+			gameScene.checkTriggerInteraction()
+		end
+	end
+
+
 	-- Let pause menu handle its own input first
+
 	local action = gameScene.pauseMenu:keypressed(key)
 	if action then
 		-- Handle menu actions
@@ -689,8 +783,18 @@ function gameScene.gamepadInput(input)
 		if gameScene.player and gameScene.player.handleGamepadInput then
 			gameScene.player:handleGamepadInput(input)
 		end
+		
+		-- Also check for 'A' button to interact or advance dialog
+		if input.a then
+			if PlayerData.isTalking then
+				gameScene.player:displayDialog()
+			else
+				gameScene.checkTriggerInteraction()
+			end
+		end
 	end
 end
+
 
 -- Handle actions returned by the pause menu
 function gameScene.handleMenuAction(action)

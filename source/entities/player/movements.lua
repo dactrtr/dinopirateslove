@@ -7,7 +7,11 @@ local movements = {}
 function movements.handleInput(player, dt)
 	local dx, dy = 0, 0
 
+	-- Don't allow movement if talking
+	if PlayerData.isTalking then return dx, dy end
+
 	-- Keyboard movement (WASD and arrow keys)
+
 	if love.keyboard.isDown("w") or love.keyboard.isDown("up") then dy = -player.speed * dt end
 	if love.keyboard.isDown("s") or love.keyboard.isDown("down") then dy = player.speed * dt end
 	if love.keyboard.isDown("a") or love.keyboard.isDown("left") then dx = -player.speed * dt end
