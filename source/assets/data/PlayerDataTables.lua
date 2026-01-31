@@ -107,3 +107,5 @@ function ResetPlayerData()
 	print("🔄 PlayerData has been reset to defaults")
 end
 
+return PlayerData
+

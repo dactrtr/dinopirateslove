@@ -1,0 +1,189 @@
+-- entities/player/init.lua
+-- Main Player class using modular components
+local Class = require 'libraries/middleclass'
+
+-- Load player modules
+local playerCollisions = require 'entities.player.collisions'
+local playerMovements = require 'entities.player.movements'
+local playerAnimations = require 'entities.player.animations'
+local DialogScreen = require 'entities.UI.dialog.dialogScreen'
+
+
+local Player = Class('Player')
+
+function Player:initialize(x, y, world)
+	self.x = x
+	self.y = y
+	
+	-- Sprite dimensions (for drawing)
+	self.spriteWidth = 48
+	self.spriteHeight = 48
+	
+	-- Collision box dimensions (can be different from sprite)
+	self.width = 32  -- Smaller collision box
+	self.height = 32
+	
+	-- Collision box offset from sprite position
+	-- Since sprite is now drawn from center, we need to adjust offsets
+	-- Collision box should be centered relative to sprite center
+	self.collisionOffsetX = -(self.width / 2)  -- Center the collision box horizontally
+	self.collisionOffsetY = -(self.height / 2)  -- Center the collision box vertically
+	
+	-- Use speed from PlayerData (convert from Playdate speed to Love2D pixels/second)
+	-- Playdate speed 1.7 ~= 100 pixels/second in Love2D
+	self.speed = (PlayerData.speed or 1.7) * 60 -- Convert to pixels per second
+	
+	-- BUMP physics - use collision dimensions and offset position
+	self.world = world
+	world:add(self, self.x + self.collisionOffsetX, self.y + self.collisionOffsetY, self.width, self.height)
+	
+	-- Load animations
+	self.spritesheet = love.graphics.newImage("assets/player.png")
+	self.animations = playerAnimations.load(self.spritesheet)
+	self.currentAnimation = playerAnimations.getInitialAnimation(self.animations)
+	
+	-- Movement tracking for turn-based enemy AI
+	self.isMoving = false
+	self.hasMoved = false -- Flag to trigger enemy movement
+	
+	-- Initialize dialog system
+	self.dialogUI = DialogScreen()
+end
+
+
+-- Collision methods (delegate to collisions module)
+function Player:getCollisionRect()
+	return playerCollisions.getCollisionRect(self)
+end
+
+function Player:getSpriteRect()
+	return playerCollisions.getSpriteRect(self)
+end
+
+function Player:updateCollisionPosition()
+	playerCollisions.updateCollisionPosition(self)
+end
+
+function Player:collideRect(x, y, w, h, filter)
+	return playerCollisions.collideRect(self, x, y, w, h, filter)
+end
+
+function Player:checkCollisions()
+	return playerCollisions.checkCollisions(self)
+end
+
+function Player:checkCollisionsAt(spriteX, spriteY)
+	return playerCollisions.checkCollisionsAt(self, spriteX, spriteY)
+end
+
+function Player:checkCollisionsInDirection(direction, distance)
+	return playerCollisions.checkCollisionsInDirection(self, direction, distance)
+end
+
+function Player:getObjectsInRadius(radius)
+	return playerCollisions.getObjectsInRadius(self, radius)
+end
+
+-- Update function
+function Player:update(dt)
+	-- Handle input and get movement delta
+	local dx, dy = playerMovements.handleInput(self, dt)
+
+	-- Example usage: Check for collisions before moving
+	if dx ~= 0 or dy ~= 0 then
+		local futureCollisions, collisionCount = self:checkCollisionsAt(self.x + dx, self.y + dy)
+		
+		-- You can add custom logic here based on what you collide with
+		-- For example:
+		-- for i = 1, collisionCount do
+		--     local collision = futureCollisions[i]
+		--     if collision.object.type == "enemy" then
+		--         -- Handle enemy collision
+		--     elseif collision.object.type == "powerup" then
+		--         -- Handle powerup collision
+		--     end
+		-- end
+	end
+	
+	-- Update animation based on movement
+	playerAnimations.updateAnimation(self, dx, dy)
+	
+	-- Define collision filter
+	local function collisionFilter(item, other)
+		if other.isWall then -- Walls (we added isWall = true to walls in gameScene)
+			return 'slide'
+		elseif other.isTrigger or other.isHole or other.isSlime then
+			return 'cross' -- Allow overlap with triggers, holes, and slime
+
+		elseif other.class and other.class.name == "Door" then
+			return 'cross' -- Trigger overlap but don't stop
+		elseif other.class and other.class.name == "Brocorat" then
+			return 'touch'
+		end
+		-- Default
+		return 'slide'
+	end
+
+	
+	-- Move player with collision detection
+	local cols, len = playerMovements.move(self, dx, dy, collisionFilter)
+	
+	-- Handle collisions
+	for i = 1, len do
+		local col = cols[i]
+		local other = col.other
+		
+		-- Check for Door collision
+		if other.class and other.class.name == "Door" then
+			-- Use DoorHandler to handle transition
+			local DoorHandler = require 'DoorHandler'
+			DoorHandler.handleDoorCollision(other, self)
+		end
+	end
+	
+	-- Update movement state for turn-based AI
+	playerMovements.updateMovementState(self, dx, dy)
+
+	-- Update animation
+	self.currentAnimation:update(dt)
+
+	-- Update dialog UI
+	if self.dialogUI then
+		self.dialogUI:update(dt)
+	end
+end
+
+
+-- Draw function
+function Player:draw(debug)
+	-- Draw the sprite at sprite position, using center as origin
+	-- ox, oy parameters set the origin to the center of the sprite
+	self.currentAnimation:draw(
+		self.spritesheet, 
+		self.x, 
+		self.y, 
+		0, -- rotation
+		1, -- scaleX
+		1, -- scaleY
+		self.spriteWidth / 2, -- ox: origin X (center)
+		self.spriteHeight / 2  -- oy: origin Y (center)
+	)
+	
+	-- Draw collision box for debugging (violet color)
+	if debug then
+		love.graphics.setColor(0.58, 0, 0.82, 0.5) -- Violet with transparency
+		love.graphics.rectangle("fill", self.x + self.collisionOffsetX, self.y + self.collisionOffsetY, self.width, self.height)
+		love.graphics.setColor(1, 1, 1, 1) -- Reset color
+	end
+end
+
+
+-- Dialog navigation
+function Player:displayDialog()
+	if self.dialogUI and self.dialogUI.active then
+		self.dialogUI:nextDialog()
+	end
+end
+
+
+return Player

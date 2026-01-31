@@ -53,8 +53,18 @@ end
 
 function sceneManager.setCurrentScene(name)
 	if scenes[name] then
+		-- Handle exit lifecycle for previous scene
+		if currentScene and currentScene.exit then
+			currentScene.exit()
+		end
+
 		currentScene = scenes[name]
 		currentSceneName = name
+
+		-- Handle enter lifecycle
+		if currentScene and currentScene.enter then
+			currentScene.enter()
+		end
 	end
 end
 
@@ -101,8 +111,20 @@ function sceneManager.update(dt)
 			-- Transition complete
 			transition.active = false
 			transition.timer = 0
+			
+			-- Handle exit lifecycle
+			if currentScene and currentScene.exit then
+				currentScene.exit()
+			end
+			
 			currentScene = transition.toScene
 			currentSceneName = transition.toSceneName
+			
+			-- Handle enter lifecycle
+			if currentScene and currentScene.enter then
+				currentScene.enter()
+			end
+			
 			transition.fromScene = nil
 			transition.toScene = nil
 			transition.fromSceneName = ""

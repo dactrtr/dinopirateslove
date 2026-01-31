@@ -1,8 +1,8 @@
 local moonshine = require "libraries/moonshine"
+PlayerData = require 'assets/data/PlayerDataTables'
 local sceneManager = require "sceneManager"
 local titleScene = require "scenes/titleScene"
 local gameScene = require "scenes/gameScene"
-local PlayerData = require 'assets/data/PlayerDataTables'
 local tileMapData = require 'assets/data/tilemap'
 
 -- Initialize Graphics compatibility layer BEFORE script data
@@ -94,14 +94,15 @@ function love.load()
 	-- crt_effect.glow.strength = 1.0
 	-- crt_effect.glow.min_luma = 0.7  -- Fixed: was 1, now only bright colors glow
 	
+	-- Load all scenes first
+	titleScene.load()
+	gameScene.load()
+	
 	-- Initialize scenes
 	sceneManager.init()
 	sceneManager.registerScene("title", titleScene)
 	sceneManager.registerScene("game", gameScene)
 	sceneManager.setCurrentScene("title")
-	
-	titleScene.load()
-	gameScene.load()
 	
 	-- Initialize gamepad support
 	initGamepads()

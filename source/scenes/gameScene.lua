@@ -1,13 +1,14 @@
 local sceneManager = require "sceneManager"
 local Timer = require 'libraries/hump/timer'
 local bump = require 'libraries/bump'
-local Player = require 'entities.Player'
+local Player = require 'entities.player'
 local PropItem = require 'entities.props.propItem'
 local Brocorat = require 'entities.Brocorat'
 local Door = require 'entities.Door'
 local DoorHandler = require 'DoorHandler'
 local utilities = require 'utilities'
 local InteractionHUD = require 'entities.UI.interactionHUD'
+local SaveSystem = require 'SaveSystem'
 
 
 -- Simple require for PauseMenu
@@ -164,6 +165,12 @@ function gameScene.setFloor(levelNumber, roomNumber)
 			gameScene.currentRoom = i
 			gameScene.currentLevelData = levelsLDTK[i]
 			print("✅ Level loaded: " .. levelData.identifier .. " (Level " .. levelNumber .. ", Room " .. roomNumber .. ")")
+			
+			-- Update save data
+			PlayerData.saveLevel = roomNumber
+			-- Auto-save on room entry
+			SaveSystem.save()
+			
 			return
 		end
 	end
@@ -183,8 +190,10 @@ function gameScene.load()
 	-- Initialize HUMP timer
 	gameScene.timer = Timer.new()
 	
-	-- Set initial level (Level 4, Room 2 as example - you can change this)
-	gameScene.setFloor(4, 2)
+	-- Set initial level (Use saved level if exists, otherwise Level 4, Room 2)
+	local startRoom = PlayerData.saveLevel or 2
+	local startLevel = (PlayerData.saveLevel == nil) and 4 or 4 -- Default to Level 4 for now as per original code
+	gameScene.setFloor(startLevel, startRoom)
 	
 	-- Create player
 	gameScene.player = Player(200, 120, gameScene.world)
