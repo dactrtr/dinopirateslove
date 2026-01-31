@@ -185,5 +185,12 @@ function Player:displayDialog()
 	end
 end
 
+function Player:moveTo(x, y)
+	self.x = x
+	self.y = y
+	if self.world:hasItem(self) then
+		self.world:update(self, self.x + self.collisionOffsetX, self.y + self.collisionOffsetY)
+	end
+end
 
 return Player

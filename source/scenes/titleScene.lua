@@ -106,8 +106,11 @@ function titleScene.enter()
 	local currentY = startY
 
 	-- Check for save
-	local saveExists = love.filesystem.getInfo("gameState.lua") ~= nil
-	print("🔍 Checking save: " .. tostring(saveExists))
+	local filename = "gameState.lua"
+	local info = love.filesystem.getInfo(filename)
+	local saveExists = info ~= nil
+	print("🔍 SaveSystem: Checking '" .. filename .. "' at " .. love.filesystem.getSaveDirectory())
+	print("🔍 SaveSystem: info=" .. (info and "TABLE" or "NIL") .. ", saveExists=" .. tostring(saveExists))
 	
 	if saveExists then
 		print("💾 Adding Continue and Delete options")

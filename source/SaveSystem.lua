@@ -1,7 +1,7 @@
 -- source/SaveSystem.lua
 -- Ported from Playdate to Love2D
 local SaveSystem = {}
-local PlayerData = require 'assets/data/PlayerDataTables'
+-- PlayerData is global
 
 -- Helper function for deep copying tables (already in PlayerDataTables, but re-defined here for autonomy if needed)
 local function deepcopy(orig)
@@ -172,6 +172,11 @@ end
 -- Save logic for Love2D
 -------------------------------------------------------------
 function SaveSystem.save()
+    if not PlayerData then
+        print("❌ SaveSystem: PlayerData is nil, cannot save!")
+        return false
+    end
+
     local saveData = {
         player = PlayerData,
         levelState = SaveSystem.getLevelState(),
@@ -179,22 +184,15 @@ function SaveSystem.save()
         version = "2.0-LDTK"
     }
 
-    -- Use love.filesystem to save (Love2D handles serialized tables or JSON)
-    -- Here we'll use a simple table-to-string serialization if no JSON lib is present,
-    -- but Love2D's best practice is JSON or a library like 'serialize.lua'.
-    -- To keep it simple and robust, let's use a basic JSON-like string if we can,
-    -- or just save the table content.
-    
-    -- For now, let's assume we'll use love.filesystem.write with a serialized string
     local content = "return " .. SaveSystem.serializeTable(saveData)
     local filename = "gameState.lua"
     
     local success, message = love.filesystem.write(filename, content)
     if success then
-        print("💾 Game saved successfully to " .. filename)
+        print("💾 SaveSystem: Game saved successfully to " .. love.filesystem.getSaveDirectory() .. "/" .. filename)
         return true
     else
-        print("❌ Failed to save game: " .. tostring(message))
+        print("❌ SaveSystem: Failed to save game: " .. tostring(message))
         return false
     end
 end
@@ -205,25 +203,35 @@ end
 function SaveSystem.load()
     local filename = "gameState.lua"
     if not love.filesystem.getInfo(filename) then
-        print(" Telescope No save file found")
+        print("🔭 SaveSystem: No save file found at " .. filename)
         return false, nil
     end
 
     -- Load via chunk (since we saved as 'return { ... }')
     local chunk, err = love.filesystem.load(filename)
     if not chunk then
-        print("❌ Error loading save file: " .. tostring(err))
+        print("❌ SaveSystem: Error loading save file: " .. tostring(err))
         return false, nil
     end
 
     local saveData = chunk()
     if saveData and saveData.version == "2.0-LDTK" then
-        PlayerData = saveData.player
+        -- Update global PlayerData fields instead of replacing the reference
+        -- This ensures other modules holding the reference stay in sync
+        if not PlayerData then
+            PlayerData = saveData.player
+        else
+            for k, v in pairs(saveData.player) do
+                PlayerData[k] = v
+            end
+        end
+        
         SaveSystem.restoreLevelState(saveData.levelState)
-        return true, saveData.player.saveLevel
+        print("📖 SaveSystem: Game loaded successfully")
+        return true, PlayerData.saveLevel
     end
 
-    print("⚠️ Old save format detected or corrupted save")
+    print("⚠️ SaveSystem: Old save format detected or corrupted save")
     return false, nil
 end
 
@@ -233,11 +241,17 @@ end
 function SaveSystem.reset()
     if ResetPlayerData then
         ResetPlayerData()
+    else
+        print("⚠️ SaveSystem: ResetPlayerData function not found!")
     end
+    
     if levelsLDTKOriginal then
+        -- We must update the GLOBAL levelsLDTK
         levelsLDTK = deepcopy(levelsLDTKOriginal)
+    else
+        print("⚠️ SaveSystem: Original levels backup not found!")
     end
-    print("🔄 Game state reset")
+    print("🔄 SaveSystem: Game state reset")
 end
 
 -------------------------------------------------------------

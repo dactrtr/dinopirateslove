@@ -107,6 +107,51 @@ local function getTriggerScript(trigger)
 	return trigger.script
 end
 
+function gameScene.clearCurrentRoom()
+	print("🧹 Clearing current room entities...")
+	
+	-- Clear enemies
+	for _, enemy in ipairs(gameScene.enemies or {}) do
+		if gameScene.world and gameScene.world:hasItem(enemy) then
+			gameScene.world:remove(enemy)
+		end
+	end
+	gameScene.enemies = {}
+	
+	-- Clear doors
+	for _, door in ipairs(gameScene.doors or {}) do
+		if gameScene.world and gameScene.world:hasItem(door) then
+			gameScene.world:remove(door)
+		end
+	end
+	gameScene.doors = {}
+	
+	-- Clear walls
+	for _, wall in ipairs(gameScene.walls or {}) do
+		if gameScene.world and gameScene.world:hasItem(wall) then
+			gameScene.world:remove(wall)
+		end
+	end
+	gameScene.walls = {}
+	
+	-- Clear props
+	for _, prop in ipairs(gameScene.props or {}) do
+		if gameScene.world and gameScene.world:hasItem(prop) then
+			gameScene.world:remove(prop)
+		end
+		if prop.remove then prop:remove() end
+	end
+	gameScene.props = {}
+
+	-- Clear triggers
+	for _, trigger in ipairs(gameScene.triggers or {}) do
+		if gameScene.world and gameScene.world:hasItem(trigger) then
+			gameScene.world:remove(trigger)
+		end
+	end
+	gameScene.triggers = {}
+end
+
 function gameScene.removeTrigger(trigger)
 	for i, t in ipairs(gameScene.triggers) do
 		if t == trigger then
@@ -121,6 +166,9 @@ end
 
 local function handleTriggerActivation(trigger, script)
 	if not script then return end
+	
+	-- Prevent double activation if already used in this interaction
+	if trigger.isCurrentlyActive then return end
 	
 	local isOneTime = false
 	local cleanScript = script
@@ -137,13 +185,15 @@ local function handleTriggerActivation(trigger, script)
 		end
 	end
 	
+	-- Mark as active to prevent loop
+	trigger.isCurrentlyActive = true
+	
 	if trigger.type == "Counter" then
 		PlayerData.storyCounter = (PlayerData.storyCounter or 0) + 1
 		isOneTime = true
 		print("📈 Story Counter incremented: " .. PlayerData.storyCounter)
 	elseif trigger.type == "Cutscene" then
 		PlayerData.isCutscene = true
-		-- TODO: Trigger actual cutscene / comic
 		print("🎬 Triggering cutscene: " .. cleanScript)
 	else
 		-- Default: Dialog
@@ -168,8 +218,20 @@ function gameScene.setFloor(levelNumber, roomNumber)
 			
 			-- Update save data
 			PlayerData.saveLevel = roomNumber
+			PlayerData.actualRoom = roomNumber
+			PlayerData.actualLevel = levelNumber
+			
+			if gameScene.player then
+				PlayerData.x = gameScene.player.x
+				PlayerData.y = gameScene.player.y
+			end
+
 			-- Auto-save on room entry
+			print("💾 gameScene: Saving state for Level " .. levelNumber .. ", Room " .. roomNumber)
 			SaveSystem.save()
+			
+			-- Trigger full visual/entity reload
+			gameScene.reloadCurrentRoom()
 			
 			return
 		end
@@ -190,12 +252,7 @@ function gameScene.load()
 	-- Initialize HUMP timer
 	gameScene.timer = Timer.new()
 	
-	-- Set initial level (Use saved level if exists, otherwise Level 4, Room 2)
-	local startRoom = PlayerData.saveLevel or 2
-	local startLevel = (PlayerData.saveLevel == nil) and 4 or 4 -- Default to Level 4 for now as per original code
-	gameScene.setFloor(startLevel, startRoom)
-	
-	-- Create player
+	-- Create player (always same world reference)
 	gameScene.player = Player(200, 120, gameScene.world)
 	
 	-- Initialize DoorHandler with gameScene reference
@@ -208,6 +265,39 @@ function gameScene.load()
 		{text = "Return to Title", action = "title"},
 		{text = "Quit Game", action = "quit"}
 	})
+	
+	-- Load interaction HUD icons
+	gameScene.interactionHUD = InteractionHUD()
+end
+
+function gameScene.enter()
+	-- Set PlayerData gaming status
+	PlayerData.isGaming = true
+
+	-- Set initial level (Use saved level if exists, otherwise Level 4, Room 2)
+	local startRoom = PlayerData.saveLevel or 2
+	local startLevel = PlayerData.actualLevel or 4
+	
+	-- Restore player position before loading floor to avoid triggering doors immediately if spawned on one
+	if PlayerData.x and PlayerData.y then
+		gameScene.player:moveTo(PlayerData.x, PlayerData.y)
+	else
+		gameScene.player:moveTo(200, 120)
+	end
+
+	gameScene.setFloor(startLevel, startRoom)
+	
+	-- Full reload of current floor state
+	gameScene.reloadCurrentRoom()
+	
+	print("🏠 gameScene: Entered with Room " .. tostring(startRoom))
+end
+
+function gameScene.reloadCurrentRoom()
+	-- Helper to perform a full reload of the current room
+	
+	-- First, clear everything to avoid leaks
+	gameScene.clearCurrentRoom()
 	
 	-- Mark: floor - Load tile spritesheet and create floor
 	gameScene.loadFloor()
@@ -227,13 +317,7 @@ function gameScene.load()
 	-- Mark: triggers - Create triggers from level data
 	gameScene.loadTriggers()
 	
-	-- Load interaction HUD icons
-	gameScene.interactionHUD = InteractionHUD()
-	
 	-- Update room info in pause menu
-
-
-
 	gameScene.updateRoomInfo()
 end
 
@@ -278,6 +362,7 @@ function gameScene.loadEnemies()
 			if not dead then
 				print("🥦 Creating Brocorat at (" .. x .. ", " .. y .. ")")
 				local brocorat = Brocorat(x, y, nil, speed, gameScene.player, id, gameScene.world)
+				brocorat.sourceData = enemy -- Link to levelsLDTK entry
 				table.insert(gameScene.enemies, brocorat)
 			else
 				print("💀 Brocorat at (" .. x .. ", " .. y .. ") is dead, skipping")
@@ -449,6 +534,7 @@ function gameScene.loadProps()
 				
 				-- Create the prop first to get adjusted positions
 				local prop = PropItem(x, y, type, nil, nocollide, isDestroyed, id, gameScene.world)
+				prop.sourceData = entity -- Link to levelsLDTK entry
 				
 				-- Calculate zIndex based on bottom of sprite (after position adjustment)
 				-- This ensures consistent depth sorting that doesn't change
@@ -522,65 +608,24 @@ function gameScene.changeLevel(nextLevelIid, enterDirection, player, exitRatio)
 		return
 	end
 	
-	-- Clear current level entities from world and memory
-	
-	-- Clear enemies
-	for _, enemy in ipairs(gameScene.enemies) do
-		if gameScene.world and enemy.x then 
-			if gameScene.world:hasItem(enemy) then
-				gameScene.world:remove(enemy)
-			end
-		end
-	end
-	gameScene.enemies = {}
-	
-	-- Clear doors
-	for _, door in ipairs(gameScene.doors) do
-		if gameScene.world and gameScene.world:hasItem(door) then
-			gameScene.world:remove(door)
-		end
-	end
-	gameScene.doors = {}
-	
-	-- Clear walls
-	for _, wall in ipairs(gameScene.walls) do
-		if gameScene.world and gameScene.world:hasItem(wall) then
-			gameScene.world:remove(wall)
-		end
-	end
-	gameScene.walls = {}
-	
-	-- Clear props
-	for _, prop in ipairs(gameScene.props) do
-		if gameScene.world and gameScene.world:hasItem(prop) then
-			gameScene.world:remove(prop)
-		end
-		if prop.remove then prop:remove() end
-	end
-	gameScene.props = {}
-
-	-- Clear triggers from BUMP world
-	for _, trigger in ipairs(gameScene.triggers) do
-		if gameScene.world and gameScene.world:hasItem(trigger) then
-			gameScene.world:remove(trigger)
-		end
-	end
-	gameScene.triggers = {}
-
-	
-	-- Set new level
+	-- Update state
 	gameScene.currentRoom = nextRoomIndex
 	gameScene.currentLevelData = levelsLDTK[nextRoomIndex]
 	
+	-- Save progress
+	PlayerData.saveLevel = gameScene.currentLevelData.customFields.roomNumber
+	PlayerData.actualRoom = PlayerData.saveLevel
+	PlayerData.actualLevel = gameScene.currentLevelData.customFields.level
+	if gameScene.player then
+		PlayerData.x = gameScene.player.x
+		PlayerData.y = gameScene.player.y
+	end
+	SaveSystem.save()
+	
 	print("✅ Switched to: " .. gameScene.currentLevelData.identifier)
 	
-	-- Reload level components
-	gameScene.loadFloor()
-	gameScene.loadEnemies()
-	gameScene.loadDoors()
-	gameScene.loadWalls()
-	gameScene.loadProps()
-	gameScene.loadTriggers()
+	-- Reload level components (this also clears old ones)
+	gameScene.reloadCurrentRoom()
 	
 	-- Update room info in pause menu
 
@@ -894,18 +939,32 @@ function gameScene.checkAutomaticTriggers()
 	local px, py, pw, ph = gameScene.player:getCollisionRect()
 	local items, len = gameScene.world:queryRect(px, py, pw, ph)
 	
+	-- Track which triggers are currently overlapping
+	local overlappingTriggers = {}
+	
 	for i = 1, len do
 		local item = items[i]
 		if item.isTrigger then
+			overlappingTriggers[item] = true
+			
 			-- Automatic types
 			if item.type == "Story" or item.type == "Cutscene" or item.type == "Counter" then
-				local script = getTriggerScript(item)
-				if script then
-					print("🎭 Automatically triggering: " .. script .. " (Type: " .. tostring(item.type) .. ")")
-					handleTriggerActivation(item, script)
-					return -- Activate only one per frame
+				if not item.isCurrentlyActive then
+					local script = getTriggerScript(item)
+					if script then
+						print("🎭 Automatically triggering: " .. script .. " (Type: " .. tostring(item.type) .. ")")
+						handleTriggerActivation(item, script)
+						return -- Activate only one per frame
+					end
 				end
 			end
+		end
+	end
+	
+	-- Reset 'isCurrentlyActive' for triggers the player is NO LONGER overlapping
+	for _, trigger in ipairs(gameScene.triggers) do
+		if not overlappingTriggers[trigger] then
+			trigger.isCurrentlyActive = false
 		end
 	end
 end

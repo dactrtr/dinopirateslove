@@ -159,6 +159,9 @@ end
 
 function PropItem:destroyProp()
     self.isDestroyed = true
+    if self.sourceData and self.sourceData.customFields then
+        self.sourceData.customFields.destroyed = true
+    end
     if self.world and self.world:hasItem(self) then
         self.world:remove(self)
     end

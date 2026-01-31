@@ -36,13 +36,18 @@ function DialogScreen:initialize()
 end
 
 function DialogScreen:addScreen(scriptName)
-    if not script then
+    if not _G.script then
         print("⚠️ Error: Global 'script' table not found.")
         return
     end
     
+    -- Don't restart if already playing this script
+    if self.active and self.currentScript and self.currentScript.name == scriptName then
+        return
+    end
+    
     local targetScript = nil
-    for _, s in ipairs(script) do 
+    for _, s in ipairs(_G.script) do 
         if s.name == scriptName then
             targetScript = s
             break
