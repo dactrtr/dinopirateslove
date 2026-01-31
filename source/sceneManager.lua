@@ -36,7 +36,7 @@ end
 
 function sceneManager.loadTransitionAnimations()
 	-- Load transitionFall
-	local fallSheet = love.graphics.newImage('assets/images/screens/transitions/transitionFall-table-400-240.png')
+	local fallSheet = love.graphics.newImage('assets/images/screens/transitions/transitionFallEnter-table-400-240.png')
 	local fallGrid = anim8.newGrid(400, 240, fallSheet:getWidth(), fallSheet:getHeight())
 	
 	transitionAnimations.transitionFall = {
