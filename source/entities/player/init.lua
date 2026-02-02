@@ -20,14 +20,14 @@ function Player:initialize(x, y, world)
 	self.spriteHeight = 48
 	
 	-- Collision box dimensions (can be different from sprite)
-	self.width = 32  -- Smaller collision box
-	self.height = 32
+	self.width = 30  -- Smaller collision box
+	self.height = 24
 	
 	-- Collision box offset from sprite position
 	-- Since sprite is now drawn from center, we need to adjust offsets
-	-- Collision box should be centered relative to sprite center
+	-- Collision box should be positioned lower, closer to the feet
 	self.collisionOffsetX = -(self.width / 2)  -- Center the collision box horizontally
-	self.collisionOffsetY = -(self.height / 2)  -- Center the collision box vertically
+	self.collisionOffsetY = 2                 -- Shifting down towards the feet
 	
 	-- Use speed from PlayerData (convert from Playdate speed to Love2D pixels/second)
 	-- Playdate speed 1.7 ~= 100 pixels/second in Love2D

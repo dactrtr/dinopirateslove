@@ -61,7 +61,7 @@ function InteractionHUD:draw(x, y)
     
     if self.currentAnimation then
         -- Draw centered horizontally above the given x, y
-        self.currentAnimation:draw(self.image, x - 11, y - 40)
+        self.currentAnimation:draw(self.image, x + 24, y - 40)
     end
 end
 

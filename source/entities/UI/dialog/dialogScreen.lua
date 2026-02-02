@@ -24,14 +24,14 @@ function DialogScreen:initialize()
     self.boxY = 138
     
     -- text position: moveTo(16, 165)
-    self.textX = 135 -- Shifted right to make room for video
-    self.textY = 155
+    self.textX = 16 -- Shifted right to make room for video
+    self.textY = 160
     self.textWidth = 240
     
     -- video position: 
     -- User code says self:add(x,y) with 400,240? 
     -- Likely NobleSprite centering logic. We'll place it in the box.
-    self.videoX = 8
+    self.videoX = 280
     self.videoY = 142
 end
 
