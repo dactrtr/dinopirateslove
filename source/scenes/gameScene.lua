@@ -655,7 +655,7 @@ function gameScene.changeLevel(nextLevelIid, enterDirection, player, exitRatio)
 		if entranceDoor then
 			-- Spawn player centered relative to the door width/height based on exitRatio
 			local spawnX, spawnY
-			local offset = 20 -- Offset away from the wall to prevent immediate re-trigger
+			local offset = 32 -- Offset away from the wall to prevent immediate re-trigger
 			
 			if targetDir == "top" then
 				spawnX = entranceDoor.x + exitRatio * entranceDoor.width

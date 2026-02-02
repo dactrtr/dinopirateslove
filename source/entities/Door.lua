@@ -72,18 +72,25 @@ function Door:goTo()
 	print("🚪 Door transition to level: " .. tostring(self.nextLevelIid))
 end
 
-function Door:prevRoom(direction)
+function Door:prevRoom(direction, playerX, playerY)
 	-- Set spawn coordinates for the player when entering from this direction
+	-- We increase the offsets to prevent immediate collision with the door
+	PlayerData.lastRoom = direction
+	
 	local spawnCoordinates = {
-		top = {x = 196, y = 196},
-		down = {x = 196, y = 32},
-		right = {x = 32, y = 116},
-		left = {x = 364, y = 116}
+		top = {x = playerX or 200, y = 185},    -- Entering FROM top (appear near bottom)
+		down = {x = playerX or 200, y = 55},    -- Entering FROM bottom (appear near top)
+		right = {x = 55, y = playerY or 120},   -- Entering FROM right (appear near left)
+		left = {x = 345, y = playerY or 120}    -- Entering FROM left (appear near right)
 	}
 	
-	-- Store spawn position (will be used by gameScene)
-	self.spawnX = spawnCoordinates[direction].x
-	self.spawnY = spawnCoordinates[direction].y
+	-- Store in PlayerData (Global state)
+	PlayerData.playerSpawn.x = spawnCoordinates[direction].x
+	PlayerData.playerSpawn.y = spawnCoordinates[direction].y
+	
+	-- Store in self (Local reference)
+	self.spawnX = PlayerData.playerSpawn.x
+	self.spawnY = PlayerData.playerSpawn.y
 	
 	print("📍 Setting spawn for direction " .. direction .. ": (" .. self.spawnX .. ", " .. self.spawnY .. ")")
 end

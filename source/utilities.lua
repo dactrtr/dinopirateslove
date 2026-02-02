@@ -7,10 +7,10 @@ local utilities = {}
 -- Single source of truth for player spawn coordinates
 -- These coordinates represent the CENTER of the player sprite
 utilities.spawnCoordinates = {
-	top = {x = 196, y = 200},
-	down = {x = 196, y = 16},
-	right = {x = 32+16, y = 116},
-	left = {x = 364-16, y = 116}
+	top = {x = 200, y = 185},    -- Entering FROM top (appear near bottom)
+	down = {x = 200, y = 55},    -- Entering FROM bottom (appear near top)
+	right = {x = 55, y = 120},   -- Entering FROM right (appear near left)
+	left = {x = 345, y = 120}    -- Entering FROM left (appear near right)
 }
 
 -- MARK: Debug Drawing Functions
