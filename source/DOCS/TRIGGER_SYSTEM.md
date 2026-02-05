@@ -11,10 +11,7 @@ Add the following **Custom Fields** to your `Triggers` entity in LDtk:
 *   **Identifier**: `type`
     *   **Type**: `String` (Options: `Story`, `Cutscene`, `Search`, `Call`, `Counter`)
 *   **Identifier**: `script`
-
     *   **Type**: `String` (Used as a fallback or for simple triggers)
-*   **Identifier**: `usedTrigger`
-    *   **Type**: `Boolean` (Default: `false`. System-managed field to track if a one-time trigger has been consumed)
 
 ## 2. Trigger Types and Behaviors
 

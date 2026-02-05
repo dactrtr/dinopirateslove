@@ -229,6 +229,7 @@ function gameScene.setFloor(levelNumber, roomNumber)
 	for i, levelData in ipairs(levelsLDTK) do
 		if levelData.customFields.level == levelNumber and levelData.customFields.roomNumber == roomNumber then
 			gameScene.currentRoom = i
+			PlayerData.floor = i  -- Sync for collisions.lua
 			gameScene.currentLevelData = levelsLDTK[i]
 			print("✅ Level loaded: " .. levelData.identifier .. " (Level " .. levelNumber .. ", Room " .. roomNumber .. ")")
 			
@@ -635,6 +636,7 @@ function gameScene.performChangeLevel(nextLevelIid, enterDirection, player, exit
 	
 	-- Update state
 	gameScene.currentRoom = nextRoomIndex
+	PlayerData.floor = nextRoomIndex  -- Sync for collisions.lua
 	gameScene.currentLevelData = levelsLDTK[nextRoomIndex]
 	
 	-- Save progress

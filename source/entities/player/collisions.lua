@@ -291,66 +291,131 @@ function collisions.response(player, other)
 	return 'slide'
 end
 
--- Helper transition methods
-local function findAdjacentLevelRoom(levelOffset)
-	local targetLevel = PlayerData.actualLevel + levelOffset
-	local currentRoomNumber = PlayerData.actualRoom
-	
-	print("🔍 findAdjacentLevelRoom: searching for Level " .. tostring(targetLevel) .. ", Room " .. tostring(currentRoomNumber))
+-- Helper functions for vertical navigation using neighbourLevels
 
-	if not levelsLDTK then 
-		print("⚠️ Warning: levelsLDTK is nil in collisions.lua!")
-		return nil 
+-- Check if vertical movement is allowed based on DoorsConnection permissions
+local function canMoveVertically(currentRoom, direction)
+	if not currentRoom or not currentRoom.customFields then
+		return false
 	end
 	
-	for i, levelData in ipairs(levelsLDTK) do
-		local cf = levelData.customFields or {}
-		if cf.level == targetLevel and cf.roomNumber == currentRoomNumber then
-			print("✅ Found adjacent room: " .. tostring(levelData.identifier))
-			return levelData.uniqueIdentifer
+	local doorsConnection = currentRoom.customFields.DoorsConnection or {}
+	
+	-- Map direction symbols to permission strings
+	local directionMap = {
+		["<"] = "lower",  -- Fall downwards
+		[">"] = "upper"   -- Climb upwards
+	}
+	
+	local requiredPermission = directionMap[direction]
+	if not requiredPermission then
+		return false
+	end
+	
+	-- Check if permission exists in DoorsConnection array
+	for _, allowed in ipairs(doorsConnection) do
+		if allowed:lower() == requiredPermission then
+			return true
 		end
 	end
-	print("❌ No adjacent room found for Level " .. tostring(targetLevel) .. ", Room " .. tostring(currentRoomNumber))
+	
+	return false
+end
+
+-- Find a neighbor room by direction in the neighbourLevels array
+local function findNeighborByDirection(currentRoom, direction)
+	if not currentRoom or not currentRoom.neighbourLevels then
+		return nil
+	end
+	
+	for _, neighbor in ipairs(currentRoom.neighbourLevels) do
+		if neighbor.dir == direction then
+			return neighbor
+		end
+	end
+	
 	return nil
 end
 
 function collisions.fallBelow(player)
-	-- Try Offset -1 first (assuming 4 is above 3)
-	local nextLevelIid = findAdjacentLevelRoom(-1)
-	if not nextLevelIid then
-		-- Fallback to Offset 1 just in case
-		nextLevelIid = findAdjacentLevelRoom(1)
+	if not levelsLDTK then
+		print("❌ Player:fallBelow() failed: levelsLDTK is nil!")
+		return
 	end
-
-	if nextLevelIid then
-		print("🕳️ Player:fallBelow() -> " .. nextLevelIid)
-		local sceneManager = require 'sceneManager'
-		local gameScene = sceneManager.getScene("game")
-		if gameScene then
-			gameScene.changeLevel(nextLevelIid, "down", player, 0.5)
-		end
-	else
-		print("❌ Player:fallBelow() failed: No adjacent floor found for Room " .. tostring(PlayerData.actualRoom))
+	
+	-- Get current room data using PlayerData.floor index
+	local currentRoomIndex = PlayerData.floor
+	if not currentRoomIndex or not levelsLDTK[currentRoomIndex] then
+		print("❌ Player:fallBelow() failed: Invalid room index " .. tostring(currentRoomIndex))
+		return
+	end
+	
+	local currentRoom = levelsLDTK[currentRoomIndex]
+	
+	-- 1. Check permission: Does this room allow falling to lower floor?
+	if not canMoveVertically(currentRoom, "<") then
+		print("❌ Player:fallBelow() failed: Room " .. currentRoom.identifier .. " doesn't have 'Lower' permission")
+		return
+	end
+	
+	-- 2. Find the lower neighbor using direction "<"
+	local lowerNeighbor = findNeighborByDirection(currentRoom, "<")
+	if not lowerNeighbor then
+		print("❌ Player:fallBelow() failed: No lower neighbor found in neighbourLevels for " .. currentRoom.identifier)
+		return
+	end
+	
+	-- 3. Get the levelIid of the lower room
+	local nextLevelIid = lowerNeighbor.levelIid
+	
+	print("🕳️ Player:fallBelow() -> " .. nextLevelIid .. " from " .. currentRoom.identifier)
+	
+	-- 4. Trigger level transition
+	local sceneManager = require 'sceneManager'
+	local gameScene = sceneManager.getScene("game")
+	if gameScene then
+		gameScene.changeLevel(nextLevelIid, "down", player, 0.5)
 	end
 end
 
 function collisions.riseAbove(player)
-	-- Try Offset 1 (assuming 3 is below 4)
-	local nextLevelIid = findAdjacentLevelRoom(1)
-	if not nextLevelIid then
-		-- Fallback to Offset -1
-		nextLevelIid = findAdjacentLevelRoom(-1)
+	if not levelsLDTK then
+		print("❌ Player:riseAbove() failed: levelsLDTK is nil!")
+		return
 	end
-
-	if nextLevelIid then
-		print("🚀 Player:riseAbove() -> " .. nextLevelIid)
-		local sceneManager = require 'sceneManager'
-		local gameScene = sceneManager.getScene("game")
-		if gameScene then
-			gameScene.changeLevel(nextLevelIid, "top", player, 0.5)
-		end
-	else
-		print("❌ Player:riseAbove() failed: No adjacent floor found for Room " .. tostring(PlayerData.actualRoom))
+	
+	-- Get current room data using PlayerData.floor index
+	local currentRoomIndex = PlayerData.floor
+	if not currentRoomIndex or not levelsLDTK[currentRoomIndex] then
+		print("❌ Player:riseAbove() failed: Invalid room index " .. tostring(currentRoomIndex))
+		return
+	end
+	
+	local currentRoom = levelsLDTK[currentRoomIndex]
+	
+	-- 1. Check permission: Does this room allow climbing to upper floor?
+	if not canMoveVertically(currentRoom, ">") then
+		print("❌ Player:riseAbove() failed: Room " .. currentRoom.identifier .. " doesn't have 'Upper' permission")
+		return
+	end
+	
+	-- 2. Find the upper neighbor using direction ">"
+	local upperNeighbor = findNeighborByDirection(currentRoom, ">")
+	if not upperNeighbor then
+		print("❌ Player:riseAbove() failed: No upper neighbor found in neighbourLevels for " .. currentRoom.identifier)
+		return
+	end
+	
+	-- 3. Get the levelIid of the upper room
+	local nextLevelIid = upperNeighbor.levelIid
+	
+	print("🚀 Player:riseAbove() -> " .. nextLevelIid .. " from " .. currentRoom.identifier)
+	
+	-- 4. Trigger level transition
+	local sceneManager = require 'sceneManager'
+	local gameScene = sceneManager.getScene("game")
+	if gameScene then
+		gameScene.changeLevel(nextLevelIid, "top", player, 0.5)
 	end
 end
 
