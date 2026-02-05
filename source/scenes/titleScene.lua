@@ -173,6 +173,20 @@ function titleScene.enter()
 	})
 	currentY = currentY + spacing
 
+	-- SETTINGS
+	table.insert(titleScene.menuItems, {
+		name = "Settings",
+		x = startX, y = currentY,
+		defaultAnim = titleScene.menuAnimations.defAchievements,
+		selectedAnim = titleScene.menuAnimations.selAchievements,
+		bgState = "achievements",
+		action = function()
+			titleScene.inSettings = true
+			titleScene.settingsOption = 1
+		end
+	})
+	currentY = currentY + spacing
+
 	-- PLAYGROUND (Debug)
 	if DEBUG_MODE or true then -- Showing for now
 		table.insert(titleScene.menuItems, {
@@ -214,38 +228,101 @@ function titleScene.draw()
 		titleScene.background.animation:draw(titleScene.background.image, 0, 0)
 	end
 
-	-- Draw menu items
-	if #titleScene.menuItems == 0 then
-		love.graphics.print("ERROR: No menu items found", 20, 20)
-	end
-
-	for i, item in ipairs(titleScene.menuItems) do
-		local anim = (i == titleScene.currentOption) and item.selectedAnim or item.defaultAnim
-		if anim then
-			-- Draw sprite at position (adjusting for center if needed, assuming 180x56)
-			anim:draw(titleScene.menuImage, item.x, item.y)
+	if titleScene.inSettings then
+		-- Draw Settings Menu
+		love.graphics.setColor(0, 0, 0, 0.8)
+		love.graphics.rectangle("fill", 50, 40, 300, 160)
+		love.graphics.setColor(1, 1, 1)
+		love.graphics.rectangle("line", 50, 40, 300, 160)
+		
+		love.graphics.printf("SETTINGS", 0, 50, VIRTUAL_WIDTH, "center")
+		
+		local startY = 80
+		for i, option in ipairs(titleScene.settingsOptions) do
+			local y = startY + (i-1) * 25
+			
+			if i == titleScene.settingsOption then
+				love.graphics.setColor(1, 1, 0)
+				love.graphics.print("> " .. option.name, 70, y)
+			else
+				love.graphics.setColor(1, 1, 1)
+				love.graphics.print("  " .. option.name, 70, y)
+			end
+			
+			-- Draw Value
+			if option.type == "toggle" then
+				local val = _G[option.setting]
+				local text = val and "ON" or "OFF"
+				love.graphics.print(text, 250, y)
+			elseif option.type == "slider" then
+				local val = moonshinSettings[option.setting[1]][option.setting[2]]
+				love.graphics.print(string.format("%.0f%%", val * 100), 250, y)
+			end
 		end
-	end
+	else
+		-- Draw menu items
+		if #titleScene.menuItems == 0 then
+			love.graphics.print("ERROR: No menu items found", 20, 20)
+		end
 
-	-- Draw version number
-	love.graphics.setColor(0.5, 0.5, 0.5)
-	love.graphics.printf(titleScene.version, 0, VIRTUAL_HEIGHT - 20, VIRTUAL_WIDTH - 10, "right")
-	love.graphics.setColor(1, 1, 1)
+		for i, item in ipairs(titleScene.menuItems) do
+			local anim = (i == titleScene.currentOption) and item.selectedAnim or item.defaultAnim
+			if anim then
+				-- Draw sprite at position
+				anim:draw(titleScene.menuImage, item.x, item.y)
+			end
+		end
+		
+		-- Draw version number
+		love.graphics.setColor(0.5, 0.5, 0.5)
+		love.graphics.printf(titleScene.version, 0, VIRTUAL_HEIGHT - 20, VIRTUAL_WIDTH - 10, "right")
+		love.graphics.setColor(1, 1, 1)
+	end
 end
 
 function titleScene.keypressed(key)
-	if key == "up" then
-		titleScene.currentOption = titleScene.currentOption - 1
-		if titleScene.currentOption < 1 then titleScene.currentOption = #titleScene.menuItems end
-		titleScene.updateSelection()
-	elseif key == "down" then
-		titleScene.currentOption = titleScene.currentOption + 1
-		if titleScene.currentOption > #titleScene.menuItems then titleScene.currentOption = 1 end
-		titleScene.updateSelection()
-	elseif key == "return" or key == "kpenter" or key == "z" or key == "a" then
-		local item = titleScene.menuItems[titleScene.currentOption]
-		if item and item.action then
-			item.action()
+	if titleScene.inSettings then
+		if key == "up" then
+			titleScene.settingsOption = titleScene.settingsOption - 1
+			if titleScene.settingsOption < 1 then titleScene.settingsOption = #titleScene.settingsOptions end
+		elseif key == "down" then
+			titleScene.settingsOption = titleScene.settingsOption + 1
+			if titleScene.settingsOption > #titleScene.settingsOptions then titleScene.settingsOption = 1 end
+		elseif key == "left" or key == "right" then
+			local option = titleScene.settingsOptions[titleScene.settingsOption]
+			if option.type == "slider" then
+				local current = moonshinSettings[option.setting[1]][option.setting[2]]
+				local change = (key == "right" and 1 or -1) * option.step
+				current = current + change
+				if current > option.max then current = option.max end
+				if current < option.min then current = option.min end
+				moonshinSettings[option.setting[1]][option.setting[2]] = current
+				applyCRTSettings()
+			end
+		elseif key == "return" or key == "kpenter" or key == "z" or key == "a" then
+			local option = titleScene.settingsOptions[titleScene.settingsOption]
+			if option.type == "action" and option.name == "Back" then
+				titleScene.inSettings = false
+			elseif option.type == "toggle" then
+				_G[option.setting] = not _G[option.setting]
+			end
+		elseif key == "escape" or key == "x" or key == "b" then
+			titleScene.inSettings = false
+		end
+	else
+		if key == "up" then
+			titleScene.currentOption = titleScene.currentOption - 1
+			if titleScene.currentOption < 1 then titleScene.currentOption = #titleScene.menuItems end
+			titleScene.updateSelection()
+		elseif key == "down" then
+			titleScene.currentOption = titleScene.currentOption + 1
+			if titleScene.currentOption > #titleScene.menuItems then titleScene.currentOption = 1 end
+			titleScene.updateSelection()
+		elseif key == "return" or key == "kpenter" or key == "z" or key == "a" then
+			local item = titleScene.menuItems[titleScene.currentOption]
+			if item and item.action then
+				item.action()
+			end
 		end
 	end
 end
