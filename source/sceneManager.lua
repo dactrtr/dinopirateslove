@@ -68,6 +68,10 @@ function sceneManager.setCurrentScene(name)
 	end
 end
 
+function sceneManager.getScene(name)
+	return scenes[name]
+end
+
 function sceneManager.startTransition(fromSceneName, toSceneName, transitionType, animationName)
 	if not scenes[toSceneName] then
 		print("Warning: Scene '" .. toSceneName .. "' not found!")

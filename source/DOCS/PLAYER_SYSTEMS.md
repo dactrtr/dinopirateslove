@@ -73,3 +73,70 @@ Items and skills can be granted either by picking up a fixed item type or dynami
 
 > [!TIP]
 > Always check `PlayerData.isInDarkness`. Most survival mechanics (Sanity drain, Battery drain, Speed debuffs) are gated by this boolean.
+
+---
+
+## 🛠️ Love2D Porting Guide
+
+This section details critical implementation differences when porting the **Player** entity from Playdate SDK (Lua) to Love2D.
+
+### 1. Movement & Collisions (`NobleSprite` vs. Bump.lua)
+The Playdate SDK handles collisions internally via `sprite:moveWithCollisions(x, y)`.
+- **Playdate**: returns `actualX, actualY, collisions, length`.
+- **Love2D Implementation**:
+    - **Library**: `bump.lua` is the standard for AABB collisions.
+    - **Logic**:
+    ```lua
+    -- Instead of self:moveWithCollisions(goalX, goalY)
+    local actualX, actualY, cols, len = world:move(self, goalX, goalY, self.collisionFilter)
+    self.x, self.y = actualX, actualY
+    ```
+    - **Filters**: The `self:setGroups()` and `self:setCollidesWithGroups()` logic must be converted to a `collisionFilter` function passed to `world:move`.
+
+### 2. Input Handling
+Playdate input is polled via `playdate.buttonIsPressed()`.
+- **Love2D Implementation**:
+    - **Movement**: Map `WASD` or Arrow Keys to the directional logic in `Player:move(dir)`.
+    - **Action (A/B)**: Map `Space/Enter` (A) and `Shift/Esc` (B).
+    - **Crank (Minifier)**: The specific mechanic of rotating the crank to shrink/grow needs remapping.
+        - **Option A**: Scroll Wheel (Mouse).
+        - **Option B**: `Q` and `E` keys to rotate left/right.
+        - **Option C**: Gamepad Triggers (L2/R2).
+
+### 3. Sprite System & Animation
+- **NobleSprite**: This library abstracts sprite states and animations using `imagetables`.
+- **Love2D Implementation**:
+    - **Class**: Use a standard class library.
+    - **Assets**: Load the player spritesheet (`assets/images/player/player`) as a single `Image`.
+    - **Animation**: Use `anim8` to define grids and animations (e.g., `grid('1-4', 1)` for idle).
+    - **Z-Indexing**: Love2D does **not** auto-sort. You MUST implement a robust depth-sorting system in your main `love.draw` loop:
+    ```lua
+    table.sort(entities, function(a,b) return a.y < b.y end)
+    ```
+
+### 4. Turn-Based "Active" State
+The game uses a pseudo-turn-based system driven by `PlayerData.isActive`.
+- **Logic**:
+    1.  Player initiates move -> `isActive = true`.
+    2.  `distributeMovementTokens(amount)` gives "action points" to enemies.
+    3.  Enemies/NPCs only move/update AI if `isActive` was triggered.
+- **Porting Note**: This logic is platform-agnostic Lua. **Preserve it exactly**. It ensures the "Time Moves When You Move" mechanic works. Do not switch to a standard `dt` based continuous update for enemies.
+
+### 5. Scene Transitions
+    - **Visuals**: The `imagetableEnter/Exit` transitions (like the falling transition) will need to be reimplemented using shaders or simple overlay drawing in Love2D.
+
+### 6. Skills & Abilities
+Specific considerations for the three core skills:
+
+-   **Lightburst (`canFlash`)**:
+    -   **Cone Geometry**: uses `playdate.geometry.polygon`. In Love2D, simply use a table of vertices: `{x1, y1, x2, y2, ...}`.
+    -   **Hit Detection**: The Playdate SDK has `polygon:containsPoint(x, y)`. In Love2D, you must implement a "Point in Polygon" function (Ray Casting algorithm) to check if an entity is inside the light cone vertices.
+
+-   **Dash (`canDash`)**:
+    -   **Timers**: Playdate uses `playdate.getCurrentTimeMilliseconds()`. Love2D uses `love.timer.getTime()` (returns seconds). Ensure you convert correctly (e.g., `cooldown = love.timer.getTime() + 0.5`).
+    -   **Movement**: During the dash state, calls to `world:move` must happen manually in `update()` based on the dash vector.
+
+-   **Plungerang (`canPlungerang`)**:
+    -   **Entity**: The Projectile is a separate `NobleSprite`. In Love2D, it should be its own Class instance added to the scene's entity table.
+    -   **Vector Math**: The `dx/dy` approach for homing back to the player is standard Lua logic and works as-is.
+    -   **Collision Filter**: Important! The projectile needs a specific Bump filter: it must **cross** (pass through) the player and items, but **touch** (hit) enemies and walls.

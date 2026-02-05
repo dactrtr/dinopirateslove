@@ -62,9 +62,34 @@ local propConfigs = {
     
     minifier    = { frame = 45, collideRect = {0, 12, 32, 18} },
     slime       = { frame = 46, isSlime = true, isEdible = false, collideRect = {0, 0, 32, 32} },
+    pneumaticTube = { frame = 47, isTube = true, isEdible = false, collideRect = {0, 0, 32, 32} }, -- Assuming frame 47 for pneumaticTube
+    Tube        = { frame = 48, isTube = true, isEdible = false, collideRect = {0, 0, 32, 32} }, -- Assuming frame 48 for Tube
 }
 
+function PropItem.static:isValidType(type)
+    if propConfigs[type] then return true end
+    local norm = getNormalizedConfigs()
+    return norm[type:lower()] ~= nil
+end
+
+function PropItem.static:getConfigKey(type)
+    if propConfigs[type] then return type end
+    local norm = getNormalizedConfigs()
+    return norm[type:lower()]
+end
+
 -- Mappings an index to col, row
+local normalizedConfigs = nil
+local function getNormalizedConfigs()
+    if not normalizedConfigs then
+        normalizedConfigs = {}
+        for k, v in pairs(propConfigs) do
+            normalizedConfigs[k:lower()] = k
+        end
+    end
+    return normalizedConfigs
+end
+
 local function f(n)
     local row = math.ceil(n / SHEET_COLS)
     local col = n - (row - 1) * SHEET_COLS
@@ -107,6 +132,7 @@ function PropItem:initialize(x, y, type, zIndex, nocollide, isDestroyed, id, wor
     self.isEdible = config.isEdible ~= false
     self.isHole = config.isHole or false
     self.isSlime = config.isSlime or false
+    self.isTube = config.isTube or false
     self.nocollide = (nocollide == true or config.nocollide == true)
     self.isDestroyed = (isDestroyed == true)
     
@@ -127,7 +153,7 @@ function PropItem:initialize(x, y, type, zIndex, nocollide, isDestroyed, id, wor
     
     -- Z-Index logic
     self.zIndex = zIndex or (self.y + self.height)
-    if self.nocollide or self.isDestroyed or self.isHole or self.isSlime or self.type == 'minifier' then
+    if self.nocollide or self.isDestroyed or self.isHole or self.isSlime or self.isTube or self.type == 'minifier' then
         -- Low static Z
         self.zIndex = 50 -- Below characters
     end
@@ -139,7 +165,7 @@ function PropItem:update(dt)
     end
     
     -- Dynamic Z-depth update if moving or not a static background-like prop
-    if not (self.nocollide or self.isDestroyed or self.isHole or self.isSlime or self.type == 'minifier') then
+    if not (self.nocollide or self.isDestroyed or self.isHole or self.isSlime or self.isTube or self.type == 'minifier') then
         self.zIndex = self.y + self.height
     end
 end

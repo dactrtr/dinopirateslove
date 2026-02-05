@@ -17,7 +17,7 @@ end
 function collisions.updateCollisionPosition(player)
 	local collisionX = player.x + player.collisionOffsetX
 	local collisionY = player.y + player.collisionOffsetY
-	player.world:update(player, collisionX, collisionY)
+	player.world:update(player, collisionX, collisionY, player.width, player.height)
 end
 
 -- Returns a table of colliding objects within the specified rectangle
@@ -104,6 +104,308 @@ function collisions.getObjectsInRadius(player, radius)
 	end
 	
 	return filtered, #filtered
+end
+
+-- Comprehensive collision response logic
+function collisions.response(player, other)
+	-- Debug: print collisions with props
+	if other.isProp then
+		print("📍 Colliding with prop:", other.type, "isHole:", other.isHole)
+	end
+
+	if other.class and (other.class.name == "Enemy" or other.class.name == "Brocorat") then
+		local enemy = other
+		-- validate candance also
+		PlayerData.lastEnemyTouched.type = "Brocorat"
+		PlayerData.lastEnemyTouched.id = enemy.id
+		PlayerData.lastEnemyTouched.x = enemy.x
+		PlayerData.lastEnemyTouched.y = enemy.y
+		
+		-- Add damage logic
+		if not player.isInvincible then
+			PlayerData.healthPoints = math.max(0, PlayerData.healthPoints - (enemy.damage or 1))
+			print("💥 Player hit by " .. (other.class.name) .. "! HP:", PlayerData.healthPoints)
+			
+			-- Trigger dance only if HP < threshold
+			if PlayerData.healthPoints < (PlayerData.danceThresholdHP or 5) then
+				collisions.fight(player)
+			else
+				collisions.startInvincibility(player, 1000) -- 1 second cooldown
+			end
+		end
+		
+		return 'cross' -- overlap
+
+	elseif other.class and other.class.name == "CrewMember" then
+		-- Validate having the capture bag
+		if PlayerData.CrewMemberData.amountTaken == 0 then
+			if other.crewId == 'CM001' then
+				-- custom screen here after validating the crewId
+			end
+			
+			if player.dialogUI then
+				player.dialogUI:addScreen("gotcha") -- default screen for the 1st time
+			end
+		end
+		if other.taken then other:taken() end
+		return 'cross'
+
+	elseif other.class and other.class.name == "Box" then
+		return 'touch' -- freeze
+
+	elseif other.isTrigger then
+		local trigger = other
+		if trigger.type == "Cutscene" then
+			-- Cutscenes trigger automatically
+			PlayerData.isGaming = false
+			PlayerData.isCutscene = true
+			
+			-- Persistence handled in gameScene
+			if trigger.sourceData then
+				if not trigger.sourceData.customFields then trigger.sourceData.customFields = {} end
+				trigger.sourceData.customFields.usedTrigger = true
+			end
+			
+			local sceneManager = require 'sceneManager'
+			local gs = sceneManager.getScene("game")
+			if gs and gs.removeTrigger then gs.removeTrigger(trigger) end
+
+		elseif trigger.type == "Search" then
+			player.currentTrigger = trigger
+		elseif trigger.type == "Call" then
+			player.currentTrigger = trigger
+		elseif trigger.type == "Story" then
+			PlayerData.isGaming = false
+			if player.dialogUI then
+				player.dialogUI:addScreen(trigger.script)
+			end
+			local sceneManager = require 'sceneManager'
+			local gs = sceneManager.getScene("game")
+			if gs and gs.removeTrigger then gs.removeTrigger(trigger) end
+		elseif trigger.type == nil then
+			player.currentTrigger = trigger
+		elseif trigger.type == "Counter" then
+			PlayerData.storyCounter = (PlayerData.storyCounter or 0) + 1
+			local sceneManager = require 'sceneManager'
+			local gs = sceneManager.getScene("game")
+			if gs and gs.removeTrigger then gs.removeTrigger(trigger) end
+		end
+		return 'cross'
+
+	elseif other.class and other.class.name == 'Items' then
+		local item = other
+		if item.type == 'keycard' then
+			local keyNumber = item.keyNumber or 1
+			item:remove()
+			collisions.grabKey(player, keyNumber)
+			return 'cross'
+		elseif item.type == 'lamp' then
+			item:remove()
+			collisions.grabLamp(player)
+			return 'cross'
+		elseif item.type == 'radio' then
+			item:remove()
+			collisions.grabRadio(player)
+			return 'cross'
+		elseif item.type == 'notes' then
+			local grants = item.grants
+			item:remove()
+			collisions.grabNotes(player, grants)
+			return 'cross'
+		elseif item.type == 'itemgift' or item.type == 'itemGift' then
+			local grants = item.grants
+			item:remove()
+			collisions.grabItemGift(player, grants)
+			return 'cross'
+		elseif item.type == 'bag' then
+			item:remove()
+			collisions.grabBag(player)
+			return 'cross'
+		elseif item.type == 'honk' then
+			item:remove()
+			collisions.grabBag(player)
+			return 'cross'
+		elseif item.type == 'tools' then
+			item:remove()
+			collisions.grabTools(player)
+			return 'cross'
+		elseif item.type == 'boots' then
+			item:remove()
+			collisions.grabBoots(player)
+			return 'cross'
+		elseif item.type == 'plunger' then
+			item:remove()
+			collisions.grabPlunger(player)
+			return 'cross'
+		end
+		return 'cross'
+
+	elseif other.isProp and other.isHole then
+		print("🕳️ HOLE collision detected!")
+		-- If player has boots with battery, can walk over the hole
+		if PlayerData.items.hasBoots == true and PlayerData.battery > 0 then
+			if PlayerData.isTiny == true then
+				collisions.drainBattery(player, 0.2)
+			else
+				collisions.drainBattery(player, 0.5)
+			end
+			return 'cross'
+		else
+			-- Without boots or without battery = fall
+			print("🕳️ Player:fallBelow() - no boots or battery!")
+			collisions.fallBelow(player)
+			return 'cross'
+		end
+	
+	elseif other.isProp and other.isSlime then
+		-- If player has plunger boots, can walk over slime (no battery required)
+		if PlayerData.items.hasPlunger == true then
+			return 'cross'
+		else
+			-- Without plunger = slide
+			collisions.startSliding(player, PlayerData.direction)
+			return 'cross'
+		end
+	
+	elseif other.isProp and other.type == 'minifier' then
+		player.currentMinifier = other
+		PlayerData.readyToShrink = true
+		return 'cross'
+
+	elseif other.isProp and other.isTube then
+		-- Pneumatic tube, allow climbing up if player is tiny
+		if PlayerData.isTiny == true then
+			collisions.riseAbove(player)
+			return 'cross'
+		else
+			return 'touch' -- freeze
+		end
+
+	elseif other.isProp then
+		return 'touch' -- freeze
+	
+	elseif other.class and other.class.name == "Door" then
+		return 'cross'
+	end
+
+	return 'slide'
+end
+
+-- Helper transition methods
+local function findAdjacentLevelRoom(levelOffset)
+	local targetLevel = PlayerData.actualLevel + levelOffset
+	local currentRoomNumber = PlayerData.actualRoom
+	
+	print("🔍 findAdjacentLevelRoom: searching for Level " .. tostring(targetLevel) .. ", Room " .. tostring(currentRoomNumber))
+
+	if not levelsLDTK then 
+		print("⚠️ Warning: levelsLDTK is nil in collisions.lua!")
+		return nil 
+	end
+	
+	for i, levelData in ipairs(levelsLDTK) do
+		local cf = levelData.customFields or {}
+		if cf.level == targetLevel and cf.roomNumber == currentRoomNumber then
+			print("✅ Found adjacent room: " .. tostring(levelData.identifier))
+			return levelData.uniqueIdentifer
+		end
+	end
+	print("❌ No adjacent room found for Level " .. tostring(targetLevel) .. ", Room " .. tostring(currentRoomNumber))
+	return nil
+end
+
+function collisions.fallBelow(player)
+	-- Try Offset -1 first (assuming 4 is above 3)
+	local nextLevelIid = findAdjacentLevelRoom(-1)
+	if not nextLevelIid then
+		-- Fallback to Offset 1 just in case
+		nextLevelIid = findAdjacentLevelRoom(1)
+	end
+
+	if nextLevelIid then
+		print("🕳️ Player:fallBelow() -> " .. nextLevelIid)
+		local sceneManager = require 'sceneManager'
+		local gameScene = sceneManager.getScene("game")
+		if gameScene then
+			gameScene.changeLevel(nextLevelIid, "down", player, 0.5)
+		end
+	else
+		print("❌ Player:fallBelow() failed: No adjacent floor found for Room " .. tostring(PlayerData.actualRoom))
+	end
+end
+
+function collisions.riseAbove(player)
+	-- Try Offset 1 (assuming 3 is below 4)
+	local nextLevelIid = findAdjacentLevelRoom(1)
+	if not nextLevelIid then
+		-- Fallback to Offset -1
+		nextLevelIid = findAdjacentLevelRoom(-1)
+	end
+
+	if nextLevelIid then
+		print("🚀 Player:riseAbove() -> " .. nextLevelIid)
+		local sceneManager = require 'sceneManager'
+		local gameScene = sceneManager.getScene("game")
+		if gameScene then
+			gameScene.changeLevel(nextLevelIid, "top", player, 0.5)
+		end
+	else
+		print("❌ Player:riseAbove() failed: No adjacent floor found for Room " .. tostring(PlayerData.actualRoom))
+	end
+end
+
+function collisions.drainBattery(player, amount)
+	PlayerData.battery = math.max(0, PlayerData.battery - amount)
+end
+
+function collisions.startInvincibility(player, durationMs)
+	player.isInvincible = true
+	local Timer = require 'libraries/hump/timer'
+	Timer.after(durationMs / 1000, function()
+		player.isInvincible = false
+	end)
+end
+
+function collisions.fight(player)
+	print("⚔️ Player:fight() triggered!")
+end
+
+function collisions.startSliding(player, direction)
+	print("🧊 Player:startSliding(" .. tostring(direction) .. ")")
+end
+
+-- Grab helpers
+function collisions.grabKey(player, num) PlayerData.keys[num] = true end
+function collisions.grabLamp(player) PlayerData.items.hasLamp = true end
+function collisions.grabRadio(player) PlayerData.items.hasRadio = true end
+function collisions.grabTools(player) PlayerData.items.hasTools = true end
+function collisions.grabBoots(player) 
+	PlayerData.items.hasBoots = true 
+	PlayerData.skills.canDash = true
+end
+function collisions.grabPlunger(player) 
+	PlayerData.items.hasPlunger = true 
+	PlayerData.skills.canPlungerang = true
+end
+function collisions.grabBag(player) PlayerData.items.hasBag = true end
+
+function collisions.grabNotes(player, grants)
+	if grants then
+		for key, val in grants:gmatch("([^:,]+):([^:,]+)") do
+			local boolVal = (val == "true")
+			PlayerData.skills[key] = boolVal
+		end
+	end
+	PlayerData.items.hasNotes = true
+end
+
+function collisions.grabItemGift(player, grants)
+	if grants then
+		for key, val in grants:gmatch("([^:,]+):([^:,]+)") do
+			local boolVal = (val == "true")
+			PlayerData.items[key] = boolVal
+		end
+	end
 end
 
 return collisions

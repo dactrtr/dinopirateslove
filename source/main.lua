@@ -1,5 +1,6 @@
 local moonshine = require "libraries/moonshine"
-PlayerData = require 'assets/data/PlayerDataTables'
+printDebug = print
+require 'assets/data/PlayerDataTables'
 local sceneManager = require "sceneManager"
 local titleScene = require "scenes/titleScene"
 local gameScene = require "scenes/gameScene"

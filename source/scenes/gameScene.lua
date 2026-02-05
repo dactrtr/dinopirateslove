@@ -152,7 +152,7 @@ function gameScene.clearCurrentRoom()
 	gameScene.triggers = {}
 end
 
-function gameScene.removeTrigger(trigger)
+function gameScene.performRemoveTrigger(trigger)
 	for i, t in ipairs(gameScene.triggers) do
 		if t == trigger then
 			if gameScene.world and gameScene.world:hasItem(trigger) then
@@ -162,6 +162,13 @@ function gameScene.removeTrigger(trigger)
 			break
 		end
 	end
+end
+
+function gameScene.removeTrigger(trigger)
+	if not gameScene.pendingTriggerRemovals then
+		gameScene.pendingTriggerRemovals = {}
+	end
+	table.insert(gameScene.pendingTriggerRemovals, trigger)
 end
 
 local function handleTriggerActivation(trigger, script)
@@ -203,6 +210,15 @@ local function handleTriggerActivation(trigger, script)
 	end
 	
 	if isOneTime then
+		-- Update the source data to persist the used state
+		if trigger.sourceData then
+			if not trigger.sourceData.customFields then
+				trigger.sourceData.customFields = {}
+			end
+			trigger.sourceData.customFields.usedTrigger = true
+			print("💾 Trigger marked as used for persistence: " .. tostring(trigger.sourceData.iid))
+		end
+		
 		gameScene.removeTrigger(trigger)
 	end
 end
@@ -523,11 +539,12 @@ function gameScene.loadProps()
 	-- Iterate over all entity types
 	for typeName, entityList in pairs(entities) do
 		for _, entity in ipairs(entityList) do
-			-- Check if it's a prop (layer is "Props")
-			if entity.layer == "Props" then
+			-- Check if it's a prop (layer is "Props" or "Holes")
+			if entity.layer == "Props" or entity.layer == "Holes" then
 				local cf = entity.customFields or {}
 				local x, y = entity.x, entity.y
-				local type = cf.type or typeName:lower() -- Use custom field type or entity name
+				-- Use custom field type or entity name
+				local type = PropItem:getConfigKey(cf.type or typeName) or typeName:lower()
 				local nocollide = cf.nocollider or false
 				local isDestroyed = cf.destroyed or false
 				local id = entity.iid
@@ -565,6 +582,11 @@ function gameScene.loadTriggers()
 	for _, triggerEntity in ipairs(entities.Triggers) do
 		local cf = triggerEntity.customFields or {}
 		
+		-- Skip if this trigger has already been used (persisted state)
+		if cf.usedTrigger then
+			goto continue
+		end
+		
 		local trigger = {
 			x = triggerEntity.x + startX - triggerEntity.width / 2,
 			y = triggerEntity.y + startY - triggerEntity.height / 2,
@@ -576,12 +598,15 @@ function gameScene.loadTriggers()
 			usedTrigger = cf.usedTrigger or false,
 			mapPercent = cf.mapPercent or 0,
 			tinyScript = cf.tinyScript,
-			isTrigger = true
+			isTrigger = true,
+			sourceData = triggerEntity -- Store reference to source data for persistence
 		}
 		
 		-- Add to BUMP world as a 'cross' type
 		gameScene.world:add(trigger, trigger.x, trigger.y, trigger.width, trigger.height)
 		table.insert(gameScene.triggers, trigger)
+		
+		::continue::
 	end
 
 	
@@ -591,7 +616,7 @@ end
 
 
 -- MARK: Level Transition
-function gameScene.changeLevel(nextLevelIid, enterDirection, player, exitRatio)
+function gameScene.performChangeLevel(nextLevelIid, enterDirection, player, exitRatio)
 	print("🔄 Changing level to IID: " .. nextLevelIid .. " (Exit Ratio: " .. tostring(exitRatio) .. ")")
 	
 	-- Find the level by IID
@@ -687,6 +712,17 @@ function gameScene.changeLevel(nextLevelIid, enterDirection, player, exitRatio)
 			end
 		end
 	end
+end
+
+function gameScene.changeLevel(nextLevelIid, enterDirection, player, exitRatio)
+	-- Defer the level change to avoid breaking BUMP physics loops
+	gameScene.pendingLevelChange = {
+		iid = nextLevelIid,
+		dir = enterDirection,
+		player = player,
+		ratio = exitRatio
+	}
+	print("⏳ Level change queued for: " .. nextLevelIid)
 end
 
 
@@ -840,6 +876,20 @@ function gameScene.update(dt)
 			gameScene.interactionHUD:update(dt)
 		end
 
+	-- Check for pending level changes (safe to do here)
+		if gameScene.pendingLevelChange then
+			local plc = gameScene.pendingLevelChange
+			gameScene.pendingLevelChange = nil
+			gameScene.performChangeLevel(plc.iid, plc.dir, plc.player, plc.ratio)
+		end
+		
+		-- Check for pending trigger removals
+		if gameScene.pendingTriggerRemovals then
+			for _, trigger in ipairs(gameScene.pendingTriggerRemovals) do
+				gameScene.performRemoveTrigger(trigger)
+			end
+			gameScene.pendingTriggerRemovals = nil
+		end
 	end
 end
 
@@ -1075,6 +1125,18 @@ function gameScene.drawTriggerIcons()
 	
 	if not foundTrigger and gameScene.interactionHUD then
 		gameScene.interactionHUD:setVisible(false)
+	end
+end
+
+-- Handle mouse wheel input (simulating Crank)
+function gameScene.wheelmoved(x, y)
+	-- Only process if not talking/cutscene/paused
+	if PlayerData.isTalking or PlayerData.isCutscene or (gameScene.pauseMenu and gameScene.pauseMenu:isVisible()) then
+		return
+	end
+
+	if gameScene.player and gameScene.player.handleCrankInput then
+		gameScene.player:handleCrankInput(y)
 	end
 end
 

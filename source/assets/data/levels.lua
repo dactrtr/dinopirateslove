@@ -1,5 +1,171 @@
 levelsLDTK = {
 {
+		identifier = "Room_23",
+		uniqueIdentifer = "3d752854-ac70-11f0-998c-5dddbfac239d",
+		x = 800,
+		y = 240,
+		width = 400,
+		height = 240,
+		bgColor = "#696A79",
+		neighbourLevels = {
+		  {
+			levelIid = "271dbf30-ac70-11f0-998c-eff03b419e1f",
+			dir = "<"
+		  },
+		  {
+			levelIid = "d8b90440-ac70-11f0-997a-77d867841568",
+			dir = ">"
+		  },
+		  {
+			levelIid = "abdd36b0-ac70-11f0-998c-673887a050e6",
+			dir = "nw"
+		  },
+		  {
+			levelIid = "2dc4bd30-ac70-11f0-998c-2ba6c3750080",
+			dir = "n"
+		  },
+		  {
+			levelIid = "310fc980-ac70-11f0-998c-05b91a46387d",
+			dir = "ne"
+		  },
+		  {
+			levelIid = "3b081ff0-ac70-11f0-998c-67e6b510262c",
+			dir = "w"
+		  },
+		  {
+			levelIid = "40386700-ac70-11f0-998c-e53e1b32800c",
+			dir = "e"
+		  },
+		  {
+			levelIid = "4a0bd050-ac70-11f0-998c-b14d359446e6",
+			dir = "sw"
+		  },
+		  {
+			levelIid = "4cf534a4-ac70-11f0-998c-6712312c62dc",
+			dir = "s"
+		  },
+		  {
+			levelIid = "50a125a0-ac70-11f0-998c-f3b70b95a9ac",
+			dir = "se"
+		  }
+		},
+		customFields = {
+		  shadow = false,
+		  light = 0,
+		  visited = false,
+		  comic_name = nil,
+		  comic_wasPlayed = false,
+		  level = 3,
+		  roomNumber = 23,
+		  tile = 23,
+		  DoorsConnection = {
+			"Upper"
+		  },
+		  play = nil
+		},
+		layers = {
+		  "BGTilemap.png"
+		},
+		entities = {
+		  PneumaticTube = {
+			{
+			  id = "PneumaticTube",
+			  iid = "b62df370-fa90-11f0-b30d-935794ec5f17",
+			  layer = "Props",
+			  x = 332,
+			  y = 132,
+			  width = 32,
+			  height = 32,
+			  color = 2943221,
+			  customFields = {
+				type = "pneumaticTube",
+				nocollider = false,
+				destroyed = false
+			  }
+			}
+		  },
+		  Tube = {
+			{
+			  id = "Tube",
+			  iid = "b8aed1f0-fa90-11f0-b30d-9767e2593e69",
+			  layer = "Props",
+			  x = 332,
+			  y = 100,
+			  width = 32,
+			  height = 32,
+			  color = 2943221,
+			  customFields = {
+				type = "Tube",
+				nocollider = false,
+				destroyed = false
+			  }
+			},
+			{
+			  id = "Tube",
+			  iid = "b97444d0-fa90-11f0-b30d-1516530fbe42",
+			  layer = "Props",
+			  x = 332,
+			  y = 68,
+			  width = 32,
+			  height = 32,
+			  color = 2943221,
+			  customFields = {
+				type = "Tube",
+				nocollider = false,
+				destroyed = false
+			  }
+			},
+			{
+			  id = "Tube",
+			  iid = "ba446610-fa90-11f0-b30d-a5d542c284cf",
+			  layer = "Props",
+			  x = 332,
+			  y = 36,
+			  width = 32,
+			  height = 32,
+			  color = 2943221,
+			  customFields = {
+				type = "Tube",
+				nocollider = false,
+				destroyed = false
+			  }
+			},
+			{
+			  id = "Tube",
+			  iid = "bddfb540-fa90-11f0-b30d-69e74fd1f321",
+			  layer = "Props",
+			  x = 332,
+			  y = 12,
+			  width = 32,
+			  height = 32,
+			  color = 2943221,
+			  customFields = {
+				type = "Tube",
+				nocollider = false,
+				destroyed = false
+			  }
+			}
+		  },
+		  Minifier = {
+			{
+			  id = "Minifier",
+			  iid = "6bae5640-fa90-11f0-b30d-2177c10ad5cf",
+			  layer = "Props",
+			  x = 164,
+			  y = 188,
+			  width = 32,
+			  height = 32,
+			  color = 2943221,
+			  customFields = {
+				type = "minifier",
+				nocollider = false,
+				destroyed = false
+			  }
+			}
+		  }
+		}
+	  },
+{
 	identifier = "Room_8",
 	uniqueIdentifer = "d8b90440-ac70-11f0-997a-77d867841568",
 	x = 800,
@@ -56,7 +222,8 @@ levelsLDTK = {
 	  tile = 8,
 	  DoorsConnection = {
 		"Top",
-		"Down"
+		"Down",
+		"Lower"
 	  },
 	  play = "Cutscene"
 	},
@@ -111,195 +278,69 @@ levelsLDTK = {
 		  }
 		}
 	  },
-	  Minifier = {
+	  HoleTopRight = {
 		{
-		  id = "Minifier",
-		  iid = "e2facc00-d380-11f0-88fd-e7a9eaa6c333",
-		  layer = "Props",
-		  x = 268,
-		  y = 28,
+		  id = "HoleTopRight",
+		  iid = "56a26040-fa90-11f0-b30d-59771141e6c9",
+		  layer = "Holes",
+		  x = 100,
+		  y = 100,
 		  width = 32,
 		  height = 32,
-		  color = 2943221,
+		  color = 12470831,
 		  customFields = {
-			type = "minifier",
+			type = "holeTopRight",
 			nocollider = false,
 			destroyed = false
 		  }
 		}
 	  },
-	  Slime = {
+	  HoleBottomRight = {
 		{
-		  id = "Slime",
-		  iid = "3aa8efd0-fa90-11f0-88fd-3b7294d8f50a",
-		  layer = "Props",
-		  x = 164,
-		  y = 204,
+		  id = "HoleBottomRight",
+		  iid = "5a54e0f0-fa90-11f0-b30d-b5961b801d7f",
+		  layer = "Holes",
+		  x = 100,
+		  y = 132,
 		  width = 32,
 		  height = 32,
-		  color = 1578021,
+		  color = 12470831,
 		  customFields = {
-			type = "slime",
-			nocollider = false,
-			destroyed = false
-		  }
-		},
-		{
-		  id = "Slime",
-		  iid = "3bd53ad0-fa90-11f0-88fd-2d2d5b4a3617",
-		  layer = "Props",
-		  x = 196,
-		  y = 204,
-		  width = 32,
-		  height = 32,
-		  color = 1578021,
-		  customFields = {
-			type = "slime",
-			nocollider = false,
-			destroyed = false
-		  }
-		},
-		{
-		  id = "Slime",
-		  iid = "3ca05300-fa90-11f0-88fd-b316f227059f",
-		  layer = "Props",
-		  x = 228,
-		  y = 204,
-		  width = 32,
-		  height = 32,
-		  color = 1578021,
-		  customFields = {
-			type = "slime",
+			type = "holeBottomRight",
 			nocollider = false,
 			destroyed = false
 		  }
 		}
 	  },
-	  PcBase = {
+	  HoleBottomLeft = {
 		{
-		  id = "PcBase",
-		  iid = "6b92d910-fa90-11f0-88fd-0b7257f15ca8",
-		  layer = "Props",
-		  x = 36,
-		  y = 124,
-		  width = 32,
-		  height = 32,
-		  color = 12470831,
-		  customFields = {
-			type = "pcBase",
-			nocollider = false,
-			destroyed = false
-		  }
-		},
-		{
-		  id = "PcBase",
-		  iid = "c6ef36f0-fa90-11f0-88fd-132037b9ae30",
-		  layer = "Props",
-		  x = 36,
-		  y = 44,
-		  width = 32,
-		  height = 32,
-		  color = 12470831,
-		  customFields = {
-			type = "pcBase",
-			nocollider = false,
-			destroyed = false
-		  }
-		}
-	  },
-	  PcScreen = {
-		{
-		  id = "PcScreen",
-		  iid = "6d718420-fa90-11f0-88fd-69eb05d27d82",
-		  layer = "Props",
-		  x = 36,
-		  y = 92,
-		  width = 32,
-		  height = 32,
-		  color = 12470831,
-		  customFields = {
-			type = "pcScreen",
-			nocollider = false,
-			destroyed = false
-		  }
-		},
-		{
-		  id = "PcScreen",
-		  iid = "c58b3a20-fa90-11f0-88fd-1f873e2a56ff",
-		  layer = "Props",
-		  x = 36,
-		  y = 12,
-		  width = 32,
-		  height = 32,
-		  color = 12470831,
-		  customFields = {
-			type = "pcScreen",
-			nocollider = false,
-			destroyed = false
-		  }
-		}
-	  },
-	  PcBase2 = {
-		{
-		  id = "PcBase2",
-		  iid = "ae13fe90-fa90-11f0-88fd-b3dcaac7a0e7",
-		  layer = "Props",
-		  x = 372,
-		  y = 84,
-		  width = 32,
-		  height = 32,
-		  color = 12470831,
-		  customFields = {
-			type = "pcBase2",
-			nocollider = false,
-			destroyed = false
-		  }
-		},
-		{
-		  id = "PcBase2",
-		  iid = "b7f94230-fa90-11f0-88fd-d3513f71c7d0",
-		  layer = "Props",
+		  id = "HoleBottomLeft",
+		  iid = "5e928aa0-fa90-11f0-b30d-8918f13ce4e4",
+		  layer = "Holes",
 		  x = 68,
-		  y = 108,
+		  y = 132,
 		  width = 32,
 		  height = 32,
 		  color = 12470831,
 		  customFields = {
-			type = "pcBase2",
+			type = "holeBottomLeft",
 			nocollider = false,
 			destroyed = false
 		  }
 		}
 	  },
-	  PcSiriHappy = {
+	  HoleTopLeft = {
 		{
-		  id = "PcSiriHappy",
-		  iid = "b324fdd0-fa90-11f0-88fd-f168b14a9e07",
-		  layer = "Props",
-		  x = 372,
-		  y = 52,
-		  width = 32,
-		  height = 32,
-		  color = 12470831,
-		  customFields = {
-			type = "pcSiriHappy",
-			nocollider = false,
-			destroyed = false
-		  }
-		}
-	  },
-	  PcScreen3 = {
-		{
-		  id = "PcScreen3",
-		  iid = "b9f11a90-fa90-11f0-88fd-c9d1bc14afb5",
-		  layer = "Props",
+		  id = "HoleTopLeft",
+		  iid = "622d8bb0-fa90-11f0-b30d-195cca13e64c",
+		  layer = "Holes",
 		  x = 68,
-		  y = 76,
+		  y = 100,
 		  width = 32,
 		  height = 32,
 		  color = 12470831,
 		  customFields = {
-			type = "pcScreen3",
+			type = "holeTopLeft",
 			nocollider = false,
 			destroyed = false
 		  }

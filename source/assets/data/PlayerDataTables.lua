@@ -104,8 +104,5 @@ PlayerData = deepcopy(DefaultPlayerData)
 -- Global function to reset PlayerData to default state
 function ResetPlayerData()
 	PlayerData = deepcopy(DefaultPlayerData)
-	print("🔄 PlayerData has been reset to defaults")
+	printDebug("🔄 PlayerData has been reset to defaults")
 end
-
-return PlayerData
-

@@ -38,7 +38,7 @@ function Player:initialize(x, y, world)
 	world:add(self, self.x + self.collisionOffsetX, self.y + self.collisionOffsetY, self.width, self.height)
 	
 	-- Load animations
-	self.spritesheet = love.graphics.newImage("assets/player.png")
+	self.spritesheet = love.graphics.newImage("assets/images/player/player-table-48-48.png")
 	self.animations = playerAnimations.load(self.spritesheet)
 	self.currentAnimation = playerAnimations.getInitialAnimation(self.animations)
 	
@@ -108,25 +108,10 @@ function Player:update(dt)
 	-- Update animation based on movement
 	playerAnimations.updateAnimation(self, dx, dy)
 	
-	-- Define collision filter
-	local function collisionFilter(item, other)
-		if other.isWall then -- Walls (we added isWall = true to walls in gameScene)
-			return 'slide'
-		elseif other.isTrigger or other.isHole or other.isSlime then
-			return 'cross' -- Allow overlap with triggers, holes, and slime
-
-		elseif other.class and other.class.name == "Door" then
-			return 'cross' -- Trigger overlap but don't stop
-		elseif other.class and other.class.name == "Brocorat" then
-			return 'touch'
-		end
-		-- Default
-		return 'slide'
-	end
-
-	
 	-- Move player with collision detection
-	local cols, len = playerMovements.move(self, dx, dy, collisionFilter)
+	local cols, len = playerMovements.move(self, dx, dy, function(item, other)
+		return playerCollisions.response(self, other)
+	end)
 	
 	-- Handle collisions
 	for i = 1, len do
@@ -151,6 +136,9 @@ function Player:update(dt)
 	if self.dialogUI then
 		self.dialogUI:update(dt)
 	end
+	
+	-- Check for prop interactions (e.g. Minifier)
+	self:checkPropInteractions()
 end
 
 
@@ -185,11 +173,69 @@ function Player:displayDialog()
 	end
 end
 
+function Player:checkPropInteractions()
+	-- Reset state frame by frame
+	PlayerData.readyToShrink = false
+	
+	-- Check for overlaps with props using centralized logic
+	local collisions, count = self:checkCollisions()
+	
+	for i = 1, count do
+		local col = collisions[i]
+		local other = col.object
+		
+		-- Trigger collision response for side effects (like setting readyToShrink)
+		playerCollisions.response(self, other)
+	end
+end
+
+
+function Player:handleCrankInput(delta)
+	-- Only allow size change if on a minifier
+	if not PlayerData.readyToShrink then
+		return
+	end
+
+	-- Threshold for activation (accumulate delta if needed, but for wheel usually 1 click is enough)
+	if math.abs(delta) > 0 then
+		self:toggleSize()
+	end
+end
+
+function Player:toggleSize()
+	-- Toggle state
+	PlayerData.isTiny = not PlayerData.isTiny
+	print("🤏 Player size toggled. isTiny: " .. tostring(PlayerData.isTiny))
+	
+	-- Update dimensions based on state
+	if PlayerData.isTiny then
+		-- Tiny Box: 14x14
+		self.width = 14
+		self.height = 14
+		-- Center horizontally: -7 offset
+		-- Align to bottom: Offset Y = 16
+		self.collisionOffsetX = -(self.width / 2)
+		self.collisionOffsetY = 16 
+	else
+		-- Normal Box: 30x24
+		self.width = 30
+		self.height = 24
+		self.collisionOffsetX = -(self.width / 2)
+		self.collisionOffsetY = 2
+	end
+	
+	-- Update BUMP world with new dimensions
+	self:updateCollisionPosition()
+	
+	-- Update animation state immediately
+	playerAnimations.updateAnimation(self, 0, 0)
+end
+
 function Player:moveTo(x, y)
 	self.x = x
 	self.y = y
 	if self.world:hasItem(self) then
-		self.world:update(self, self.x + self.collisionOffsetX, self.y + self.collisionOffsetY)
+		self:updateCollisionPosition() 
 	end
 end
 
