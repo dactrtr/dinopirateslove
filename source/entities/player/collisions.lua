@@ -174,14 +174,21 @@ function collisions.response(player, other)
 			player.currentTrigger = trigger
 		elseif trigger.type == "Call" then
 			player.currentTrigger = trigger
-		elseif trigger.type == "Story" then
-			PlayerData.isGaming = false
-			if player.dialogUI then
-				player.dialogUI:addScreen(trigger.script)
-			end
-			local sceneManager = require 'sceneManager'
-			local gs = sceneManager.getScene("game")
-			if gs and gs.removeTrigger then gs.removeTrigger(trigger) end
+	elseif trigger.type == "Story" then
+		PlayerData.isGaming = false
+		if player.dialogUI then
+			player.dialogUI:addScreen(trigger.script)
+		end
+		
+		-- Mark as used in persistent data
+		if trigger.sourceData then
+			if not trigger.sourceData.customFields then trigger.sourceData.customFields = {} end
+			trigger.sourceData.customFields.usedTrigger = true
+		end
+		
+		local sceneManager = require 'sceneManager'
+		local gs = sceneManager.getScene("game")
+		if gs and gs.removeTrigger then gs.removeTrigger(trigger) end
 		elseif trigger.type == nil then
 			player.currentTrigger = trigger
 		elseif trigger.type == "Counter" then
