@@ -1050,6 +1050,11 @@ function gameScene.keypressed(key)
 	if key == "escape" then
 		-- Show menu
 		gameScene.pauseMenu:show()
+	elseif key == "e" then
+		-- E key toggles size when on minifier (alternative to mouse wheel)
+		if PlayerData.readyToShrink and gameScene.player and gameScene.player.handleCrankInput then
+			gameScene.player:handleCrankInput(1) -- Simulate wheel movement
+		end
 	end
 end
 
@@ -1123,6 +1128,13 @@ function gameScene.drawTriggerIcons()
 				end
 			end
 		end
+	end
+	
+	-- Check if player is on a minifier
+	if not foundTrigger and PlayerData.readyToShrink and gameScene.interactionHUD then
+		gameScene.interactionHUD:setState("crankClock")
+		gameScene.interactionHUD:setVisible(true)
+		foundTrigger = true
 	end
 	
 	if not foundTrigger and gameScene.interactionHUD then

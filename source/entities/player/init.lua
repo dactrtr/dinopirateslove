@@ -159,8 +159,16 @@ function Player:draw(debug)
 	
 	-- Draw collision box for debugging (violet color)
 	if debug then
+		-- Get the actual collision box from BUMP world to ensure accuracy
+		local bumpX, bumpY, bumpW, bumpH = self.world:getRect(self)
+		
 		love.graphics.setColor(0.58, 0, 0.82, 0.5) -- Violet with transparency
-		love.graphics.rectangle("fill", self.x + self.collisionOffsetX, self.y + self.collisionOffsetY, self.width, self.height)
+		love.graphics.rectangle("fill", bumpX, bumpY, bumpW, bumpH)
+		
+		-- Also draw the sprite bounds in a different color for reference
+		love.graphics.setColor(1, 1, 0, 0.3) -- Yellow with transparency
+		love.graphics.rectangle("line", self.x - self.spriteWidth/2, self.y - self.spriteHeight/2, self.spriteWidth, self.spriteHeight)
+		
 		love.graphics.setColor(1, 1, 1, 1) -- Reset color
 	end
 end
@@ -213,19 +221,26 @@ function Player:toggleSize()
 		self.width = 14
 		self.height = 14
 		-- Center horizontally: -7 offset
-		-- Align to bottom: Offset Y = 16
+		-- Align to bottom (sprite is 48px centered, bottom is at y+24, so offset = 24-14 = 10)
 		self.collisionOffsetX = -(self.width / 2)
-		self.collisionOffsetY = 16 
+		self.collisionOffsetY = 10 
+		print("  📦 Tiny collision box: width=" .. self.width .. ", height=" .. self.height .. ", offsetX=" .. self.collisionOffsetX .. ", offsetY=" .. self.collisionOffsetY)
 	else
 		-- Normal Box: 30x24
 		self.width = 30
 		self.height = 24
 		self.collisionOffsetX = -(self.width / 2)
-		self.collisionOffsetY = 2
+		self.collisionOffsetY = 0  -- Align to bottom: 24 - 24 = 0
+		print("  📦 Normal collision box: width=" .. self.width .. ", height=" .. self.height .. ", offsetX=" .. self.collisionOffsetX .. ", offsetY=" .. self.collisionOffsetY)
 	end
 	
 	-- Update BUMP world with new dimensions
 	self:updateCollisionPosition()
+	
+	-- Verify BUMP world update
+	local bumpX, bumpY, bumpW, bumpH = self.world:getRect(self)
+	print("  🌍 BUMP world collision: x=" .. bumpX .. ", y=" .. bumpY .. ", w=" .. bumpW .. ", h=" .. bumpH)
+	print("  🎮 Player sprite position: x=" .. self.x .. ", y=" .. self.y)
 	
 	-- Update animation state immediately
 	playerAnimations.updateAnimation(self, 0, 0)
