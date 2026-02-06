@@ -91,7 +91,7 @@ function titleScene.load()
 
 	-- Initialize SaveSystem Backup
 	SaveSystem.createOriginalBackup()
-	print("✅ Title Scene Assets Loaded")
+	printDebug("✅ Title Scene Assets Loaded")
 end
 
 function titleScene.enter()
@@ -109,11 +109,11 @@ function titleScene.enter()
 	local filename = "gameState.lua"
 	local info = love.filesystem.getInfo(filename)
 	local saveExists = info ~= nil
-	print("🔍 SaveSystem: Checking '" .. filename .. "' at " .. love.filesystem.getSaveDirectory())
-	print("🔍 SaveSystem: info=" .. (info and "TABLE" or "NIL") .. ", saveExists=" .. tostring(saveExists))
+	printDebug("🔍 SaveSystem: Checking '" .. filename .. "' at " .. love.filesystem.getSaveDirectory())
+	printDebug("🔍 SaveSystem: info=" .. (info and "TABLE" or "NIL") .. ", saveExists=" .. tostring(saveExists))
 	
 	if saveExists then
-		print("💾 Adding Continue and Delete options")
+		printDebug("💾 Adding Continue and Delete options")
 		-- CONTINUE
 		table.insert(titleScene.menuItems, {
 			name = "Continue",
@@ -168,7 +168,7 @@ function titleScene.enter()
 		bgState = "achievements",
 		action = function()
 			-- Add achievements view logic here if implemented
-			print("Viewing achievements...")
+			printDebug("Viewing achievements...")
 		end
 	})
 	currentY = currentY + spacing

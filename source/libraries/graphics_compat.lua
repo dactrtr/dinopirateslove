@@ -10,7 +10,7 @@ function Graphics.image.new(path)
     if success then
         return img
     else
-        print("⚠️ Warning: Could not load image at " .. tostring(path))
+        printDebug("⚠️ Warning: Could not load image at " .. tostring(path))
         return nil
     end
 end
@@ -19,7 +19,7 @@ local strings = {}
 
 function Graphics.loadStrings(filename)
     if not love.filesystem.getInfo(filename) then
-        print("⚠️ Warning: Strings file not found: " .. filename)
+        printDebug("⚠️ Warning: Strings file not found: " .. filename)
         return
     end
     

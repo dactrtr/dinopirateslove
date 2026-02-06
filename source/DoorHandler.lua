@@ -12,7 +12,7 @@ end
 
 function DoorHandler.handleDoorCollision(door, player)
 	if not door or not DoorHandler.gameScene then
-		print("❌ ERROR: Door or gameScene not available")
+		printDebug("❌ ERROR: Door or gameScene not available")
 		return
 	end
 	
@@ -28,7 +28,7 @@ function DoorHandler.handleDoorCollision(door, player)
 	-- Trigger level transition with alignment info
 	DoorHandler.gameScene.changeLevel(door.nextLevelIid, door.direction, player, exitRatio)
 	
-	print("🚪 Transitioning through door: " .. door.direction)
+	printDebug("🚪 Transitioning through door: " .. door.direction)
 end
 
 return DoorHandler

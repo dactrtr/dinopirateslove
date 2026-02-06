@@ -30,7 +30,7 @@ local function convertDirection(ldtkDir)
 	
 	local converted = conversion[ldtkDir]
 	if not converted then
-		print("⚠️ WARNING: Unknown door direction '" .. tostring(ldtkDir) .. "', defaulting to 'right'")
+		printDebug("⚠️ WARNING: Unknown door direction '" .. tostring(ldtkDir) .. "', defaulting to 'right'")
 		return "right"  -- Safe fallback
 	end
 	
@@ -69,7 +69,7 @@ end
 function Door:goTo()
 	-- This will be called by the collision handler in Player
 	-- The actual transition logic will be in gameScene
-	print("🚪 Door transition to level: " .. tostring(self.nextLevelIid))
+	printDebug("🚪 Door transition to level: " .. tostring(self.nextLevelIid))
 end
 
 function Door:prevRoom(direction, playerX, playerY)
@@ -92,7 +92,7 @@ function Door:prevRoom(direction, playerX, playerY)
 	self.spawnX = PlayerData.playerSpawn.x
 	self.spawnY = PlayerData.playerSpawn.y
 	
-	print("📍 Setting spawn for direction " .. direction .. ": (" .. self.spawnX .. ", " .. self.spawnY .. ")")
+	printDebug("📍 Setting spawn for direction " .. direction .. ": (" .. self.spawnX .. ", " .. self.spawnY .. ")")
 end
 
 function Door:update(dt)

@@ -37,7 +37,7 @@ end
 
 function DialogScreen:addScreen(scriptName)
     if not _G.script then
-        print("⚠️ Error: Global 'script' table not found.")
+        printDebug("⚠️ Error: Global 'script' table not found.")
         return
     end
     
@@ -55,7 +55,7 @@ function DialogScreen:addScreen(scriptName)
     end
     
     if not targetScript then
-        print("⚠️ Warning: Script '" .. tostring(scriptName) .. "' not found.")
+        printDebug("⚠️ Warning: Script '" .. tostring(scriptName) .. "' not found.")
         return
     end
     

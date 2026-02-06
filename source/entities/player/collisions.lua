@@ -54,7 +54,7 @@ function collisions.checkCollisions(player)
 	if PlayerData.isTiny then
 		-- Only log once every few seconds for specific objects if needed, 
 		-- but for diagnosis we'll log most collisions briefly
-		-- print("🔍 checkCollisions (Tiny): x="..collisionX..", y="..collisionY..", w="..player.width..", h="..player.height .. ", offX=" .. player.collisionOffsetX)
+		-- printDebug("🔍 checkCollisions (Tiny): x="..collisionX..", y="..collisionY..", w="..player.width..", h="..player.height .. ", offX=" .. player.collisionOffsetX)
 	end
 	
 	return collisions.collideRect(player, collisionX, collisionY, player.width, player.height)
@@ -118,7 +118,7 @@ end
 function collisions.response(player, other)
 	-- Debug: print collisions with props
 	if other.isProp then
-		-- print("📍 Colliding with prop:", other.type, "isHole:", other.isHole)
+		-- printDebug("📍 Colliding with prop:", other.type, "isHole:", other.isHole)
 	end
 
 	if other.class and (other.class.name == "Enemy" or other.class.name == "Brocorat") then
@@ -132,7 +132,7 @@ function collisions.response(player, other)
 		-- Add damage logic
 		if not player.isInvincible then
 			PlayerData.healthPoints = math.max(0, PlayerData.healthPoints - (enemy.damage or 1))
-			print("💥 Player hit by " .. (other.class.name) .. "! HP:", PlayerData.healthPoints)
+			printDebug("💥 Player hit by " .. (other.class.name) .. "! HP:", PlayerData.healthPoints)
 			
 			-- Trigger dance only if HP < threshold
 			if PlayerData.healthPoints < (PlayerData.danceThresholdHP or 5) then
@@ -256,7 +256,7 @@ function collisions.response(player, other)
 		return 'cross'
 
 	elseif other.isProp and other.isHole then
-		print("🕳️ HOLE collision detected!")
+		printDebug("🕳️ HOLE collision detected!")
 		-- If player has boots with battery, can walk over the hole
 		if PlayerData.items.hasBoots == true and PlayerData.battery > 0 then
 			if PlayerData.isTiny == true then
@@ -267,7 +267,7 @@ function collisions.response(player, other)
 			return 'cross'
 		else
 			-- Without boots or without battery = fall
-			print("🕳️ Player:fallBelow() - no boots or battery!")
+			printDebug("🕳️ Player:fallBelow() - no boots or battery!")
 			collisions.fallBelow(player)
 			return 'cross'
 		end
@@ -365,14 +365,14 @@ end
 
 function collisions.fallBelow(player)
 	if not levelsLDTK then
-		print("❌ Player:fallBelow() failed: levelsLDTK is nil!")
+		printDebug("❌ Player:fallBelow() failed: levelsLDTK is nil!")
 		return
 	end
 	
 	-- Get current room data using PlayerData.floor index
 	local currentRoomIndex = PlayerData.floor
 	if not currentRoomIndex or not levelsLDTK[currentRoomIndex] then
-		print("❌ Player:fallBelow() failed: Invalid room index " .. tostring(currentRoomIndex))
+		printDebug("❌ Player:fallBelow() failed: Invalid room index " .. tostring(currentRoomIndex))
 		return
 	end
 	
@@ -380,21 +380,21 @@ function collisions.fallBelow(player)
 	
 	-- 1. Check permission: Does this room allow falling to lower floor?
 	if not canMoveVertically(currentRoom, "<") then
-		print("❌ Player:fallBelow() failed: Room " .. currentRoom.identifier .. " doesn't have 'Lower' permission")
+		printDebug("❌ Player:fallBelow() failed: Room " .. currentRoom.identifier .. " doesn't have 'Lower' permission")
 		return
 	end
 	
 	-- 2. Find the lower neighbor using direction "<"
 	local lowerNeighbor = findNeighborByDirection(currentRoom, "<")
 	if not lowerNeighbor then
-		print("❌ Player:fallBelow() failed: No lower neighbor found in neighbourLevels for " .. currentRoom.identifier)
+		printDebug("❌ Player:fallBelow() failed: No lower neighbor found in neighbourLevels for " .. currentRoom.identifier)
 		return
 	end
 	
 	-- 3. Get the levelIid of the lower room
 	local nextLevelIid = lowerNeighbor.levelIid
 	
-	print("🕳️ Player:fallBelow() -> " .. nextLevelIid .. " from " .. currentRoom.identifier)
+	printDebug("🕳️ Player:fallBelow() -> " .. nextLevelIid .. " from " .. currentRoom.identifier)
 	
 	-- 4. Trigger level transition
 	local sceneManager = require 'sceneManager'
@@ -406,14 +406,14 @@ end
 
 function collisions.riseAbove(player)
 	if not levelsLDTK then
-		print("❌ Player:riseAbove() failed: levelsLDTK is nil!")
+		printDebug("❌ Player:riseAbove() failed: levelsLDTK is nil!")
 		return
 	end
 	
 	-- Get current room data using PlayerData.floor index
 	local currentRoomIndex = PlayerData.floor
 	if not currentRoomIndex or not levelsLDTK[currentRoomIndex] then
-		print("❌ Player:riseAbove() failed: Invalid room index " .. tostring(currentRoomIndex))
+		printDebug("❌ Player:riseAbove() failed: Invalid room index " .. tostring(currentRoomIndex))
 		return
 	end
 	
@@ -421,21 +421,21 @@ function collisions.riseAbove(player)
 	
 	-- 1. Check permission: Does this room allow climbing to upper floor?
 	if not canMoveVertically(currentRoom, ">") then
-		print("❌ Player:riseAbove() failed: Room " .. currentRoom.identifier .. " doesn't have 'Upper' permission")
+		printDebug("❌ Player:riseAbove() failed: Room " .. currentRoom.identifier .. " doesn't have 'Upper' permission")
 		return
 	end
 	
 	-- 2. Find the upper neighbor using direction ">"
 	local upperNeighbor = findNeighborByDirection(currentRoom, ">")
 	if not upperNeighbor then
-		print("❌ Player:riseAbove() failed: No upper neighbor found in neighbourLevels for " .. currentRoom.identifier)
+		printDebug("❌ Player:riseAbove() failed: No upper neighbor found in neighbourLevels for " .. currentRoom.identifier)
 		return
 	end
 	
 	-- 3. Get the levelIid of the upper room
 	local nextLevelIid = upperNeighbor.levelIid
 	
-	print("🚀 Player:riseAbove() -> " .. nextLevelIid .. " from " .. currentRoom.identifier)
+	printDebug("🚀 Player:riseAbove() -> " .. nextLevelIid .. " from " .. currentRoom.identifier)
 	
 	-- 4. Trigger level transition
 	local sceneManager = require 'sceneManager'
@@ -458,11 +458,11 @@ function collisions.startInvincibility(player, durationMs)
 end
 
 function collisions.fight(player)
-	print("⚔️ Player:fight() triggered!")
+	printDebug("⚔️ Player:fight() triggered!")
 end
 
 function collisions.startSliding(player, direction)
-	print("🧊 Player:startSliding(" .. tostring(direction) .. ")")
+	printDebug("🧊 Player:startSliding(" .. tostring(direction) .. ")")
 end
 
 -- Grab helpers

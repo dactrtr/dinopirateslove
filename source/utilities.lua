@@ -129,11 +129,7 @@ function utilities.drawPropsCollision(props)
 		if x and y and w and h then
 			-- Different color for props (Green)
 			utilities.drawCollisionBox(x, y, w, h, {0, 1, 0, 0.4})
-			
-			-- Draw label for tubes/minifiers
-			if prop.type == 'pneumaticTube' or prop.type == 'Tube' or prop.type == 'minifier' then
-				love.graphics.print(prop.type, x, y - 10)
-			end
+		
 		end
 	end
 end
@@ -156,8 +152,8 @@ function utilities.drawDebugInfo(gameScene)
 	utilities.drawEnemiesCollision(gameScene.enemies)
 	utilities.drawTriggersCollision(gameScene.triggers)
 	
-	-- Draw spawn coordinates
-	utilities.drawSpawnPoints(utilities.spawnCoordinates)
+	-- Draw spawn coordinates (Removed by user request)
+	-- utilities.drawSpawnPoints(utilities.spawnCoordinates)
 end
 
 

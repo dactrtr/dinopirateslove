@@ -1,5 +1,10 @@
 local moonshine = require "libraries/moonshine"
-printDebug = print
+DEBUG = true -- Set to false to disable debug prints
+function printDebug(...)
+	if DEBUG then
+		print(...)
+	end
+end
 require 'assets/data/PlayerDataTables'
 local sceneManager = require "sceneManager"
 local titleScene = require "scenes/titleScene"

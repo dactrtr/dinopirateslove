@@ -74,7 +74,7 @@ end
 
 function sceneManager.startTransition(fromSceneName, toSceneName, transitionType, animationName)
 	if not scenes[toSceneName] then
-		print("Warning: Scene '" .. toSceneName .. "' not found!")
+		printDebug("Warning: Scene '" .. toSceneName .. "' not found!")
 		return
 	end
 	
@@ -96,7 +96,7 @@ function sceneManager.startTransition(fromSceneName, toSceneName, transitionType
 			transition.animation:gotoFrame(1)
 			transition.duration = 0.5 -- Match animation duration
 		else
-			print("Warning: Animation '" .. animationName .. "' not found, using fade")
+			printDebug("Warning: Animation '" .. animationName .. "' not found, using fade")
 			transition.type = "fade"
 		end
 	end

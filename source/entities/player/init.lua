@@ -223,7 +223,7 @@ end
 function Player:toggleSize()
 	-- Toggle state
 	PlayerData.isTiny = not PlayerData.isTiny
-	print("🤏 Player size toggled. isTiny: " .. tostring(PlayerData.isTiny))
+	printDebug("🤏 Player size toggled. isTiny: " .. tostring(PlayerData.isTiny))
 	
 	-- Update dimensions based on state
 	if PlayerData.isTiny then
@@ -235,14 +235,14 @@ function Player:toggleSize()
 		-- offsetY = 0 puts the 14px collider at [0, 14] relative to center
 		self.collisionOffsetX = -(self.width / 2)
 		self.collisionOffsetY = 0 
-		print("  📦 Tiny collision box: width=" .. self.width .. ", height=" .. self.height .. ", offsetX=" .. self.collisionOffsetX .. ", offsetY=" .. self.collisionOffsetY)
+		printDebug("  📦 Tiny collision box: width=" .. self.width .. ", height=" .. self.height .. ", offsetX=" .. self.collisionOffsetX .. ", offsetY=" .. self.collisionOffsetY)
 	else
 		-- Normal Box: 30x24
 		self.width = 30
 		self.height = 24
 		self.collisionOffsetX = -(self.width / 2)
 		self.collisionOffsetY = 0  -- Align to bottom: 24 - 24 = 0
-		print("  📦 Normal collision box: width=" .. self.width .. ", height=" .. self.height .. ", offsetX=" .. self.collisionOffsetX .. ", offsetY=" .. self.collisionOffsetY)
+		printDebug("  📦 Normal collision box: width=" .. self.width .. ", height=" .. self.height .. ", offsetX=" .. self.collisionOffsetX .. ", offsetY=" .. self.collisionOffsetY)
 	end
 	
 	-- Update BUMP world with new dimensions
@@ -250,8 +250,8 @@ function Player:toggleSize()
 	
 	-- Verify BUMP world update
 	local bumpX, bumpY, bumpW, bumpH = self.world:getRect(self)
-	print("  🌍 BUMP world collision: x=" .. bumpX .. ", y=" .. bumpY .. ", w=" .. bumpW .. ", h=" .. bumpH)
-	print("  🎮 Player sprite position: x=" .. self.x .. ", y=" .. self.y)
+	printDebug("  🌍 BUMP world collision: x=" .. bumpX .. ", y=" .. bumpY .. ", w=" .. bumpW .. ", h=" .. bumpH)
+	printDebug("  🎮 Player sprite position: x=" .. self.x .. ", y=" .. self.y)
 	
 	-- Update animation state immediately
 	playerAnimations.updateAnimation(self, 0, 0)

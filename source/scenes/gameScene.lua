@@ -108,7 +108,7 @@ local function getTriggerScript(trigger)
 end
 
 function gameScene.clearCurrentRoom()
-	print("🧹 Clearing current room entities...")
+	printDebug("🧹 Clearing current room entities...")
 	
 	-- Clear enemies
 	for _, enemy in ipairs(gameScene.enemies or {}) do
@@ -198,10 +198,10 @@ local function handleTriggerActivation(trigger, script)
 	if trigger.type == "Counter" then
 		PlayerData.storyCounter = (PlayerData.storyCounter or 0) + 1
 		isOneTime = true
-		print("📈 Story Counter incremented: " .. PlayerData.storyCounter)
+		printDebug("📈 Story Counter incremented: " .. PlayerData.storyCounter)
 	elseif trigger.type == "Cutscene" then
 		PlayerData.isCutscene = true
-		print("🎬 Triggering cutscene: " .. cleanScript)
+		printDebug("🎬 Triggering cutscene: " .. cleanScript)
 	else
 		-- Default: Dialog
 		if gameScene.player and gameScene.player.dialogUI then
@@ -216,7 +216,7 @@ local function handleTriggerActivation(trigger, script)
 				trigger.sourceData.customFields = {}
 			end
 			trigger.sourceData.customFields.usedTrigger = true
-			print("💾 Trigger marked as used for persistence: " .. tostring(trigger.sourceData.iid))
+			printDebug("💾 Trigger marked as used for persistence: " .. tostring(trigger.sourceData.iid))
 		end
 		
 		gameScene.removeTrigger(trigger)
@@ -231,7 +231,7 @@ function gameScene.setFloor(levelNumber, roomNumber)
 			gameScene.currentRoom = i
 			PlayerData.floor = i  -- Sync for collisions.lua
 			gameScene.currentLevelData = levelsLDTK[i]
-			print("✅ Level loaded: " .. levelData.identifier .. " (Level " .. levelNumber .. ", Room " .. roomNumber .. ")")
+			printDebug("✅ Level loaded: " .. levelData.identifier .. " (Level " .. levelNumber .. ", Room " .. roomNumber .. ")")
 			
 			-- Update save data
 			PlayerData.saveLevel = roomNumber
@@ -244,7 +244,7 @@ function gameScene.setFloor(levelNumber, roomNumber)
 			end
 
 			-- Auto-save on room entry
-			print("💾 gameScene: Saving state for Level " .. levelNumber .. ", Room " .. roomNumber)
+			printDebug("💾 gameScene: Saving state for Level " .. levelNumber .. ", Room " .. roomNumber)
 			SaveSystem.save()
 			
 			-- Trigger full visual/entity reload
@@ -253,7 +253,7 @@ function gameScene.setFloor(levelNumber, roomNumber)
 			return
 		end
 	end
-	print("⚠️ Warning: Level " .. levelNumber .. ", Room " .. roomNumber .. " not found")
+	printDebug("⚠️ Warning: Level " .. levelNumber .. ", Room " .. roomNumber .. " not found")
 end
 
 
@@ -307,7 +307,7 @@ function gameScene.enter()
 	-- Full reload of current floor state
 	gameScene.reloadCurrentRoom()
 	
-	print("🏠 gameScene: Entered with Room " .. tostring(startRoom))
+	printDebug("🏠 gameScene: Entered with Room " .. tostring(startRoom))
 end
 
 function gameScene.reloadCurrentRoom()
@@ -353,7 +353,7 @@ end
 function gameScene.loadEnemies()
 	-- Ensure we have a level loaded
 	if not gameScene.currentLevelData then
-		print("❌ ERROR: No level data loaded for enemies.")
+		printDebug("❌ ERROR: No level data loaded for enemies.")
 		return
 	end
 	
@@ -363,7 +363,7 @@ function gameScene.loadEnemies()
 	local entities = gameScene.currentLevelData.entities
 	
 	if not entities then
-		print("ℹ️ No entities in this level")
+		printDebug("ℹ️ No entities in this level")
 		return
 	end
 	
@@ -377,12 +377,12 @@ function gameScene.loadEnemies()
 			local id = enemy.iid
 			
 			if not dead then
-				print("🥦 Creating Brocorat at (" .. x .. ", " .. y .. ")")
+				printDebug("🥦 Creating Brocorat at (" .. x .. ", " .. y .. ")")
 				local brocorat = Brocorat(x, y, nil, speed, gameScene.player, id, gameScene.world)
 				brocorat.sourceData = enemy -- Link to levelsLDTK entry
 				table.insert(gameScene.enemies, brocorat)
 			else
-				print("💀 Brocorat at (" .. x .. ", " .. y .. ") is dead, skipping")
+				printDebug("💀 Brocorat at (" .. x .. ", " .. y .. ") is dead, skipping")
 			end
 		end
 	end
@@ -391,13 +391,13 @@ function gameScene.loadEnemies()
 	-- if entities.Bosscolli then ... end
 	-- if entities.CrewMember then ... end
 	
-	print("✅ Loaded " .. #gameScene.enemies .. " enemies")
+	printDebug("✅ Loaded " .. #gameScene.enemies .. " enemies")
 end
 
 function gameScene.loadDoors()
 	-- Ensure we have a level loaded
 	if not gameScene.currentLevelData then
-		print("❌ ERROR: No level data loaded for doors.")
+		printDebug("❌ ERROR: No level data loaded for doors.")
 		return
 	end
 	
@@ -410,10 +410,10 @@ function gameScene.loadDoors()
 	local entities = gameScene.currentLevelData.entities
 	local neighbourLevels = gameScene.currentLevelData.neighbourLevels
 	
-	print("🔍 DEBUG: Loading doors for " .. gameScene.currentLevelData.identifier)
+	printDebug("🔍 DEBUG: Loading doors for " .. gameScene.currentLevelData.identifier)
 	
 	if not entities or not entities.Doors then
-		print("ℹ️ No Doors entities in this level")
+		printDebug("ℹ️ No Doors entities in this level")
 		return
 	end
 	
@@ -432,7 +432,7 @@ function gameScene.loadDoors()
 		local direction = connectionToDir[connection]
 		
 		if not direction then
-			print("⚠️ WARNING: Unknown DoorsConnection '" .. tostring(connection) .. "'")
+			printDebug("⚠️ WARNING: Unknown DoorsConnection '" .. tostring(connection) .. "'")
 		else
 			-- Find the neighbour level matching this direction
 			local nextLevelIid = nil
@@ -479,15 +479,15 @@ function gameScene.loadDoors()
 				)
 				table.insert(gameScene.doors, door)
 				
-				print("🚪 Created door: " .. connection .. " (" .. direction .. ") -> " .. nextLevelIid .. 
+				printDebug("🚪 Created door: " .. connection .. " (" .. direction .. ") -> " .. nextLevelIid .. 
 					" (Room " .. tostring(nextRoomNumber) .. ") at (" .. door.x .. ", " .. door.y .. ") [" .. door.width .. "x" .. door.height .. "]")
 			else
-				print("⚠️ WARNING: No neighbour found for door direction '" .. direction .. "'")
+				printDebug("⚠️ WARNING: No neighbour found for door direction '" .. direction .. "'")
 			end
 		end
 	end
 	
-	print("✅ Loaded " .. #gameScene.doors .. " doors from entities")
+	printDebug("✅ Loaded " .. #gameScene.doors .. " doors from entities")
 end
 
 -- MARK: Wall Creation
@@ -502,7 +502,7 @@ function gameScene.loadWalls()
 	
 	-- Ensure we have tile data
 	if not gameScene.tileMapData then
-		print("⚠️ Warning: No tile data for wall creation")
+		printDebug("⚠️ Warning: No tile data for wall creation")
 		return
 	end
 
@@ -511,7 +511,7 @@ function gameScene.loadWalls()
 	local startY = 120 - (gameScene.mapHeight * gameScene.tileSize) / 2
 
 	-- Create walls from tile data
-	print("🧱 Generating walls from tilemap...")
+	printDebug("🧱 Generating walls from tilemap...")
 	gameScene.walls = utilities.CreateTileColliders(
 		gameScene.tileMapData, 
 		gameScene.world, 
@@ -520,7 +520,7 @@ function gameScene.loadWalls()
 		startY
 	)
 	
-	print("✅ Created " .. #gameScene.walls .. " optimized wall segments from tilemap")
+	printDebug("✅ Created " .. #gameScene.walls .. " optimized wall segments from tilemap")
 end
 
 -- MARK: Props Loading
@@ -563,7 +563,7 @@ function gameScene.loadProps()
 		end
 	end
 	
-	print("✅ Loaded " .. #gameScene.props .. " props")
+	printDebug("✅ Loaded " .. #gameScene.props .. " props")
 
 end
 
@@ -611,14 +611,14 @@ function gameScene.loadTriggers()
 	end
 
 	
-	print("✅ Loaded " .. #gameScene.triggers .. " triggers")
+	printDebug("✅ Loaded " .. #gameScene.triggers .. " triggers")
 end
 
 
 
 -- MARK: Level Transition
 function gameScene.performChangeLevel(nextLevelIid, enterDirection, player, exitRatio)
-	print("🔄 Changing level to IID: " .. nextLevelIid .. " (Exit Ratio: " .. tostring(exitRatio) .. ")")
+	printDebug("🔄 Changing level to IID: " .. nextLevelIid .. " (Exit Ratio: " .. tostring(exitRatio) .. ")")
 	
 	-- Find the level by IID
 	local nextRoomIndex = nil
@@ -630,7 +630,7 @@ function gameScene.performChangeLevel(nextLevelIid, enterDirection, player, exit
 	end
 	
 	if not nextRoomIndex then
-		print("❌ ERROR: Level with IID " .. nextLevelIid .. " not found!")
+		printDebug("❌ ERROR: Level with IID " .. nextLevelIid .. " not found!")
 		return
 	end
 	
@@ -649,7 +649,7 @@ function gameScene.performChangeLevel(nextLevelIid, enterDirection, player, exit
 	end
 	SaveSystem.save()
 	
-	print("✅ Switched to: " .. gameScene.currentLevelData.identifier)
+	printDebug("✅ Switched to: " .. gameScene.currentLevelData.identifier)
 	
 	-- Reload level components (this also clears old ones)
 	gameScene.reloadCurrentRoom()
@@ -702,10 +702,10 @@ function gameScene.performChangeLevel(nextLevelIid, enterDirection, player, exit
 			gameScene.player.y = spawnY
 			-- Update collision position in BUMP
 			gameScene.player:updateCollisionPosition()
-			print("📍 Player aligned spawn at: (" .. spawnX .. ", " .. spawnY .. ") from " .. targetDir .. " door")
+			printDebug("📍 Player aligned spawn at: (" .. spawnX .. ", " .. spawnY .. ") from " .. targetDir .. " door")
 		else
 			-- Fallback to old behavior if no matching door found
-			print("⚠️ WARNING: No " .. tostring(targetDir) .. " door found in new room. Using fallback spawn.")
+			printDebug("⚠️ WARNING: No " .. tostring(targetDir) .. " door found in new room. Using fallback spawn.")
 			local spawn = utilities.spawnCoordinates[enterDirection]
 			if spawn then
 				gameScene.player.x = spawn.x
@@ -724,14 +724,14 @@ function gameScene.changeLevel(nextLevelIid, enterDirection, player, exitRatio)
 		player = player,
 		ratio = exitRatio
 	}
-	print("⏳ Level change queued for: " .. nextLevelIid)
+	printDebug("⏳ Level change queued for: " .. nextLevelIid)
 end
 
 
 function gameScene.loadFloor()
 	-- Ensure we have a level loaded
 	if not gameScene.currentLevelData then
-		print("❌ ERROR: No level data loaded. Call setFloor() first.")
+		printDebug("❌ ERROR: No level data loaded. Call setFloor() first.")
 		return
 	end
 	
@@ -763,7 +763,7 @@ function gameScene.loadFloor()
 	
 	-- Get tile index from current level's customFields
 	local tileIndex = gameScene.currentLevelData.customFields.tile or 1
-	print("📍 Loading tilemap index: " .. tileIndex)
+	printDebug("📍 Loading tilemap index: " .. tileIndex)
 	
 	-- Initialize tilemap data from the level's tile index
 	gameScene.tileMapData = tileMapData[tileIndex]
@@ -855,7 +855,7 @@ function gameScene.update(dt)
 			for i = 1, collisionCount do
 				local collision = collisions[i]
 				-- You can add logic based on collision.object type
-				-- print("Colliding with:", collision.object)
+				-- printDebug("Colliding with:", collision.object)
 			end
 		end
 		
@@ -974,7 +974,7 @@ function gameScene.checkTriggerInteraction()
 			if item.type == "Search" or item.type == "Call" or not item.type then
 				local script = getTriggerScript(item)
 				if script then
-					print("🔍 Manually triggering: " .. script .. " (Type: " .. tostring(item.type) .. ")")
+					printDebug("🔍 Manually triggering: " .. script .. " (Type: " .. tostring(item.type) .. ")")
 					handleTriggerActivation(item, script)
 					return true
 				end
@@ -1004,7 +1004,7 @@ function gameScene.checkAutomaticTriggers()
 				if not item.isCurrentlyActive then
 					local script = getTriggerScript(item)
 					if script then
-						print("🎭 Automatically triggering: " .. script .. " (Type: " .. tostring(item.type) .. ")")
+						printDebug("🎭 Automatically triggering: " .. script .. " (Type: " .. tostring(item.type) .. ")")
 						handleTriggerActivation(item, script)
 						return -- Activate only one per frame
 					end
@@ -1094,7 +1094,7 @@ function gameScene.handleMenuAction(action)
 		-- Toggle debug mode
 		gameScene.debugMode = not gameScene.debugMode
 		DRAW_DEBUG_DOORS = gameScene.debugMode
-		print("🔧 Debug mode: " .. (gameScene.debugMode and "ON" or "OFF"))
+		printDebug("🔧 Debug mode: " .. (gameScene.debugMode and "ON" or "OFF"))
 		-- Keep menu open so user can see the change
 		gameScene.pauseMenu:show()
 	elseif action == "title" then

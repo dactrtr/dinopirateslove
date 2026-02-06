@@ -173,7 +173,7 @@ end
 -------------------------------------------------------------
 function SaveSystem.save()
     if not PlayerData then
-        print("❌ SaveSystem: PlayerData is nil, cannot save!")
+        printDebug("❌ SaveSystem: PlayerData is nil, cannot save!")
         return false
     end
 
@@ -189,10 +189,10 @@ function SaveSystem.save()
     
     local success, message = love.filesystem.write(filename, content)
     if success then
-        print("💾 SaveSystem: Game saved successfully to " .. love.filesystem.getSaveDirectory() .. "/" .. filename)
+        printDebug("💾 SaveSystem: Game saved successfully to " .. love.filesystem.getSaveDirectory() .. "/" .. filename)
         return true
     else
-        print("❌ SaveSystem: Failed to save game: " .. tostring(message))
+        printDebug("❌ SaveSystem: Failed to save game: " .. tostring(message))
         return false
     end
 end
@@ -203,14 +203,14 @@ end
 function SaveSystem.load()
     local filename = "gameState.lua"
     if not love.filesystem.getInfo(filename) then
-        print("🔭 SaveSystem: No save file found at " .. filename)
+        printDebug("🔭 SaveSystem: No save file found at " .. filename)
         return false, nil
     end
 
     -- Load via chunk (since we saved as 'return { ... }')
     local chunk, err = love.filesystem.load(filename)
     if not chunk then
-        print("❌ SaveSystem: Error loading save file: " .. tostring(err))
+        printDebug("❌ SaveSystem: Error loading save file: " .. tostring(err))
         return false, nil
     end
 
@@ -227,11 +227,11 @@ function SaveSystem.load()
         end
         
         SaveSystem.restoreLevelState(saveData.levelState)
-        print("📖 SaveSystem: Game loaded successfully")
+        printDebug("📖 SaveSystem: Game loaded successfully")
         return true, PlayerData.saveLevel
     end
 
-    print("⚠️ SaveSystem: Old save format detected or corrupted save")
+    printDebug("⚠️ SaveSystem: Old save format detected or corrupted save")
     return false, nil
 end
 
@@ -242,16 +242,16 @@ function SaveSystem.reset()
     if ResetPlayerData then
         ResetPlayerData()
     else
-        print("⚠️ SaveSystem: ResetPlayerData function not found!")
+        printDebug("⚠️ SaveSystem: ResetPlayerData function not found!")
     end
     
     if levelsLDTKOriginal then
         -- We must update the GLOBAL levelsLDTK
         levelsLDTK = deepcopy(levelsLDTKOriginal)
     else
-        print("⚠️ SaveSystem: Original levels backup not found!")
+        printDebug("⚠️ SaveSystem: Original levels backup not found!")
     end
-    print("🔄 SaveSystem: Game state reset")
+    printDebug("🔄 SaveSystem: Game state reset")
 end
 
 -------------------------------------------------------------
@@ -262,9 +262,9 @@ function SaveSystem.delete()
     local success = love.filesystem.remove(filename)
     
     if success then
-        print("🗑️ Save deleted successfully")
+        printDebug("🗑️ Save deleted successfully")
     else
-        print("⚠️ Could not delete save file or it doesn't exist")
+        printDebug("⚠️ Could not delete save file or it doesn't exist")
     end
     
     SaveSystem.reset()

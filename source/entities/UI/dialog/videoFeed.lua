@@ -84,7 +84,7 @@ function VideoFeed:setState(state)
         self.state = targetState
         self.currentAnimation = self.animations[targetState]
     else
-        print("⚠️ Warning: VideoFeed state not found: " .. tostring(targetState))
+        printDebug("⚠️ Warning: VideoFeed state not found: " .. tostring(targetState))
         self.currentAnimation = self.animations.player
     end
 end
