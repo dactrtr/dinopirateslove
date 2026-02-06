@@ -52,7 +52,9 @@ function collisions.checkCollisions(player)
 	
 	-- Debug query rect when tiny
 	if PlayerData.isTiny then
-		print("🔍 checkCollisions (Tiny): x="..collisionX..", y="..collisionY..", w="..player.width..", h="..player.height .. ", offX=" .. player.collisionOffsetX)
+		-- Only log once every few seconds for specific objects if needed, 
+		-- but for diagnosis we'll log most collisions briefly
+		-- print("🔍 checkCollisions (Tiny): x="..collisionX..", y="..collisionY..", w="..player.width..", h="..player.height .. ", offX=" .. player.collisionOffsetX)
 	end
 	
 	return collisions.collideRect(player, collisionX, collisionY, player.width, player.height)
@@ -116,7 +118,7 @@ end
 function collisions.response(player, other)
 	-- Debug: print collisions with props
 	if other.isProp then
-		print("📍 Colliding with prop:", other.type, "isHole:", other.isHole)
+		-- print("📍 Colliding with prop:", other.type, "isHole:", other.isHole)
 	end
 
 	if other.class and (other.class.name == "Enemy" or other.class.name == "Brocorat") then
@@ -288,8 +290,19 @@ function collisions.response(player, other)
 	elseif other.isProp and other.isTube then
 		-- Pneumatic tube, allow climbing up if player is tiny
 		if PlayerData.isTiny == true then
-			collisions.riseAbove(player)
-			return 'cross'
+			-- Refinement: Only trigger if player is relatively centered on the tube
+			-- Tube is 32x32 tile, collider is 16px wide centered (offset 8)
+			-- Tube center X = other.x + 16 (since other.x is top-left of 32px tile)
+			local tubeCenterX = other.x + 16
+			local dist = math.abs(player.x - tubeCenterX)
+			
+			if dist < 6 then -- Player must be within 6px of the center
+				collisions.riseAbove(player)
+				return 'cross'
+			else
+				-- If tiny but not centered, just overlap without rising
+				return 'cross'
+			end
 		else
 			return 'touch' -- freeze
 		end

@@ -25,9 +25,10 @@ function Player:initialize(x, y, world)
 		self.width = 14
 		self.height = 14
 		-- Center horizontally: -7 offset
-		-- Align to bottom: Offset Y = 10 (24 - 14)
+		-- Align to character (character is centered 48px sprite, bottom is at y+24)
+		-- offsetY = 0 puts the 14px collider at [0, 14] relative to center
 		self.collisionOffsetX = -(self.width / 2)
-		self.collisionOffsetY = 10
+		self.collisionOffsetY = 0
 	else
 		-- Normal Box: 30x24
 		self.width = 30
@@ -230,9 +231,10 @@ function Player:toggleSize()
 		self.width = 14
 		self.height = 14
 		-- Center horizontally: -7 offset
-		-- Align to bottom (sprite is 48px centered, bottom is at y+24, so offset = 24-14 = 10)
+		-- Align to character (character is centered 48px sprite, bottom is at y+24)
+		-- offsetY = 0 puts the 14px collider at [0, 14] relative to center
 		self.collisionOffsetX = -(self.width / 2)
-		self.collisionOffsetY = 10 
+		self.collisionOffsetY = 0 
 		print("  📦 Tiny collision box: width=" .. self.width .. ", height=" .. self.height .. ", offsetX=" .. self.collisionOffsetX .. ", offsetY=" .. self.collisionOffsetY)
 	else
 		-- Normal Box: 30x24
