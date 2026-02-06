@@ -107,6 +107,37 @@ function utilities.drawDoors(doors)
 	end
 end
 
+-- Draw all prop collision boxes
+function utilities.drawPropsCollision(props)
+	if not props then return end
+	for _, prop in ipairs(props) do
+		-- Use BUMP world rect if available for accuracy
+		local x, y, w, h
+		if prop.world and prop.world:hasItem(prop) then
+			x, y, w, h = prop.world:getRect(prop)
+		elseif prop.colWidth and prop.colHeight then
+			-- Use the actual collision rect dimensions
+			x = prop.x + (prop.colOffsetX or 0)
+			y = prop.y + (prop.colOffsetY or 0)
+			w = prop.colWidth
+			h = prop.colHeight
+		else
+			-- Fallback to sprite dimensions
+			x, y, w, h = prop.x, prop.y, prop.width, prop.height
+		end
+		
+		if x and y and w and h then
+			-- Different color for props (Green)
+			utilities.drawCollisionBox(x, y, w, h, {0, 1, 0, 0.4})
+			
+			-- Draw label for tubes/minifiers
+			if prop.type == 'pneumaticTube' or prop.type == 'Tube' or prop.type == 'minifier' then
+				love.graphics.print(prop.type, x, y - 10)
+			end
+		end
+	end
+end
+
 -- MARK: Complete Debug Draw Function
 -- All-in-one debug drawing function
 function utilities.drawDebugInfo(gameScene)
@@ -117,6 +148,9 @@ function utilities.drawDebugInfo(gameScene)
 	
 	-- Draw doors
 	utilities.drawDoors(gameScene.doors)
+	
+	-- Draw Props (New)
+	utilities.drawPropsCollision(gameScene.props)
 	
 	utilities.drawPlayerCollision(gameScene.player)
 	utilities.drawEnemiesCollision(gameScene.enemies)

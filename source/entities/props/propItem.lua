@@ -62,8 +62,8 @@ local propConfigs = {
     
     minifier    = { frame = 45, collideRect = {0, 12, 32, 18} },
     slime       = { frame = 46, isSlime = true, isEdible = false, collideRect = {0, 0, 32, 32} },
-    pneumaticTube = { frame = 47, isTube = true, isEdible = false, collideRect = {0, 0, 32, 32} }, -- Assuming frame 47 for pneumaticTube
-    Tube        = { frame = 48, isTube = true, isEdible = false, collideRect = {0, 0, 32, 32} }, -- Assuming frame 48 for Tube
+    pneumaticTube = { frame = 47, isTube = true, isEdible = false, collideRect = {8, 2, 16, 28} }, -- Centered 16px wide, full height
+    Tube        = { frame = 48, nocollide = true }, -- Decorative only, no collision
 }
 
 function PropItem.static:isValidType(type)

@@ -49,6 +49,12 @@ end
 -- Check for collisions at the player's current collision box position
 function collisions.checkCollisions(player)
 	local collisionX, collisionY = player.x + player.collisionOffsetX, player.y + player.collisionOffsetY
+	
+	-- Debug query rect when tiny
+	if PlayerData.isTiny then
+		print("🔍 checkCollisions (Tiny): x="..collisionX..", y="..collisionY..", w="..player.width..", h="..player.height .. ", offX=" .. player.collisionOffsetX)
+	end
+	
 	return collisions.collideRect(player, collisionX, collisionY, player.width, player.height)
 end
 
