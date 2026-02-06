@@ -4,10 +4,10 @@ function love.conf(t)
 	t.version = "11.5"                 -- Versión de LÖVE
 	t.console = false                  -- Mostrar la consola (true solo para debugging en PC)
 
-	t.window.title = "My Game"               -- Window title
+	t.window.title = "DinoPirates"               -- Window title
 	t.window.icon = nil                      -- Window icon (use "icon.png" if you have one)
-	t.window.width = 400                     -- Base game width
-	t.window.height = 240                    -- Base game height
+	t.window.width = 800                     -- Base game width (2x 400)
+	t.window.height = 480                    -- Base game height (2x 240)
 	t.window.borderless = false              -- Remove window border
 	t.window.resizable = true                -- Allow window resizing
 	t.window.minwidth = 400                  -- Minimum window width

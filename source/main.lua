@@ -220,6 +220,21 @@ function love.keypressed(key)
 		love.window.setFullscreen(not wasFullscreen)
 		love.timer.sleep(0.02)
 		updateScale()
+	elseif key == "1" then
+		love.window.setMode(400, 240, {resizable=true, minwidth=400, minheight=240})
+		updateScale()
+	elseif key == "2" then
+		love.window.setMode(800, 480, {resizable=true, minwidth=400, minheight=240})
+		updateScale()
+	elseif key == "3" then -- Toggle resolution doubling
+		local currentWidth, currentHeight = love.window.getMode()
+		if currentWidth == 800 and currentHeight == 480 then
+			love.window.setMode(400, 240, {resizable=true, minwidth=400, minheight=240})
+		else
+			love.window.setMode(800, 480, {resizable=true, minwidth=400, minheight=240})
+		end
+		love.timer.sleep(0.02)
+		updateScale()
 	end
 	-- Removed the ESC key handler - let scenes handle their own ESC logic
 	sceneManager.keypressed(key)
