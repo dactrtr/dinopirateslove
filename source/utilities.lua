@@ -90,12 +90,14 @@ end
 
 
 -- Draw wall rectangles
+-- Draw wall rectangles
 function utilities.drawWalls(walls)
-	love.graphics.setColor(1, 0, 0, 1) -- Red color
-	for _, wall in ipairs(walls) do
-		love.graphics.rectangle("fill", wall.x, wall.y, wall.w, wall.h)
-	end
-	love.graphics.setColor(1, 1, 1) -- Reset color
+	-- Removed red wall drawing by user request to see colliders clearly
+	-- love.graphics.setColor(1, 0, 0, 1) -- Red color
+	-- for _, wall in ipairs(walls) do
+	-- 	love.graphics.rectangle("fill", wall.x, wall.y, wall.w, wall.h)
+	-- end
+	-- love.graphics.setColor(1, 1, 1) -- Reset color
 end
 
 -- Draw doors (for debugging)
@@ -127,9 +129,13 @@ function utilities.drawPropsCollision(props)
 		end
 		
 		if x and y and w and h then
-			-- Different color for props (Green)
-			utilities.drawCollisionBox(x, y, w, h, {0, 1, 0, 0.4})
-		
+			-- Different color for props (Green) - Removed by user request
+			-- utilities.drawCollisionBox(x, y, w, h, {0, 1, 0, 0.4})
+			
+			-- Draw label for tubes/minifiers
+			if prop.type == 'pneumaticTube' or prop.type == 'Tube' or prop.type == 'minifier' then
+				love.graphics.print(prop.type, x, y - 10)
+			end
 		end
 	end
 end
@@ -140,7 +146,7 @@ function utilities.drawDebugInfo(gameScene)
 	if not gameScene.debugMode then return end
 	
 	-- Draw walls
-	utilities.drawWalls(gameScene.walls)
+	-- utilities.drawWalls(gameScene.walls)
 	
 	-- Draw doors
 	utilities.drawDoors(gameScene.doors)
@@ -148,7 +154,7 @@ function utilities.drawDebugInfo(gameScene)
 	-- Draw Props (New)
 	utilities.drawPropsCollision(gameScene.props)
 	
-	utilities.drawPlayerCollision(gameScene.player)
+	-- utilities.drawPlayerCollision(gameScene.player)
 	utilities.drawEnemiesCollision(gameScene.enemies)
 	utilities.drawTriggersCollision(gameScene.triggers)
 	

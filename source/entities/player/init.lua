@@ -26,9 +26,9 @@ function Player:initialize(x, y, world)
 		self.height = 14
 		-- Center horizontally: -7 offset
 		-- Align to character (character is centered 48px sprite, bottom is at y+24)
-		-- offsetY = 0 puts the 14px collider at [0, 14] relative to center
+		-- offsetY = 10 puts the 14px collider at [10, 24] relative to center, aligned to bottom
 		self.collisionOffsetX = -(self.width / 2)
-		self.collisionOffsetY = 0
+		self.collisionOffsetY = 10
 	else
 		-- Normal Box: 30x24
 		self.width = 30
@@ -128,9 +128,12 @@ function Player:update(dt)
 		local col = cols[i]
 		local other = col.other
 		
-		-- Check for Door collision
+		-- Use centralized physics resolution for side effects
+		playerCollisions.resolve(self, other)
+		
+		-- Specialized Door collision (remains here for scene transition flow control if needed, 
+		-- but resolve could also handle it)
 		if other.class and other.class.name == "Door" then
-			-- Use DoorHandler to handle transition
 			local DoorHandler = require 'DoorHandler'
 			DoorHandler.handleDoorCollision(other, self)
 		end
@@ -202,8 +205,8 @@ function Player:checkPropInteractions()
 		local col = collisions[i]
 		local other = col.object
 		
-		-- Trigger collision response for side effects (like setting readyToShrink)
-		playerCollisions.response(self, other)
+		-- Trigger collision resolution for side effects (like setting readyToShrink)
+		playerCollisions.resolve(self, other)
 	end
 end
 
@@ -232,9 +235,9 @@ function Player:toggleSize()
 		self.height = 14
 		-- Center horizontally: -7 offset
 		-- Align to character (character is centered 48px sprite, bottom is at y+24)
-		-- offsetY = 0 puts the 14px collider at [0, 14] relative to center
+		-- offsetY = 10 puts the 14px collider at [10, 24] relative to center, aligned to bottom
 		self.collisionOffsetX = -(self.width / 2)
-		self.collisionOffsetY = 0 
+		self.collisionOffsetY = 10 
 		printDebug("  📦 Tiny collision box: width=" .. self.width .. ", height=" .. self.height .. ", offsetX=" .. self.collisionOffsetX .. ", offsetY=" .. self.collisionOffsetY)
 	else
 		-- Normal Box: 30x24

@@ -62,7 +62,7 @@ local propConfigs = {
     
     minifier    = { frame = 45, collideRect = {0, 12, 32, 18} },
     slime       = { frame = 46, isSlime = true, isEdible = false, collideRect = {0, 0, 32, 32} },
-    pneumaticTube = { frame = 47, isTube = true, isEdible = false, collideRect = {8, 2, 16, 16} }, -- Centered 16px wide, full height
+    pneumaticTube = { frame = 47, isTube = true, isEdible = false, collideRect = {8, 0, 16, 32} }, -- Centered 16px wide, full height
     Tube        = { frame = 48, nocollide = true }, -- Decorative only, no collision
 }
 
@@ -177,6 +177,12 @@ function PropItem:draw(debug)
     
     -- Debug draw
     if debug and not self.nocollide and not self.isDestroyed then
+        -- Sprite boundaries (Blue) for holes and tubes
+        if self.isHole or self.isTube then
+            love.graphics.setColor(0, 0, 1, 0.5) -- Semi-transparent blue
+            love.graphics.rectangle("line", self.x, self.y, TILE_SIZE, TILE_SIZE)
+        end
+
         love.graphics.setColor(1, 0, 1, 0.4) -- Purple for props
         love.graphics.rectangle("fill", self.x + self.colOffsetX, self.y + self.colOffsetY, self.colWidth, self.colHeight)
         love.graphics.setColor(1, 1, 1, 1)

@@ -114,207 +114,149 @@ function collisions.getObjectsInRadius(player, radius)
 	return filtered, #filtered
 end
 
--- Comprehensive collision response logic
-function collisions.response(player, other)
-	-- Debug: print collisions with props
-	if other.isProp then
-		-- printDebug("📍 Colliding with prop:", other.type, "isHole:", other.isHole)
+
+-- Pure function for BUMP filters (no side effects)
+function collisions.getType(player, other)
+	if other.class and (other.class.name == "Enemy" or other.class.name == "Brocorat") then
+		return 'cross'
+	elseif other.class and other.class.name == "CrewMember" then
+		return 'cross'
+	elseif other.class and other.class.name == "Box" then
+		return 'touch'
+	elseif other.isTrigger then
+		return 'cross'
+	elseif other.class and other.class.name == 'Items' then
+		return 'cross'
+	elseif other.isProp then
+		if other.isHole or other.isSlime or other.type == 'minifier' then
+			return 'cross'
+		elseif other.isTube then
+			return PlayerData.isTiny and 'cross' or 'touch'
+		end
+		return 'touch'
+	elseif other.class and other.class.name == "Door" then
+		return 'cross'
 	end
 
+	return 'slide'
+end
+
+-- Side-effect and logic handling
+function collisions.resolve(player, other)
 	if other.class and (other.class.name == "Enemy" or other.class.name == "Brocorat") then
 		local enemy = other
-		-- validate candance also
 		PlayerData.lastEnemyTouched.type = "Brocorat"
 		PlayerData.lastEnemyTouched.id = enemy.id
 		PlayerData.lastEnemyTouched.x = enemy.x
 		PlayerData.lastEnemyTouched.y = enemy.y
 		
-		-- Add damage logic
 		if not player.isInvincible then
 			PlayerData.healthPoints = math.max(0, PlayerData.healthPoints - (enemy.damage or 1))
-			printDebug("💥 Player hit by " .. (other.class.name) .. "! HP:", PlayerData.healthPoints)
-			
-			-- Trigger dance only if HP < threshold
+			printDebug("💥 Player hit! HP:", PlayerData.healthPoints)
 			if PlayerData.healthPoints < (PlayerData.danceThresholdHP or 5) then
 				collisions.fight(player)
 			else
-				collisions.startInvincibility(player, 1000) -- 1 second cooldown
+				collisions.startInvincibility(player, 1000)
 			end
 		end
-		
-		return 'cross' -- overlap
 
 	elseif other.class and other.class.name == "CrewMember" then
-		-- Validate having the capture bag
 		if PlayerData.CrewMemberData.amountTaken == 0 then
-			if other.crewId == 'CM001' then
-				-- custom screen here after validating the crewId
-			end
-			
-			if player.dialogUI then
-				player.dialogUI:addScreen("gotcha") -- default screen for the 1st time
-			end
+			if player.dialogUI then player.dialogUI:addScreen("gotcha") end
 		end
 		if other.taken then other:taken() end
-		return 'cross'
-
-	elseif other.class and other.class.name == "Box" then
-		return 'touch' -- freeze
 
 	elseif other.isTrigger then
 		local trigger = other
 		if trigger.type == "Cutscene" then
-			-- Cutscenes trigger automatically
 			PlayerData.isGaming = false
 			PlayerData.isCutscene = true
-			
-			-- Persistence handled in gameScene
 			if trigger.sourceData then
 				if not trigger.sourceData.customFields then trigger.sourceData.customFields = {} end
 				trigger.sourceData.customFields.usedTrigger = true
 			end
-			
 			local sceneManager = require 'sceneManager'
 			local gs = sceneManager.getScene("game")
 			if gs and gs.removeTrigger then gs.removeTrigger(trigger) end
-
-		elseif trigger.type == "Search" then
+		elseif trigger.type == "Search" or trigger.type == "Call" or trigger.type == nil then
 			player.currentTrigger = trigger
-		elseif trigger.type == "Call" then
-			player.currentTrigger = trigger
-	elseif trigger.type == "Story" then
-		PlayerData.isGaming = false
-		if player.dialogUI then
-			player.dialogUI:addScreen(trigger.script)
-		end
-		
-		-- Mark as used in persistent data
-		if trigger.sourceData then
-			if not trigger.sourceData.customFields then trigger.sourceData.customFields = {} end
-			trigger.sourceData.customFields.usedTrigger = true
-		end
-		
-		local sceneManager = require 'sceneManager'
-		local gs = sceneManager.getScene("game")
-		if gs and gs.removeTrigger then gs.removeTrigger(trigger) end
-		elseif trigger.type == nil then
-			player.currentTrigger = trigger
+		elseif trigger.type == "Story" then
+			PlayerData.isGaming = false
+			if player.dialogUI then player.dialogUI:addScreen(trigger.script) end
+			if trigger.sourceData then
+				if not trigger.sourceData.customFields then trigger.sourceData.customFields = {} end
+				trigger.sourceData.customFields.usedTrigger = true
+			end
+			local sceneManager = require 'sceneManager'
+			local gs = sceneManager.getScene("game")
+			if gs and gs.removeTrigger then gs.removeTrigger(trigger) end
 		elseif trigger.type == "Counter" then
 			PlayerData.storyCounter = (PlayerData.storyCounter or 0) + 1
 			local sceneManager = require 'sceneManager'
 			local gs = sceneManager.getScene("game")
 			if gs and gs.removeTrigger then gs.removeTrigger(trigger) end
 		end
-		return 'cross'
 
 	elseif other.class and other.class.name == 'Items' then
 		local item = other
 		if item.type == 'keycard' then
-			local keyNumber = item.keyNumber or 1
+			collisions.grabKey(player, item.keyNumber or 1)
 			item:remove()
-			collisions.grabKey(player, keyNumber)
-			return 'cross'
 		elseif item.type == 'lamp' then
-			item:remove()
 			collisions.grabLamp(player)
-			return 'cross'
+			item:remove()
 		elseif item.type == 'radio' then
-			item:remove()
 			collisions.grabRadio(player)
-			return 'cross'
+			item:remove()
 		elseif item.type == 'notes' then
-			local grants = item.grants
+			collisions.grabNotes(player, item.grants)
 			item:remove()
-			collisions.grabNotes(player, grants)
-			return 'cross'
 		elseif item.type == 'itemgift' or item.type == 'itemGift' then
-			local grants = item.grants
+			collisions.grabItemGift(player, item.grants)
 			item:remove()
-			collisions.grabItemGift(player, grants)
-			return 'cross'
-		elseif item.type == 'bag' then
-			item:remove()
+		elseif item.type == 'bag' or item.type == 'honk' then
 			collisions.grabBag(player)
-			return 'cross'
-		elseif item.type == 'honk' then
 			item:remove()
-			collisions.grabBag(player)
-			return 'cross'
 		elseif item.type == 'tools' then
-			item:remove()
 			collisions.grabTools(player)
-			return 'cross'
+			item:remove()
 		elseif item.type == 'boots' then
-			item:remove()
 			collisions.grabBoots(player)
-			return 'cross'
-		elseif item.type == 'plunger' then
 			item:remove()
+		elseif item.type == 'plunger' then
 			collisions.grabPlunger(player)
-			return 'cross'
+			item:remove()
 		end
-		return 'cross'
 
 	elseif other.isProp and other.isHole then
-		printDebug("🕳️ HOLE collision detected!")
-		-- If player has boots with battery, can walk over the hole
 		if PlayerData.items.hasBoots == true and PlayerData.battery > 0 then
-			if PlayerData.isTiny == true then
-				collisions.drainBattery(player, 0.2)
-			else
-				collisions.drainBattery(player, 0.5)
-			end
-			return 'cross'
+			collisions.drainBattery(player, PlayerData.isTiny and 0.2 or 0.5)
 		else
-			-- Without boots or without battery = fall
-			printDebug("🕳️ Player:fallBelow() - no boots or battery!")
 			collisions.fallBelow(player)
-			return 'cross'
 		end
 	
 	elseif other.isProp and other.isSlime then
-		-- If player has plunger boots, can walk over slime (no battery required)
-		if PlayerData.items.hasPlunger == true then
-			return 'cross'
-		else
-			-- Without plunger = slide
+		if PlayerData.items.hasPlunger ~= true then
 			collisions.startSliding(player, PlayerData.direction)
-			return 'cross'
 		end
 	
 	elseif other.isProp and other.type == 'minifier' then
 		player.currentMinifier = other
 		PlayerData.readyToShrink = true
-		return 'cross'
 
 	elseif other.isProp and other.isTube then
-		-- Pneumatic tube, allow climbing up if player is tiny
 		if PlayerData.isTiny == true then
-			-- Refinement: Only trigger if player is relatively centered on the tube
-			-- Tube is 32x32 tile, collider is 16px wide centered (offset 8)
-			-- Tube center X = other.x + 16 (since other.x is top-left of 32px tile)
 			local tubeCenterX = other.x + 16
-			local dist = math.abs(player.x - tubeCenterX)
-			
-			if dist < 6 then -- Player must be within 6px of the center
+			if math.abs(player.x - tubeCenterX) < 10 then
 				collisions.riseAbove(player)
-				return 'cross'
-			else
-				-- If tiny but not centered, just overlap without rising
-				return 'cross'
 			end
-		else
-			return 'touch' -- freeze
 		end
-
-	elseif other.isProp then
-		return 'touch' -- freeze
-	
-	elseif other.class and other.class.name == "Door" then
-		return 'cross'
 	end
+end
 
-	return 'slide'
+-- Backward compatibility wrapper for the filter
+function collisions.response(player, other)
+	return collisions.getType(player, other)
 end
 
 -- Helper functions for vertical navigation using neighbourLevels
