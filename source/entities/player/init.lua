@@ -19,25 +19,8 @@ function Player:initialize(x, y, world)
 	self.spriteWidth = 48
 	self.spriteHeight = 48
 	
-	-- Collision box dimensions (can be different from sprite)
-	if PlayerData.isTiny then
-		-- Tiny Box: 14x14
-		self.width = 14
-		self.height = 14
-		-- Center horizontally: -7 offset
-		-- Align to character (character is centered 48px sprite, bottom is at y+24)
-		-- offsetY = 10 puts the 14px collider at [10, 24] relative to center, aligned to bottom
-		self.collisionOffsetX = -(self.width / 2)
-		self.collisionOffsetY = 10
-	else
-		-- Normal Box: 30x24
-		self.width = 30
-		self.height = 24
-		
-		-- Collision box offset from sprite position
-		self.collisionOffsetX = -(self.width / 2)  -- Center the collision box horizontally
-		self.collisionOffsetY = 0                 -- Align to bottom
-	end
+	-- Set initial dimensions based on PlayerData
+	self:syncDimensions(true) -- Pass true to skip BUMP update during init (manual add follows)
 	
 	-- Use speed from PlayerData (convert from Playdate speed to Love2D pixels/second)
 	-- Playdate speed 1.7 ~= 100 pixels/second in Love2D
@@ -58,6 +41,34 @@ function Player:initialize(x, y, world)
 	
 	-- Initialize dialog system
 	self.dialogUI = DialogScreen()
+end
+
+function Player:syncDimensions(skipBumpUpdate)
+	if PlayerData.isTiny then
+		-- Tiny Box: 14x14
+		self.width = 14
+		self.height = 14
+		-- Center horizontally: -7 offset
+		-- Align to character (character is centered 48px sprite, bottom is at y+24)
+		-- offsetY = 10 puts the 14px collider at [10, 24] relative to center, aligned to bottom
+		self.collisionOffsetX = -(self.width / 2)
+		self.collisionOffsetY = 10
+	else
+		-- Normal Box: 30x24
+		self.width = 30
+		self.height = 24
+		
+		-- Collision box offset from sprite position
+		self.collisionOffsetX = -(self.width / 2)  -- Center the collision box horizontally
+		self.collisionOffsetY = 0                 -- Align to bottom
+	end
+	
+	printDebug(string.format("📐 Syncing Player Dimensions (isTiny: %s): %dx%d, offset: %d, %d", 
+		tostring(PlayerData.isTiny), self.width, self.height, self.collisionOffsetX, self.collisionOffsetY))
+
+	if not skipBumpUpdate and self.world and self.world:hasItem(self) then
+		self:updateCollisionPosition()
+	end
 end
 
 
@@ -229,27 +240,7 @@ function Player:toggleSize()
 	printDebug("🤏 Player size toggled. isTiny: " .. tostring(PlayerData.isTiny))
 	
 	-- Update dimensions based on state
-	if PlayerData.isTiny then
-		-- Tiny Box: 14x14
-		self.width = 14
-		self.height = 14
-		-- Center horizontally: -7 offset
-		-- Align to character (character is centered 48px sprite, bottom is at y+24)
-		-- offsetY = 10 puts the 14px collider at [10, 24] relative to center, aligned to bottom
-		self.collisionOffsetX = -(self.width / 2)
-		self.collisionOffsetY = 10 
-		printDebug("  📦 Tiny collision box: width=" .. self.width .. ", height=" .. self.height .. ", offsetX=" .. self.collisionOffsetX .. ", offsetY=" .. self.collisionOffsetY)
-	else
-		-- Normal Box: 30x24
-		self.width = 30
-		self.height = 24
-		self.collisionOffsetX = -(self.width / 2)
-		self.collisionOffsetY = 0  -- Align to bottom: 24 - 24 = 0
-		printDebug("  📦 Normal collision box: width=" .. self.width .. ", height=" .. self.height .. ", offsetX=" .. self.collisionOffsetX .. ", offsetY=" .. self.collisionOffsetY)
-	end
-	
-	-- Update BUMP world with new dimensions
-	self:updateCollisionPosition()
+	self:syncDimensions()
 	
 	-- Verify BUMP world update
 	local bumpX, bumpY, bumpW, bumpH = self.world:getRect(self)

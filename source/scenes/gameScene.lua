@@ -302,6 +302,9 @@ function gameScene.enter()
 		gameScene.player:moveTo(200, 120)
 	end
 
+	-- Force sync player dimensions based on restored PlayerData
+	gameScene.player:syncDimensions()
+
 	gameScene.setFloor(startLevel, startRoom)
 	
 	-- Full reload of current floor state
