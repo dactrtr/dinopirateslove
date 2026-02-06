@@ -34,6 +34,19 @@ function Player:initialize(x, y, world)
 	self.spritesheet = love.graphics.newImage("assets/images/player/player-table-48-48.png")
 	self.animations = playerAnimations.load(self.spritesheet)
 	self.currentAnimation = playerAnimations.getInitialAnimation(self.animations)
+
+	-- Outline effect
+	local moonshine = require 'libraries/moonshine'
+	self.outlineEffect = moonshine(VIRTUAL_WIDTH, VIRTUAL_HEIGHT, moonshine.effects.outline)
+	
+	-- Apply settings from global moonshinSettings (defined in main.lua)
+	if moonshinSettings and moonshinSettings.playerOutline then
+		self.outlineEffect.outline.color = moonshinSettings.playerOutline.color
+		self.outlineEffect.outline.thickness = moonshinSettings.playerOutline.thickness
+	else
+		self.outlineEffect.outline.color = {1, 1, 1, 1}
+		self.outlineEffect.outline.thickness = 1
+	end
 	
 	-- Movement tracking for turn-based enemy AI
 	self.isMoving = false
@@ -170,16 +183,19 @@ end
 function Player:draw(debug)
 	-- Draw the sprite at sprite position, using center as origin
 	-- ox, oy parameters set the origin to the center of the sprite
-	self.currentAnimation:draw(
-		self.spritesheet, 
-		self.x, 
-		self.y, 
-		0, -- rotation
-		1, -- scaleX
-		1, -- scaleY
-		self.spriteWidth / 2, -- ox: origin X (center)
-		self.spriteHeight / 2  -- oy: origin Y (center)
-	)
+	self.outlineEffect(function()
+		self.currentAnimation:draw(
+			self.spritesheet, 
+			self.x, 
+			self.y, 
+			0, -- rotation
+			1, -- scaleX
+			1, -- scaleY
+			self.spriteWidth / 2, -- ox: origin X (center)
+			self.spriteHeight / 2  -- oy: origin Y (center)
+		)
+	end)
+
 	
 	-- Draw collision box for debugging (violet color)
 	if debug then

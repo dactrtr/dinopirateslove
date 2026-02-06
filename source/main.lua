@@ -48,6 +48,10 @@ moonshinSettings = {
 	chromasep = {
 		radius = 2.0,
 		angle = 0
+	},
+	playerOutline = {
+		thickness = 1,
+		color = {1, 1, 1, 1}
 	}
 }
 
