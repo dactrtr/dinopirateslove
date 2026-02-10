@@ -201,31 +201,31 @@ function collisions.resolve(player, other)
 		local item = other
 		if item.type == 'keycard' then
 			collisions.grabKey(player, item.keyNumber or 1)
-			item:remove()
+			item:removeAll()
 		elseif item.type == 'lamp' then
 			collisions.grabLamp(player)
-			item:remove()
+			item:removeAll()
 		elseif item.type == 'radio' then
 			collisions.grabRadio(player)
-			item:remove()
+			item:removeAll()
 		elseif item.type == 'notes' then
 			collisions.grabNotes(player, item.grants)
-			item:remove()
+			item:removeAll()
 		elseif item.type == 'itemgift' or item.type == 'itemGift' then
 			collisions.grabItemGift(player, item.grants)
-			item:remove()
+			item:removeAll()
 		elseif item.type == 'bag' or item.type == 'honk' then
 			collisions.grabBag(player)
-			item:remove()
+			item:removeAll()
 		elseif item.type == 'tools' then
 			collisions.grabTools(player)
-			item:remove()
+			item:removeAll()
 		elseif item.type == 'boots' then
 			collisions.grabBoots(player)
-			item:remove()
+			item:removeAll()
 		elseif item.type == 'plunger' then
 			collisions.grabPlunger(player)
-			item:remove()
+			item:removeAll()
 		end
 
 	elseif other.isProp and other.isHole then
@@ -419,6 +419,8 @@ end
 function collisions.grabPlunger(player) 
 	PlayerData.items.hasPlunger = true 
 	PlayerData.skills.canPlungerang = true
+	PlayerData.activeItem = 3 -- Auto-equip plunger
+	printDebug("🪠 Plunger collected and equipped!")
 end
 function collisions.grabBag(player) PlayerData.items.hasBag = true end
 

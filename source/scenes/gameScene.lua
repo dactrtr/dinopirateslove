@@ -3,6 +3,7 @@ local Timer = require 'libraries/hump/timer'
 local bump = require 'libraries/bump'
 local Player = require 'entities.player'
 local PropItem = require 'entities.props.propItem'
+local Items = require 'entities.Items'
 local Brocorat = require 'entities.Brocorat'
 local Door = require 'entities.Door'
 local DoorHandler = require 'DoorHandler'
@@ -40,6 +41,8 @@ local gameScene = {
 	walls = {},
 	-- Props
 	props = {},
+	-- Items (collectibles)
+	items = {},
 	-- Triggers
 	triggers = {},
 	-- Interaction HUD
@@ -142,6 +145,14 @@ function gameScene.clearCurrentRoom()
 		if prop.remove then prop:remove() end
 	end
 	gameScene.props = {}
+	
+	-- Clear items
+	for _, item in ipairs(gameScene.items or {}) do
+		if item.removeAll then
+			item:removeAll()
+		end
+	end
+	gameScene.items = {}
 
 	-- Clear triggers
 	for _, trigger in ipairs(gameScene.triggers or {}) do
@@ -333,6 +344,9 @@ function gameScene.reloadCurrentRoom()
 	
 	-- Mark: props - Create props from level data
 	gameScene.loadProps()
+	
+	-- Mark: items - Create collectible items from level data
+	gameScene.loadItems()
 	
 	-- Mark: triggers - Create triggers from level data
 	gameScene.loadTriggers()
@@ -568,6 +582,50 @@ function gameScene.loadProps()
 	
 	printDebug("✅ Loaded " .. #gameScene.props .. " props")
 
+end
+
+-- MARK: Items Loading
+function gameScene.loadItems()
+	-- Ensure we have a level loaded
+	if not gameScene.currentLevelData then return end
+	
+	-- Clear existing items
+	for _, item in ipairs(gameScene.items) do
+		if item.removeAll then item:removeAll() end
+	end
+	gameScene.items = {}
+	
+	local entities = gameScene.currentLevelData.entities
+	if not entities then return end
+	
+	-- Calculate offsets (same as in drawFloor)
+	local startX = 200 - (gameScene.mapWidth * gameScene.tileSize) / 2
+	local startY = 120 - (gameScene.mapHeight * gameScene.tileSize) / 2
+	
+	-- Iterate over all entity types looking for items
+	for typeName, entityList in pairs(entities) do
+		for _, entity in ipairs(entityList) do
+			-- Check if it's an item (layer is "Items")
+			if entity.layer == "Items" then
+				local cf = entity.customFields or {}
+				local x, y = entity.x, entity.y
+				local itemType = cf.type or typeName:lower()
+				
+				-- Adjust position to world coordinates
+				local worldX = x + startX
+				local worldY = y + startY
+				
+				-- Create the item
+				local item = Items(worldX, worldY, itemType, gameScene.world)
+				item.sourceData = entity -- Link to levelsLDTK entry
+				
+				table.insert(gameScene.items, item)
+				printDebug("🎁 Created item: " .. itemType .. " at (" .. worldX .. ", " .. worldY .. ")")
+			end
+		end
+	end
+	
+	printDebug("✅ Loaded " .. #gameScene.items .. " items")
 end
 
 -- MARK: Triggers Loading
@@ -867,6 +925,11 @@ function gameScene.update(dt)
 			enemy:update(dt)
 		end
 		
+		-- Update items
+		for _, item in ipairs(gameScene.items) do
+			item:update(dt)
+		end
+		
 		-- Reset player movement flag only when player stops moving
 		if gameScene.player.hasMoved and not gameScene.player.isMoving then
 			gameScene.player.hasMoved = false
@@ -934,6 +997,16 @@ function gameScene.draw()
 			obj = prop,
 			y = sortY,
 			type = "prop"
+		})
+	end
+	
+	-- Add items
+	for _, item in ipairs(gameScene.items) do
+		local sortY = item.y + item.height
+		table.insert(drawables, {
+			obj = item,
+			y = sortY,
+			type = "item"
 		})
 	end
 	
@@ -1036,6 +1109,20 @@ function gameScene.keypressed(key)
 		-- Check for interaction on confirm keys
 		if key == "z" or key == "return" or key == "space" then
 			gameScene.checkTriggerInteraction()
+		end
+		
+		-- Action button (X) for plungerang
+		if key == "x" then
+			if gameScene.player and gameScene.player.handleActionButton then
+				gameScene.player:handleActionButton()
+			end
+		end
+		
+		-- E key for minifier (size toggle)
+		if key == "e" then
+			if gameScene.player and gameScene.player.handleCrankInput then
+				gameScene.player:handleCrankInput(1) -- Simulate wheel movement
+			end
 		end
 	end
 

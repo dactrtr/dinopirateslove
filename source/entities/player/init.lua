@@ -6,6 +6,7 @@ local Class = require 'libraries/middleclass'
 local playerCollisions = require 'entities.player.collisions'
 local playerMovements = require 'entities.player.movements'
 local playerAnimations = require 'entities.player.animations'
+local playerPlunge = require 'entities.player.plunge'
 local DialogScreen = require 'entities.UI.dialog.dialogScreen'
 
 
@@ -51,6 +52,10 @@ function Player:initialize(x, y, world)
 	-- Movement tracking for turn-based enemy AI
 	self.isMoving = false
 	self.hasMoved = false -- Flag to trigger enemy movement
+	
+	-- Plungerang state
+	self.isPlunging = false
+	self.projectile = nil
 	
 	-- Initialize dialog system
 	self.dialogUI = DialogScreen()
@@ -120,8 +125,19 @@ end
 
 -- Update function
 function Player:update(dt)
-	-- Handle input and get movement delta
-	local dx, dy = playerMovements.handleInput(self, dt)
+	-- Update projectile if active
+	if self.projectile then
+		playerPlunge.update(self, dt)
+	end
+	
+	-- Handle input and get movement delta (skip if plunging)
+	local dx, dy = 0, 0
+	if not self.isPlunging then
+		dx, dy = playerMovements.handleInput(self, dt)
+	else
+		-- While plunging, force idle animation
+		playerAnimations.updateAnimation(self, 0, 0)
+	end
 
 	-- Example usage: Check for collisions before moving
 	if dx ~= 0 or dy ~= 0 then
@@ -178,6 +194,16 @@ function Player:update(dt)
 	self:checkPropInteractions()
 end
 
+-- Handle action button (X key) for plungerang
+function Player:handleActionButton()
+	if self.isPlunging then
+		return -- Already plunging
+	end
+	
+	-- Try to activate plungerang
+	playerPlunge.tryActivate(self)
+end
+
 
 -- Draw function
 function Player:draw(debug)
@@ -195,7 +221,11 @@ function Player:draw(debug)
 			self.spriteHeight / 2  -- oy: origin Y (center)
 		)
 	end)
-
+	
+	-- Draw projectile if active
+	if self.projectile and not self.projectile.destroyed then
+		self.projectile:draw()
+	end
 	
 	-- Draw collision box for debugging (violet color)
 	if debug then
@@ -208,6 +238,11 @@ function Player:draw(debug)
 		-- Also draw the sprite bounds in a different color for reference
 		love.graphics.setColor(1, 1, 0, 0.3) -- Yellow with transparency
 		love.graphics.rectangle("line", self.x - self.spriteWidth/2, self.y - self.spriteHeight/2, self.spriteWidth, self.spriteHeight)
+		
+		-- Draw projectile debug
+		if self.projectile and not self.projectile.destroyed then
+			self.projectile:drawDebug()
+		end
 		
 		love.graphics.setColor(1, 1, 1, 1) -- Reset color
 	end

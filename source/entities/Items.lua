@@ -10,10 +10,10 @@ function Items:initialize(x, y, itemType, world)
 	self.y = y
 	
 	-- Sprite and collision dimensions
-	self.spriteWidth = 48
-	self.spriteHeight = 48
-	self.width = 48
-	self.height = 48
+	self.spriteWidth = 32
+	self.spriteHeight = 32
+	self.width = 32
+	self.height = 32
 	self.collisionOffsetX = 0
 	self.collisionOffsetY = 0
 	
@@ -28,17 +28,20 @@ function Items:initialize(x, y, itemType, world)
 	end
 	
 	-- Load spritesheet and setup animations
-	self.spritesheet = love.graphics.newImage('assets/images/items/item-key-table-48-48.png')
-	local grid = anim8.newGrid(48, 48, self.spritesheet:getWidth(), self.spritesheet:getHeight())
+	self.spritesheet = love.graphics.newImage('assets/images/items/items-key-table-32-32.png')
+	local grid = anim8.newGrid(32, 32, self.spritesheet:getWidth(), self.spritesheet:getHeight())
 	
-	-- Animation states (matching Playdate frame ranges)
+	-- Animation states (matching Playdate sequential frame numbering)
+	-- Spritesheet is 6 columns x 3 rows = 18 frames total
+	-- Playdate uses sequential numbering: frames 1-18
+	-- Row 1: frames 1-6, Row 2: frames 7-12, Row 3: frames 13-18
 	self.animations = {
-		keycard = anim8.newAnimation(grid('1-20', 1), 8/60),  -- frames 1-20, 8 frame duration
-		lamp = anim8.newAnimation(grid('21-25', 1), 8/60),    -- frames 21-25
-		radio = anim8.newAnimation(grid('26-29', 1), 8/60),   -- frames 26-29
-		notes = anim8.newAnimation(grid('30-33', 1), 8/60),   -- frames 30-33
-		tools = anim8.newAnimation(grid('34-37', 1), 8/60),   -- frames 34-37
-		bag = anim8.newAnimation(grid('38-41', 1), 8/60)      -- frames 38-41
+		boots = anim8.newAnimation(grid('1-3', 1), 8/60),      -- frames 1-3 (Playdate: 1-3)
+		plunger = anim8.newAnimation(grid('4-6', 1), 8/60),    -- frames 4-6 (Playdate: 4-6)
+		lamp = anim8.newAnimation(grid('1-3', 2), 8/60),       -- frames 7-9 (Playdate: 7-9)
+		notes = anim8.newAnimation(grid('4-6', 2), 8/60),      -- frames 10-12 (Playdate: 10-12)
+		keycard = anim8.newAnimation(grid('1-3', 3), 8/60),    -- frames 13-15 (Playdate: 13-15)
+		itemgift = anim8.newAnimation(grid('4-6', 3), 8/60)    -- frames 16-18 (Playdate: 16-18)
 	}
 	
 	-- Set current animation based on type
@@ -83,8 +86,8 @@ function Items:sonar(x, y)
 end
 
 function Items:removeAll()
-	-- Remove from BUMP world
-	if self.world then
+	-- Remove from BUMP world (only if still in world)
+	if self.world and self.world:hasItem(self) then
 		self.world:remove(self)
 	end
 	

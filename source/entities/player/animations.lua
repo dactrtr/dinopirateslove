@@ -86,14 +86,19 @@ function animations.updateAnimation(player, dx, dy)
 	if PlayerData.isTiny then
 		if dx > 0 then
 			player.currentAnimation = anims.tinyRight
+			PlayerData.direction = "right"
 		elseif dx < 0 then
 			player.currentAnimation = anims.tinyLeft
+			PlayerData.direction = "left"
 		elseif dy > 0 then
 			player.currentAnimation = anims.tinyDown
+			PlayerData.direction = "down"
 		elseif dy < 0 then
 			player.currentAnimation = anims.tinyUp
+			PlayerData.direction = "up"
 		else
 			player.currentAnimation = anims.tinyIdle
+			-- Don't change direction when idle - keep last direction
 		end
 	else
 		-- Normal / Lamp logic
@@ -101,10 +106,13 @@ function animations.updateAnimation(player, dx, dy)
 		
 		if dx > 0 then
 			player.currentAnimation = PlayerData.hasLamp and anims.lampRight or anims.right
+			PlayerData.direction = "right"
 		elseif dx < 0 then
 			player.currentAnimation = PlayerData.hasLamp and anims.lampLeft or anims.left
+			PlayerData.direction = "left"
 		elseif dy > 0 then
 			player.currentAnimation = PlayerData.hasLamp and anims.lampDown or anims.down
+			PlayerData.direction = "down"
 		elseif dy < 0 then
 			-- User provided 'up' (21-25) but no 'lampUp'? 
 			-- Playdate code checks `PlayerData.hasLamp and ...` but didn't listing `lampUp` explicitly in the provided blocks?
@@ -114,8 +122,10 @@ function animations.updateAnimation(player, dx, dy)
 			-- It doesn't seem to have directional logic in the 'init' block, that's just definitions.
 			-- I will assume 'up' is shared or uses 'up'.
 			player.currentAnimation = anims.up
+			PlayerData.direction = "up"
 		else
 			player.currentAnimation = PlayerData.hasLamp and anims.lampIdle or anims.idle
+			-- Don't change direction when idle - keep last direction
 		end
 	end
 end

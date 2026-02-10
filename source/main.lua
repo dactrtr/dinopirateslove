@@ -107,6 +107,7 @@ function love.load()
 	-- Load all scenes first
 	titleScene.load()
 	gameScene.load()
+
 	
 	-- Initialize scenes
 	sceneManager.init()
