@@ -1117,13 +1117,6 @@ function gameScene.keypressed(key)
 				gameScene.player:handleActionButton()
 			end
 		end
-		
-		-- E key for minifier (size toggle)
-		if key == "e" then
-			if gameScene.player and gameScene.player.handleCrankInput then
-				gameScene.player:handleCrankInput(1) -- Simulate wheel movement
-			end
-		end
 	end
 
 

@@ -230,6 +230,16 @@ function sceneManager.keypressed(key)
 	end
 end
 
+function sceneManager.wheelmoved(x, y)
+	if transition.active then
+		return
+	end
+	
+	if currentScene and currentScene.wheelmoved then
+		currentScene.wheelmoved(x, y)
+	end
+end
+
 function sceneManager.getCurrentSceneName()
 	return currentSceneName
 end

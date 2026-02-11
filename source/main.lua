@@ -298,3 +298,9 @@ function love.touchpressed(id, x, y, dx, dy, pressure)
 		end
 	end
 end
+
+function love.wheelmoved(x, y)
+	if sceneManager.wheelmoved then
+		sceneManager.wheelmoved(x, y)
+	end
+end
