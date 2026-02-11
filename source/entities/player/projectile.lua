@@ -6,16 +6,22 @@ local anim8 = require 'libraries/anim8'
 local Projectile = Class('Projectile')
 
 function Projectile:initialize(player, direction, world)
+	-- Safety check
+	if not player then error("Projectile requires a player reference") end
+	if not world then error("Projectile requires a world reference") end
+
+	-- Dimensions (Initialize first to avoid nil errors if used in position logic)
+	self.width = 16
+	self.height = 16
+
 	self.player = player
 	self.world = world
 	
-	-- Position (start at player's feet - bottom center of sprite)
-	self.x = player.x + player.spriteWidth/2  -- Center horizontally
-	self.y = player.y + player.spriteHeight   -- Bottom of sprite (feet)
-	
-	-- Dimensions
-	self.width = 16
-	self.height = 16
+	-- Note: player.x and player.y are the CENTER of the player sprite (see Player:draw)
+	-- So we don't need to add spriteWidth/2 or spriteHeight/2
+	-- Position (center X, center Y + 15 pixels down)
+	self.x = player.x
+	self.y = player.y + 15
 	
 	-- Movement
 	self.speed = 480 -- Pixels per second (8 pixels per frame at 60fps)
