@@ -16,6 +16,7 @@ local transition = {
 	toScene = nil,
 	fromSceneName = "",
 	toSceneName = "",
+	fromCanvas = nil, -- Snapshot of fromScene
 	-- Animated transition data
 	animation = nil,
 	spritesheet = nil,
@@ -86,6 +87,21 @@ function sceneManager.startTransition(fromSceneName, toSceneName, transitionType
 	transition.toSceneName = toSceneName
 	transition.type = transitionType or "fade"
 	
+	-- Capture current state to canvas
+	if not transition.fromCanvas then
+		transition.fromCanvas = love.graphics.newCanvas(VIRTUAL_WIDTH or 400, VIRTUAL_HEIGHT or 240)
+	end
+	
+	love.graphics.push("all")
+	love.graphics.setCanvas(transition.fromCanvas)
+	love.graphics.clear()
+	love.graphics.setColor(1, 1, 1, 1)
+	if transition.fromScene and transition.fromScene.draw then
+		transition.fromScene.draw()
+	end
+	love.graphics.setCanvas()
+	love.graphics.pop()
+	
 	-- Setup animated transition if specified
 	if transitionType == "animated" and animationName then
 		local transData = transitionAnimations[animationName]
@@ -111,10 +127,13 @@ function sceneManager.update(dt)
 			transition.animation:update(dt)
 		end
 		
-		if transition.timer >= transition.duration then
-			-- Transition complete
-			transition.active = false
-			transition.timer = 0
+		
+		-- Mid-transition swap (at 50% or start for animated)
+		local swapThreshold = 0.5
+		if transition.type == "animated" then swapThreshold = 0.1 end -- Swap early for animated
+		
+		if not transition.swapped and transition.timer / transition.duration >= swapThreshold then
+			transition.swapped = true
 			
 			-- Handle exit lifecycle
 			if currentScene and currentScene.exit then
@@ -128,6 +147,13 @@ function sceneManager.update(dt)
 			if currentScene and currentScene.enter then
 				currentScene.enter()
 			end
+		end
+		
+		if transition.timer >= transition.duration then
+			-- Transition complete
+			transition.active = false
+			transition.timer = 0
+			transition.swapped = false
 			
 			transition.fromScene = nil
 			transition.toScene = nil
@@ -160,34 +186,43 @@ function drawTransition()
 	local progress = transition.timer / transition.duration
 	
 	if transition.type == "fade" then
-		-- Draw from scene
-		if transition.fromScene and transition.fromScene.draw then
-			transition.fromScene.draw()
-		end
-		
-		-- Fade overlay
-		love.graphics.setColor(0, 0, 0, progress)
-		love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
-		
-		-- Draw to scene if we're past halfway
-		if progress > 0.5 then
-			local fadeIn = (progress - 0.5) * 2  -- 0 to 1 for second half
-			love.graphics.setColor(0, 0, 0, 1 - fadeIn)
-			love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
+		if progress <= 0.5 then
+			-- First half: Fade from old scene to black
+			local fadeProgress = progress * 2 -- 0 to 1
 			
+			-- Draw from canvas (captured old state)
+			if transition.fromCanvas then
+				love.graphics.setColor(1, 1, 1, 1)
+				love.graphics.draw(transition.fromCanvas, 0, 0)
+			end
+			
+			-- Fade to black overlay
+			love.graphics.setColor(0, 0, 0, fadeProgress)
+			love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
+		else
+			-- Second half: Fade from black to new scene
+			local fadeInProgress = (progress - 0.5) * 2 -- 0 to 1
+			
+			-- Draw to scene (new state)
 			if transition.toScene and transition.toScene.draw then
+				love.graphics.setColor(1, 1, 1, 1)
 				transition.toScene.draw()
 			end
+			
+			-- Fade from black overlay
+			love.graphics.setColor(0, 0, 0, 1 - fadeInProgress)
+			love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
 		end
 		
 	elseif transition.type == "slide" then
 		local offset = progress * love.graphics.getWidth()
 		
-		-- Draw from scene sliding out
+		-- Draw from canvas sliding out
 		love.graphics.push()
 		love.graphics.translate(-offset, 0)
-		if transition.fromScene and transition.fromScene.draw then
-			transition.fromScene.draw()
+		if transition.fromCanvas then
+			love.graphics.setColor(1, 1, 1, 1)
+			love.graphics.draw(transition.fromCanvas, 0, 0)
 		end
 		love.graphics.pop()
 		
@@ -200,9 +235,17 @@ function drawTransition()
 		love.graphics.pop()
 	
 	elseif transition.type == "animated" then
-		-- Draw to scene first (background)
-		if transition.toScene and transition.toScene.draw then
-			transition.toScene.draw()
+		-- Draw from canvas (captured old state)
+		if transition.fromCanvas then
+			love.graphics.setColor(1, 1, 1, 1)
+			love.graphics.draw(transition.fromCanvas, 0, 0)
+		end
+
+		-- Draw to scene if swapped
+		if transition.swapped then
+			if transition.toScene and transition.toScene.draw then
+				transition.toScene.draw()
+			end
 		end
 		
 		-- Draw animated transition overlay

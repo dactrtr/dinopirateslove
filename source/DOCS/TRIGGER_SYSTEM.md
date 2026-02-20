@@ -56,7 +56,7 @@ To make a script **remove the trigger** after one use, append `!` to the end of 
 
 **Persistence Defaults:**
 *   **Manual Triggers (`Search`, `Call`)**: Persist by default unless `!` is used.
-*   **`Story` / `Cutscene`**: Always single-use. They are automatically marked as used (`usedTrigger = true`) and removed after activation, preventing re-activation when re-entering the room.
+*   **`Story` / `Cutscene`**: Usually intended to be single-use. If using the legacy `script` field (not conditional), they are removed automatically after activation.
 *   **`Counter`**: Always removed after activation.
 
 ## 5. Dialog Integration

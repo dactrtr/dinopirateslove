@@ -25,8 +25,8 @@ function DoorHandler.handleDoorCollision(door, player)
 		exitRatio = (player.y - door.y) / door.height
 	end
 	
-	-- Trigger level transition with alignment info
-	DoorHandler.gameScene.changeLevel(door.nextLevelIid, door.direction, player, exitRatio)
+	-- Trigger level transition with alignment info and fade
+	DoorHandler.gameScene.changeLevel(door.nextLevelIid, door.direction, player, exitRatio, "fade")
 	
 	printDebug("🚪 Transitioning through door: " .. door.direction)
 end

@@ -302,26 +302,42 @@ function gameScene.enter()
 	-- Set PlayerData gaming status
 	PlayerData.isGaming = true
 
-	-- Set initial level (Use saved level if exists, otherwise Level 4, Room 2)
-	local startRoom = PlayerData.saveLevel or 2
-	local startLevel = PlayerData.actualLevel or 4
-	
-	-- Restore player position before loading floor to avoid triggering doors immediately if spawned on one
-	if PlayerData.x and PlayerData.y then
-		gameScene.player:moveTo(PlayerData.x, PlayerData.y)
-	else
-		gameScene.player:moveTo(200, 120)
-	end
-
-	-- Force sync player dimensions based on restored PlayerData
-	gameScene.player:syncDimensions()
-
-	gameScene.setFloor(startLevel, startRoom)
-	
 	-- Full reload of current floor state
-	gameScene.reloadCurrentRoom()
-	
-	printDebug("🏠 gameScene: Entered with Room " .. tostring(startRoom))
+	if gameScene.transitionData then
+		local td = gameScene.transitionData
+		gameScene.transitionData = nil
+		printDebug("Performing deferred level change during transition enter")
+		gameScene.performChangeLevel(td.iid, td.dir, td.player, td.ratio)
+	else
+		-- Normal entry (e.g. from Title) - Load from save or defaults
+		local startRoom = PlayerData.saveLevel or 2
+		local startLevel = PlayerData.actualLevel or 4
+		
+		-- Restore player position
+		if PlayerData.x and PlayerData.y then
+			gameScene.player:moveTo(PlayerData.x, PlayerData.y)
+		else
+			gameScene.player:moveTo(200, 120)
+		end
+
+		-- Force sync player dimensions
+		gameScene.player:syncDimensions()
+
+		gameScene.setFloor(startLevel, startRoom)
+		
+		-- Full reload of current floor state
+		gameScene.reloadCurrentRoom()
+		
+		printDebug("gameScene: Entered (Normal Load)")
+	end
+end
+
+function gameScene.exit()
+	printDebug("🚪 gameScene: Exited")
+	-- Save on exit if gaming
+	if PlayerData.isGaming then
+		SaveSystem.save()
+	end
 end
 
 function gameScene.reloadCurrentRoom()
@@ -777,15 +793,17 @@ function gameScene.performChangeLevel(nextLevelIid, enterDirection, player, exit
 	end
 end
 
-function gameScene.changeLevel(nextLevelIid, enterDirection, player, exitRatio)
+function gameScene.changeLevel(nextLevelIid, enterDirection, player, exitRatio, transitionType, animationName)
 	-- Defer the level change to avoid breaking BUMP physics loops
 	gameScene.pendingLevelChange = {
 		iid = nextLevelIid,
 		dir = enterDirection,
 		player = player,
-		ratio = exitRatio
+		ratio = exitRatio,
+		transitionType = transitionType or "fade",
+		animationName = animationName
 	}
-	printDebug("⏳ Level change queued for: " .. nextLevelIid)
+	printDebug("⏳ Level change queued for: " .. nextLevelIid .. " (Transition: " .. tostring(transitionType) .. ")")
 end
 
 
@@ -948,7 +966,18 @@ function gameScene.update(dt)
 		if gameScene.pendingLevelChange then
 			local plc = gameScene.pendingLevelChange
 			gameScene.pendingLevelChange = nil
-			gameScene.performChangeLevel(plc.iid, plc.dir, plc.player, plc.ratio)
+			
+			-- Store data for the enter() call that will come mid-transition
+			gameScene.transitionData = {
+				iid = plc.iid,
+				dir = plc.dir,
+				player = plc.player,
+				ratio = plc.ratio
+			}
+			
+			-- Start the transition via sceneManager
+			printDebug("🎬 Starting scene transition: " .. tostring(plc.transitionType))
+			sceneManager.startTransition("game", "game", plc.transitionType, plc.animationName)
 		end
 		
 		-- Check for pending trigger removals

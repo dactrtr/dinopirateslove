@@ -117,118 +117,144 @@ customFields = {
 
 ### How `fallBelow()` Works
 
-Located in [`entities/player/collisions.lua`](file:///Users/dactrtr-mini/Documents/GitHub/DinopiratesLove/dinopirateslove/source/entities/player/collisions.lua#L338-L380), this function handles falling to a lower floor:
+Located in [`entities/player/state.lua`](file:///Users/dactrtr-mini/Documents/GitHub/Dinopirates/source/entities/player/state.lua#L1-L32), this function handles falling to a lower floor:
 
 ```lua
-function collisions.fallBelow(player)
-  -- 1. Validate levelsLDTK is available
-  if not levelsLDTK then
-    return
-  end
-  
-  -- 2. Get current room data using PlayerData.floor index
+function Player:fallBelow()
+  -- 1. Get current room index from PlayerData
   local currentRoomIndex = PlayerData.floor
-  local currentRoom = levelsLDTK[currentRoomIndex]
   
-  -- 3. Check permission: Does this room allow falling to lower floor?
-  if not canMoveVertically(currentRoom, "<") then
-    return  -- Room doesn't have "Lower" in DoorsConnection
+  -- 2. Search for lower room using GetLowerRoom()
+  local lowerRoomNumber, lowerRoomData = GetLowerRoom(currentRoomIndex)
+  
+  -- 3. Validate that a lower room exists
+  if not lowerRoomNumber then
+    return  -- Cannot fall from this room
   end
   
-  -- 4. Find the lower neighbor using direction "<"
-  local lowerNeighbor = findNeighborByDirection(currentRoom, "<")
-  if not lowerNeighbor then
-    return  -- No lower neighbor defined in neighbourLevels
-  end
+  -- 4. Translate room number to scene class
+  local nextScene = RoomTranslate(lowerRoomNumber)
   
-  -- 5. Get the levelIid of the lower room
-  local nextLevelIid = lowerNeighbor.levelIid
+  -- 5. Preserve player position (X and Y)
+  PlayerData.playerSpawn.x = self.x
+  PlayerData.playerSpawn.y = self.y
   
-  -- 6. Trigger level transition via gameScene
-  local sceneManager = require 'sceneManager'
-  local gameScene = sceneManager.getScene("game")
-  if gameScene then
-    gameScene.changeLevel(nextLevelIid, "down", player, 0.5)
-  end
+  -- 6. Transition to the lower room with fall animation
+  Noble.transition(nextScene, 1.5, Noble.Transition.Imagetable, {
+    imagetableEnter = Graphics.imagetable.new('assets/images/screens/transitions/transitionFallEnter'),
+    imagetableExit = Graphics.imagetable.new('assets/images/screens/transitions/transitionFallOut'),
+  })
 end
 ```
 
 **Key Steps:**
-1. **Validate Data**: Ensures `levelsLDTK` is available
-2. **Get Current Room**: Retrieves the current room data from `levelsLDTK` using `PlayerData.floor` index
-3. **Check Permission**: Calls `canMoveVertically()` to validate "Lower" permission in `DoorsConnection`
-4. **Find Neighbor**: Uses `findNeighborByDirection()` to search for a neighbor with `dir = "<"`
-5. **Get Level IID**: Extracts the `levelIid` from the neighbor data
-6. **Transition**: Calls `gameScene.changeLevel()` with the IID and direction
+1. **Get Current Room**: Retrieves the current room index from `PlayerData.floor`
+2. **Find Lower Room**: Calls `GetLowerRoom()` which performs validation
+3. **Validate Connection**: Returns `nil` if no valid lower room exists
+4. **Translate to Scene**: Converts room number (e.g., `308`) to scene class (`Floor308`)
+5. **Preserve Position**: Keeps player X/Y coordinates for seamless transition
+6. **Transition**: Uses Noble framework with custom fall animations
 
 ### How `riseAbove()` Works
 
-Located in [`entities/player/collisions.lua`](file:///Users/dactrtr-mini/Documents/GitHub/DinopiratesLove/dinopirateslove/source/entities/player/collisions.lua#L381-L421), this function handles climbing to an upper floor:
+Located in [`entities/player/state.lua`](file:///Users/dactrtr-mini/Documents/GitHub/Dinopirates/source/entities/player/state.lua#L34-L59), this function handles climbing to an upper floor:
 
 ```lua
-function collisions.riseAbove(player)
-  -- 1. Validate levelsLDTK is available
-  if not levelsLDTK then
-    return
+function Player:riseAbove()
+  -- 1. Get current room index
+  local currentRoomIndex = PlayerData.floor
+  
+  -- 2. Search for upper room using GetUpperRoom()
+  local upperRoomNumber, upperRoomData = GetUpperRoom(currentRoomIndex)
+  
+  -- 3. Validate that an upper room exists
+  if not upperRoomNumber then
+    return  -- Cannot climb from this room
   end
   
-  -- 2. Get current room data using PlayerData.floor index
-  local currentRoomIndex = PlayerData.floor
+  -- 4. Translate room number to scene class
+  local nextScene = RoomTranslate(upperRoomNumber)
+  
+  -- 5. Preserve player position
+  PlayerData.playerSpawn.x = self.x
+  PlayerData.playerSpawn.y = self.y
+  
+  -- 6. Transition to the upper room
+  Noble.transition(nextScene, 1.5, Noble.Transition.Default)
+end
+```
+
+The logic is identical to `fallBelow()` but uses `GetUpperRoom()` instead.
+
+### The `GetLowerRoom()` Function
+
+Located in [`utilities/Utilities.lua`](file:///Users/dactrtr-mini/Documents/GitHub/Dinopirates/source/utilities/Utilities.lua#L213-L261), this function performs the actual neighbor search and validation:
+
+```lua
+function GetLowerRoom(currentRoomIndex)
+  -- 1. Get current room data from levelsLDTK
   local currentRoom = levelsLDTK[currentRoomIndex]
   
-  -- 3. Check permission: Does this room allow climbing to upper floor?
-  if not canMoveVertically(currentRoom, ">") then
-    return  -- Room doesn't have "Upper" in DoorsConnection
+  -- 2. Validate permission using CanMoveVertically()
+  if not CanMoveVertically(currentRoom, "<") then
+    return nil  -- Room doesn't have "Lower" in DoorsConnection
   end
   
-  -- 4. Find the upper neighbor using direction ">"
-  local upperNeighbor = findNeighborByDirection(currentRoom, ">")
-  if not upperNeighbor then
-    return  -- No upper neighbor defined in neighbourLevels
+  -- 3. Find neighbor with direction "<" (lower)
+  local lowerNeighbor = FindNeighborByDirection(currentRoom, "<")
+  if not lowerNeighbor then
+    return nil  -- No lower neighbor defined
   end
   
-  -- 5. Get the levelIid of the upper room
-  local nextLevelIid = upperNeighbor.levelIid
+  -- 4. Find the actual room data using the neighbor's iid
+  local lowerRoom = FindRoomByIid(lowerNeighbor.levelIid)
   
-  -- 6. Trigger level transition via gameScene
-  local sceneManager = require 'sceneManager'
-  local gameScene = sceneManager.getScene("game")
-  if gameScene then
-    gameScene.changeLevel(nextLevelIid, "top", player, 0.5)
+  -- 5. Calculate full room number (level * 100 + roomNumber)
+  if lowerRoom then
+    local level = lowerRoom.customFields.level
+    local roomNum = lowerRoom.customFields.roomNumber
+    local roomNumber = level * 100 + roomNum
+    return roomNumber, lowerRoom
+  else
+    -- Fallback: calculate expected room number
+    local currentLevel = currentRoom.customFields.level
+    local currentRoomNum = currentRoom.customFields.roomNumber
+    local expectedRoom = (currentLevel - 1) * 100 + currentRoomNum
+    return expectedRoom, nil
   end
 end
 ```
 
-The logic is identical to `fallBelow()` but uses `canMoveVertically(currentRoom, ">")` to check for "Upper" permission and searches for a neighbor with `dir = ">"` instead.
+**Validation Flow:**
+1. **Permission Check**: `CanMoveVertically()` checks if `"Lower"` exists in `DoorsConnection`
+2. **Neighbor Search**: `FindNeighborByDirection()` looks for a neighbor with `dir = "<"`
+3. **Room Lookup**: `FindRoomByIid()` finds the actual room data using the `levelIid`
+4. **Room Number Calculation**: Combines `level * 100 + roomNumber` to get full room ID
+
+### The `GetUpperRoom()` Function
+
+Located in [`utilities/Utilities.lua`](file:///Users/dactrtr-mini/Documents/GitHub/Dinopirates/source/utilities/Utilities.lua#L266-L314), this function is identical to `GetLowerRoom()` but:
+- Uses `CanMoveVertically(currentRoom, ">")` to check for `"Upper"` permission
+- Searches for neighbor with `dir = ">"`
+- Calculates upper room as `(currentLevel + 1) * 100 + currentRoomNum`
 
 ### Helper Functions
 
-Located in [`entities/player/collisions.lua`](file:///Users/dactrtr-mini/Documents/GitHub/DinopiratesLove/dinopirateslove/source/entities/player/collisions.lua#L294-L337), these local helper functions support the vertical navigation system:
-
-#### `canMoveVertically(currentRoom, direction)`
+#### `CanMoveVertically(currentRoom, direction)`
 Validates if vertical movement is allowed by checking `DoorsConnection`:
 ```lua
-local function canMoveVertically(currentRoom, direction)
-  if not currentRoom or not currentRoom.customFields then
-    return false
-  end
-  
+function CanMoveVertically(currentRoom, direction)
   local doorsConnection = currentRoom.customFields.DoorsConnection or {}
   
-  -- Map direction symbols to permission strings
   local directionMap = {
     ["<"] = "lower",  -- Fall downwards
     [">"] = "upper"   -- Climb upwards
   }
   
-  local requiredPermission = directionMap[direction]
-  if not requiredPermission then
-    return false
-  end
+  local requiredConnection = directionMap[direction]
   
-  -- Check if permission exists in DoorsConnection array
   for _, allowed in ipairs(doorsConnection) do
-    if allowed:lower() == requiredPermission then
+    if allowed:lower() == requiredConnection:lower() then
       return true
     end
   end
@@ -237,17 +263,11 @@ local function canMoveVertically(currentRoom, direction)
 end
 ```
 
-**Parameters:**
-- `currentRoom`: The room data from `levelsLDTK`
-- `direction`: Either `"<"` (lower) or `">"` (upper)
-
-**Returns:** `true` if the room has the required permission, `false` otherwise
-
-#### `findNeighborByDirection(currentRoom, direction)`
+#### `FindNeighborByDirection(currentRoom, direction)`
 Searches the `neighbourLevels` array for a specific direction:
 ```lua
-local function findNeighborByDirection(currentRoom, direction)
-  if not currentRoom or not currentRoom.neighbourLevels then
+function FindNeighborByDirection(currentRoom, direction)
+  if not currentRoom.neighbourLevels then
     return nil
   end
   
@@ -261,22 +281,25 @@ local function findNeighborByDirection(currentRoom, direction)
 end
 ```
 
-**Parameters:**
-- `currentRoom`: The room data from `levelsLDTK`
-- `direction`: The direction to search for (e.g., `"<"`, `">"`, `"n"`, `"s"`, etc.)
-
-**Returns:** The neighbor object with `{levelIid, dir}` if found, `nil` otherwise
-
----
-
-### Validation Flow
-
-When a player attempts vertical navigation:
-
-1. **Permission Check**: `canMoveVertically()` checks if `"Lower"` or `"Upper"` exists in `DoorsConnection`
-2. **Neighbor Search**: `findNeighborByDirection()` looks for a neighbor with `dir = "<"` or `">"`
-3. **Level Transition**: If both checks pass, `gameScene.changeLevel()` is called with the neighbor's `levelIid`
-4. **Position Preservation**: The player's X/Y coordinates are maintained during the transition
+#### `FindRoomByIid(iid)`
+Finds a room by its unique identifier. Uses a hash index (`roomsByIid`) for O(1) lookup, with linear search fallback:
+```lua
+function FindRoomByIid(iid)
+  -- Fast hash lookup
+  if roomsByIid and roomsByIid[iid] then
+    return roomsByIid[iid]
+  end
+  
+  -- Fallback: linear search
+  for i, room in ipairs(levelsLDTK) do
+    if room and room.uniqueIdentifer == iid then
+      return room
+    end
+  end
+  
+  return nil
+end
+```
 
 ---
 

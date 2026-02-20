@@ -342,7 +342,7 @@ function collisions.fallBelow(player)
 	local sceneManager = require 'sceneManager'
 	local gameScene = sceneManager.getScene("game")
 	if gameScene then
-		gameScene.changeLevel(nextLevelIid, "down", player, 0.5)
+		gameScene.changeLevel(nextLevelIid, "down", player, 0.5, "animated", "transitionFall")
 	end
 end
 
@@ -383,7 +383,7 @@ function collisions.riseAbove(player)
 	local sceneManager = require 'sceneManager'
 	local gameScene = sceneManager.getScene("game")
 	if gameScene then
-		gameScene.changeLevel(nextLevelIid, "top", player, 0.5)
+		gameScene.changeLevel(nextLevelIid, "top", player, 0.5, "animated", "transitionFall")
 	end
 end
 
