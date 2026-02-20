@@ -166,206 +166,273 @@ levelsLDTK = {
 		}
 	  },
 {
-    identifier = "Room_8",
-    uniqueIdentifer = "d8b90440-ac70-11f0-997a-77d867841568",
-    x = 800,
-    y = 240,
-    width = 400,
-    height = 240,
-    bgColor = "#696A79",
-    neighbourLevels = {
-      {
-        levelIid = "3d752854-ac70-11f0-998c-5dddbfac239d",
-        dir = "<"
-      },
-      {
-        levelIid = "bab17c70-ac70-11f0-997a-85b3d3c5d229",
-        dir = "nw"
-      },
-      {
-        levelIid = "bf654080-ac70-11f0-997a-e578ba2da2ac",
-        dir = "n"
-      },
-      {
-        levelIid = "c118e3f0-ac70-11f0-997a-a35ec59b96eb",
-        dir = "ne"
-      },
-      {
-        levelIid = "cf8f2160-ac70-11f0-997a-c71a3a3308ed",
-        dir = "w"
-      },
-      {
-        levelIid = "dab87dc0-ac70-11f0-997a-63497867517d",
-        dir = "e"
-      },
-      {
-        levelIid = "6cc9d510-ac70-11f0-997a-191299f9209c",
-        dir = "sw"
-      },
-      {
-        levelIid = "715b4410-ac70-11f0-997a-156adb22b715",
-        dir = "s"
-      },
-      {
-        levelIid = "6de95960-ac70-11f0-998c-e3108c5f25c9",
-        dir = "se"
-      }
-    },
-    customFields = {
-      shadow = false,
-      light = 0.5,
-      visited = false,
-      comic_name = "pick-the-device",
-      comic_wasPlayed = false,
-      level = 4,
-      roomNumber = 8,
-      tile = 8,
-      DoorsConnection = {
-        "Top",
-        "Down",
-        "Lower"
-      },
-      play = "Cutscene"
-    },
-    layers = {
-      "BGTilemap.png"
-    },
-    entities = {
-      Doors = {
-        {
-          id = "Doors",
-          iid = "07b70f50-ac70-11f0-8539-35ff95bfdbdf",
-          layer = "Doors",
-          x = 200,
-          y = 232,
-          width = 48,
-          height = 16,
-          color = 7552569,
-          customFields = {
-            NeedsKey = false,
-            DoorsConnection = "Down",
-            KeyNumber = nil
-          }
-        },
-        {
-          id = "Doors",
-          iid = "c5a75a30-ac70-11f0-8539-6130c4fb1bfd",
-          layer = "Doors",
-          x = 200,
-          y = 8,
-          width = 48,
-          height = 16,
-          color = 7552569,
-          customFields = {
-            NeedsKey = false,
-            DoorsConnection = "Top",
-            KeyNumber = nil
-          }
-        },
-        {
-          id = "Doors",
-          iid = "c25a9ea0-d380-11f0-a276-5f29b940eae6",
-          layer = "Doors",
-          x = 344,
-          y = 4,
-          width = 16,
-          height = 8,
-          color = 7552569,
-          customFields = {
-            NeedsKey = false,
-            DoorsConnection = "Top",
-            KeyNumber = nil
-          }
-        }
-      },
-      HoleTopRight = {
-        {
-          id = "HoleTopRight",
-          iid = "56a26040-fa90-11f0-b30d-59771141e6c9",
-          layer = "Holes",
-          x = 100,
-          y = 100,
-          width = 32,
-          height = 32,
-          color = 12470831,
-          customFields = {
-            type = "holeTopRight",
-            nocollider = false,
-            destroyed = false
-          }
-        }
-      },
-      HoleBottomRight = {
-        {
-          id = "HoleBottomRight",
-          iid = "5a54e0f0-fa90-11f0-b30d-b5961b801d7f",
-          layer = "Holes",
-          x = 100,
-          y = 132,
-          width = 32,
-          height = 32,
-          color = 12470831,
-          customFields = {
-            type = "holeBottomRight",
-            nocollider = false,
-            destroyed = false
-          }
-        }
-      },
-      HoleBottomLeft = {
-        {
-          id = "HoleBottomLeft",
-          iid = "5e928aa0-fa90-11f0-b30d-8918f13ce4e4",
-          layer = "Holes",
-          x = 68,
-          y = 132,
-          width = 32,
-          height = 32,
-          color = 12470831,
-          customFields = {
-            type = "holeBottomLeft",
-            nocollider = false,
-            destroyed = false
-          }
-        }
-      },
-      HoleTopLeft = {
-        {
-          id = "HoleTopLeft",
-          iid = "622d8bb0-fa90-11f0-b30d-195cca13e64c",
-          layer = "Holes",
-          x = 68,
-          y = 100,
-          width = 32,
-          height = 32,
-          color = 12470831,
-          customFields = {
-            type = "holeTopLeft",
-            nocollider = false,
-            destroyed = false
-          }
-        }
-      },
-      Plunger = {
-        {
-          id = "Plunger",
-          iid = "78afab10-fa90-11f0-9b04-c3a866074af9",
-          layer = "Items",
-          x = 276,
-          y = 100,
-          width = 32,
-          height = 32,
-          color = 15389866,
-          customFields = {
-            type = "plunger"
-          }
-        }
-      }
-    }
+	identifier = "Room_8",
+	uniqueIdentifer = "d8b90440-ac70-11f0-997a-77d867841568",
+	x = 800,
+	y = 240,
+	width = 400,
+	height = 240,
+	bgColor = "#696A79",
+	neighbourLevels = {
+	  {
+		levelIid = "3d752854-ac70-11f0-998c-5dddbfac239d",
+		dir = "<"
+	  },
+	  {
+		levelIid = "bab17c70-ac70-11f0-997a-85b3d3c5d229",
+		dir = "nw"
+	  },
+	  {
+		levelIid = "bf654080-ac70-11f0-997a-e578ba2da2ac",
+		dir = "n"
+	  },
+	  {
+		levelIid = "c118e3f0-ac70-11f0-997a-a35ec59b96eb",
+		dir = "ne"
+	  },
+	  {
+		levelIid = "cf8f2160-ac70-11f0-997a-c71a3a3308ed",
+		dir = "w"
+	  },
+	  {
+		levelIid = "dab87dc0-ac70-11f0-997a-63497867517d",
+		dir = "e"
+	  },
+	  {
+		levelIid = "6cc9d510-ac70-11f0-997a-191299f9209c",
+		dir = "sw"
+	  },
+	  {
+		levelIid = "715b4410-ac70-11f0-997a-156adb22b715",
+		dir = "s"
+	  },
+	  {
+		levelIid = "6de95960-ac70-11f0-998c-e3108c5f25c9",
+		dir = "se"
+	  }
+	},
+	customFields = {
+	  shadow = false,
+	  light = 0.5,
+	  visited = false,
+	  comic_name = "pick-the-device",
+	  comic_wasPlayed = false,
+	  level = 4,
+	  roomNumber = 8,
+	  tile = 8,
+	  DoorsConnection = {
+		"Top",
+		"Down",
+		"Lower"
+	  },
+	  play = "Cutscene"
+	},
+	layers = {
+	  "BGTilemap.png"
+	},
+	entities = {
+	  Doors = {
+		{
+		  id = "Doors",
+		  iid = "07b70f50-ac70-11f0-8539-35ff95bfdbdf",
+		  layer = "Doors",
+		  x = 200,
+		  y = 236,
+		  width = 48,
+		  height = 8,
+		  color = 7552569,
+		  customFields = {
+			NeedsKey = false,
+			DoorsConnection = "Down",
+			KeyNumber = nil
+		  }
+		},
+		{
+		  id = "Doors",
+		  iid = "c5a75a30-ac70-11f0-8539-6130c4fb1bfd",
+		  layer = "Doors",
+		  x = 200,
+		  y = 4,
+		  width = 48,
+		  height = 8,
+		  color = 7552569,
+		  customFields = {
+			NeedsKey = false,
+			DoorsConnection = "Top",
+			KeyNumber = nil
+		  }
+		},
+		{
+		  id = "Doors",
+		  iid = "c25a9ea0-d380-11f0-a276-5f29b940eae6",
+		  layer = "Doors",
+		  x = 344,
+		  y = 4,
+		  width = 16,
+		  height = 8,
+		  color = 7552569,
+		  customFields = {
+			NeedsKey = false,
+			DoorsConnection = "Top",
+			KeyNumber = nil
+		  }
+		}
+	  },
+	  Triggers = {
+		{
+		  id = "Triggers",
+		  iid = "1966a940-fa90-11f0-bb17-4bab457c7082",
+		  layer = "Triggers",
+		  x = 214,
+		  y = 76,
+		  width = 144,
+		  height = 32,
+		  color = 16711748,
+		  customFields = {
+			script = "firstCall",
+			usedTrigger = false,
+			type = "Story",
+			mapPercent = 0,
+			tinyScript = nil,
+			conditionalScripts = {}
+		  }
+		},
+		{
+		  id = "Triggers",
+		  iid = "ac81c810-fa90-11f0-bb17-65c231745807",
+		  layer = "Triggers",
+		  x = 260,
+		  y = 196,
+		  width = 24,
+		  height = 48,
+		  color = 16711748,
+		  customFields = {
+			script = "reachComputer",
+			usedTrigger = false,
+			type = "Search",
+			mapPercent = 0,
+			tinyScript = nil,
+			conditionalScripts = {}
+		  }
+		}
+	  },
+	  PcBase2 = {
+		{
+		  id = "PcBase2",
+		  iid = "2438d1a0-fa90-11f0-bb17-470acac3228b",
+		  layer = "Props",
+		  x = 364,
+		  y = 204,
+		  width = 32,
+		  height = 32,
+		  color = 12470831,
+		  customFields = {
+			type = "pcBase2",
+			nocollider = false,
+			destroyed = false
+		  }
+		}
+	  },
+	  PcLoad = {
+		{
+		  id = "PcLoad",
+		  iid = "2832e2a0-fa90-11f0-bb17-5defe973a785",
+		  layer = "Props",
+		  x = 364,
+		  y = 172,
+		  width = 32,
+		  height = 32,
+		  color = 12470831,
+		  customFields = {
+			type = "pcLoad",
+			nocollider = false,
+			destroyed = false
+		  }
+		}
+	  },
+	  FellTable = {
+		{
+		  id = "FellTable",
+		  iid = "4afbc310-fa90-11f0-bb17-9f9aae871b88",
+		  layer = "Props",
+		  x = 164,
+		  y = 76,
+		  width = 32,
+		  height = 32,
+		  color = 12470831,
+		  customFields = {
+			type = "fellTable",
+			nocollider = false,
+			destroyed = false
+		  }
+		}
+	  },
+	  Trash = {
+		{
+		  id = "Trash",
+		  iid = "4eb548a0-fa90-11f0-bb17-ddd5be806714",
+		  layer = "Props",
+		  x = 180,
+		  y = 164,
+		  width = 32,
+		  height = 32,
+		  color = 12470831,
+		  customFields = {
+			nocollider = false,
+			destroyed = false,
+			type = "trash"
+		  }
+		}
+	  },
+	  Box = {
+		{
+		  id = "Box",
+		  iid = "52d24af0-fa90-11f0-bb17-b19454514619",
+		  layer = "Props",
+		  x = 260,
+		  y = 52,
+		  width = 32,
+		  height = 32,
+		  color = 12470831,
+		  customFields = {
+			nocollider = false,
+			destroyed = false,
+			type = "box"
+		  }
+		},
+		{
+		  id = "Box",
+		  iid = "e1dcbc80-fa90-11f0-bb17-abae770f562b",
+		  layer = "Props",
+		  x = 276,
+		  y = 164,
+		  width = 32,
+		  height = 32,
+		  color = 12470831,
+		  customFields = {
+			nocollider = false,
+			destroyed = false,
+			type = "box"
+		  }
+		},
+		{
+		  id = "Box",
+		  iid = "e46f9c60-fa90-11f0-bb17-e702b3a82c8e",
+		  layer = "Props",
+		  x = 276,
+		  y = 204,
+		  width = 32,
+		  height = 32,
+		  color = 12470831,
+		  customFields = {
+			nocollider = false,
+			destroyed = false,
+			type = "box"
+		  }
+		}
+	  }
+	}
   },
-		--
-		--
-		--
 {
 	identifier = "Room_1",
 	uniqueIdentifer = "69eb2d80-ac70-11f0-989f-95306126bd74",
@@ -1616,8 +1683,7 @@ levelsLDTK = {
 	  }
 	}
   },
-		--
-		--
+
 {
 	identifier = "Room_4",
 	uniqueIdentifer = "c118e3f0-ac70-11f0-997a-a35ec59b96eb",
@@ -3042,7 +3108,7 @@ levelsLDTK = {
 	},
 	customFields = {
 	  shadow = true,
-	  light = 0,
+	  light = 0.7,
 	  visited = false,
 	  comic_name = nil,
 	  comic_wasPlayed = false,
@@ -3065,9 +3131,9 @@ levelsLDTK = {
 		  id = "Doors",
 		  iid = "e35e4010-ac70-11f0-8539-cfa071292c9d",
 		  layer = "Doors",
-		  x = 8,
+		  x = 4,
 		  y = 120,
-		  width = 16,
+		  width = 8,
 		  height = 48,
 		  color = 7552569,
 		  customFields = {
@@ -3081,45 +3147,173 @@ levelsLDTK = {
 		  iid = "f2cac460-ac70-11f0-8539-f32c05a0c6fe",
 		  layer = "Doors",
 		  x = 200,
-		  y = 8,
+		  y = 4,
 		  width = 48,
-		  height = 16,
+		  height = 8,
 		  color = 7552569,
 		  customFields = {
 			NeedsKey = false,
 			DoorsConnection = "Top",
 			KeyNumber = nil
 		  }
-		},
+		}
+	  },
+	  Triggers = {
 		{
-		  id = "Doors",
-		  iid = "f5938150-ac70-11f0-8539-2555dd027d3e",
-		  layer = "Doors",
-		  x = 392,
-		  y = 120,
-		  width = 16,
-		  height = 48,
-		  color = 7552569,
+		  id = "Triggers",
+		  iid = "f5c64900-fa90-11f0-bb17-3998f48db633",
+		  layer = "Triggers",
+		  x = 268,
+		  y = 36,
+		  width = 24,
+		  height = 56,
+		  color = 16711748,
 		  customFields = {
-			NeedsKey = true,
-			DoorsConnection = "Right",
-			KeyNumber = 1
+			script = "secondCall",
+			usedTrigger = false,
+			type = "Story",
+			mapPercent = 0,
+			tinyScript = nil,
+			conditionalScripts = {}
 		  }
 		}
 	  },
-	  CrewMember = {
+	  Lamp = {
 		{
-		  id = "CrewMember",
-		  iid = "8d8b4e70-d380-11f0-88fd-ff6f09b90ad9",
-		  layer = "CrewMembers",
-		  x = 124,
-		  y = 76,
-		  width = 48,
-		  height = 48,
-		  color = 14984818,
+		  id = "Lamp",
+		  iid = "18872410-fa90-11f0-bb17-f12e592fc400",
+		  layer = "Items",
+		  x = 44,
+		  y = 36,
+		  width = 32,
+		  height = 32,
+		  color = 15389866,
 		  customFields = {
-			isTaken = false,
-			crewID = "CM002"
+			type = "lamp"
+		  }
+		}
+	  },
+	  Plunger = {
+		{
+		  id = "Plunger",
+		  iid = "1d13b110-fa90-11f0-bb17-93fe996547cf",
+		  layer = "Items",
+		  x = 92,
+		  y = 36,
+		  width = 32,
+		  height = 32,
+		  color = 15389866,
+		  customFields = {
+			type = "plunger"
+		  }
+		}
+	  },
+	  Boots = {
+		{
+		  id = "Boots",
+		  iid = "1fab72f0-fa90-11f0-bb17-3951d104d101",
+		  layer = "Items",
+		  x = 44,
+		  y = 68,
+		  width = 32,
+		  height = 32,
+		  color = 15389866,
+		  customFields = {
+			type = "boots"
+		  }
+		}
+	  },
+	  Minifier = {
+		{
+		  id = "Minifier",
+		  iid = "23f3a3f0-fa90-11f0-bb17-79069f78b30d",
+		  layer = "Props",
+		  x = 36,
+		  y = 172,
+		  width = 32,
+		  height = 32,
+		  color = 2943221,
+		  customFields = {
+			type = "minifier",
+			nocollider = false,
+			destroyed = false
+		  }
+		}
+	  },
+	  Slime = {
+		{
+		  id = "Slime",
+		  iid = "57aea1d0-fa90-11f0-bb17-cfefd4ffe8c7",
+		  layer = "Props",
+		  x = 236,
+		  y = 108,
+		  width = 32,
+		  height = 32,
+		  color = 1578021,
+		  customFields = {
+			type = "slime",
+			nocollider = false,
+			destroyed = false
+		  }
+		},
+		{
+		  id = "Slime",
+		  iid = "5a396b60-fa90-11f0-bb17-5baafec83565",
+		  layer = "Props",
+		  x = 204,
+		  y = 108,
+		  width = 32,
+		  height = 32,
+		  color = 1578021,
+		  customFields = {
+			type = "slime",
+			nocollider = false,
+			destroyed = false
+		  }
+		},
+		{
+		  id = "Slime",
+		  iid = "5b16ac00-fa90-11f0-bb17-592252329c6a",
+		  layer = "Props",
+		  x = 172,
+		  y = 108,
+		  width = 32,
+		  height = 32,
+		  color = 1578021,
+		  customFields = {
+			type = "slime",
+			nocollider = false,
+			destroyed = false
+		  }
+		},
+		{
+		  id = "Slime",
+		  iid = "5bb201a0-fa90-11f0-bb17-29d64b88036e",
+		  layer = "Props",
+		  x = 140,
+		  y = 108,
+		  width = 32,
+		  height = 32,
+		  color = 1578021,
+		  customFields = {
+			type = "slime",
+			nocollider = false,
+			destroyed = false
+		  }
+		},
+		{
+		  id = "Slime",
+		  iid = "5d39b310-fa90-11f0-bb17-890ea827d74f",
+		  layer = "Props",
+		  x = 108,
+		  y = 108,
+		  width = 32,
+		  height = 32,
+		  color = 1578021,
+		  customFields = {
+			type = "slime",
+			nocollider = false,
+			destroyed = false
 		  }
 		}
 	  }

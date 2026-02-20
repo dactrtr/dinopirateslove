@@ -944,8 +944,12 @@ function gameScene.update(dt)
 		end
 		
 		-- Update items
-		for _, item in ipairs(gameScene.items) do
+		for i = #gameScene.items, 1, -1 do
+			local item = gameScene.items[i]
 			item:update(dt)
+			if item.removed then
+				table.remove(gameScene.items, i)
+			end
 		end
 		
 		-- Reset player movement flag only when player stops moving

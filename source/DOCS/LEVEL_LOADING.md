@@ -117,7 +117,7 @@ customFields = {
 
 ### How `fallBelow()` Works
 
-Located in [`entities/player/state.lua`](file:///Users/dactrtr-mini/Documents/GitHub/Dinopirates/source/entities/player/state.lua#L1-L32), this function handles falling to a lower floor:
+Located in [`entities/player/state.lua`](../entities/player/state.lua#L1-L32), this function handles falling to a lower floor:
 
 ```lua
 function Player:fallBelow()
@@ -157,7 +157,7 @@ end
 
 ### How `riseAbove()` Works
 
-Located in [`entities/player/state.lua`](file:///Users/dactrtr-mini/Documents/GitHub/Dinopirates/source/entities/player/state.lua#L34-L59), this function handles climbing to an upper floor:
+Located in [`entities/player/state.lua`](../entities/player/state.lua#L34-L59), this function handles climbing to an upper floor:
 
 ```lua
 function Player:riseAbove()
@@ -188,7 +188,7 @@ The logic is identical to `fallBelow()` but uses `GetUpperRoom()` instead.
 
 ### The `GetLowerRoom()` Function
 
-Located in [`utilities/Utilities.lua`](file:///Users/dactrtr-mini/Documents/GitHub/Dinopirates/source/utilities/Utilities.lua#L213-L261), this function performs the actual neighbor search and validation:
+Located in [`utilities/Utilities.lua`](../utilities/Utilities.lua#L213-L261), this function performs the actual neighbor search and validation:
 
 ```lua
 function GetLowerRoom(currentRoomIndex)
@@ -233,7 +233,7 @@ end
 
 ### The `GetUpperRoom()` Function
 
-Located in [`utilities/Utilities.lua`](file:///Users/dactrtr-mini/Documents/GitHub/Dinopirates/source/utilities/Utilities.lua#L266-L314), this function is identical to `GetLowerRoom()` but:
+Located in [`utilities/Utilities.lua`](../utilities/Utilities.lua#L266-L314), this function is identical to `GetLowerRoom()` but:
 - Uses `CanMoveVertically(currentRoom, ">")` to check for `"Upper"` permission
 - Searches for neighbor with `dir = ">"`
 - Calculates upper room as `(currentLevel + 1) * 100 + currentRoomNum`

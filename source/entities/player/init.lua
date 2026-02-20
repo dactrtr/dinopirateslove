@@ -132,8 +132,14 @@ function Player:update(dt)
 	
 	-- Handle input and get movement delta (skip if plunging)
 	local dx, dy = 0, 0
-	if not self.isPlunging then
+	self.manualMovement = false
+
+	if PlayerData.isSliding then
+		dx = (self.slideDX or 0) * PlayerData.slidingSpeed * 60 * dt
+		dy = (self.slideDY or 0) * PlayerData.slidingSpeed * 60 * dt
+	elseif not self.isPlunging then
 		dx, dy = playerMovements.handleInput(self, dt)
+		self.manualMovement = (dx ~= 0 or dy ~= 0)
 	else
 		-- While plunging, force idle animation
 		playerAnimations.updateAnimation(self, 0, 0)
@@ -163,10 +169,15 @@ function Player:update(dt)
 		return playerCollisions.response(self, other)
 	end)
 	
+	local hitSolid = false
 	-- Handle collisions
 	for i = 1, len do
 		local col = cols[i]
 		local other = col.other
+		
+		if col.type == 'slide' or col.type == 'touch' then
+			hitSolid = true
+		end
 		
 		-- Use centralized physics resolution for side effects
 		playerCollisions.resolve(self, other)
@@ -181,6 +192,12 @@ function Player:update(dt)
 	
 	-- Update movement state for turn-based AI
 	playerMovements.updateMovementState(self, dx, dy)
+
+	if PlayerData.isSliding then
+		if hitSolid or not self:onSlime() then
+			self:stopSliding()
+		end
+	end
 
 	-- Update animation
 	self.currentAnimation:update(dt)
@@ -259,16 +276,25 @@ end
 function Player:checkPropInteractions()
 	-- Reset state frame by frame
 	PlayerData.readyToShrink = false
+	local currentlyOnSlime = false
 	
 	-- Check for overlaps with props using centralized logic
-	local collisions, count = self:checkCollisions()
+	local collisionsList, count = self:checkCollisions()
 	
 	for i = 1, count do
-		local col = collisions[i]
+		local col = collisionsList[i]
 		local other = col.object
+		
+		if other.isProp and other.isSlime then
+			currentlyOnSlime = true
+		end
 		
 		-- Trigger collision resolution for side effects (like setting readyToShrink)
 		playerCollisions.resolve(self, other)
+	end
+	
+	if not currentlyOnSlime then
+		self.slideBounce = false
 	end
 end
 
@@ -308,6 +334,25 @@ function Player:moveTo(x, y)
 	if self.world:hasItem(self) then
 		self:updateCollisionPosition() 
 	end
+end
+
+function Player:onSlime()
+	local collisionsList, count = self:checkCollisions()
+	for i = 1, count do
+		local other = collisionsList[i].object
+		if other.isProp and other.isSlime then
+			return true
+		end
+	end
+	return false
+end
+
+function Player:stopSliding()
+	PlayerData.isSliding = false
+	self.slideDX = 0
+	self.slideDY = 0
+	self.slideBounce = true
+	printDebug("🛑 Player:stopSliding()")
 end
 
 return Player

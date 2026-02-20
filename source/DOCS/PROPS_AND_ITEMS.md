@@ -55,9 +55,12 @@ Props share a single image sheet (`props.png`) and use animation states like `ch
     4.  **Completion**: Once the target size is reached, movement is restored automatically and the player can walk away.
 - **Slime (Tile 46)**: Environmental hazard that causes the player to slide.
     - **Sliding**: When stepped on, the player automatically moves in a straight line at a fixed speed (`slidingSpeed = 4`).
-    - **Stopping**: The slide ends if the player hits a solid obstacle (wall, solid prop) or exits the slime patch.
-    - **Antislip Protection**: If the player has **plunger**, they can walk over slime normally without consuming battery.
-    - **Control**: Manual movement is disabled during a slide.
+    - **Triggering**: Initiated in `collisions.lua` via `self:startSliding(dir)`. It inherits the player's last moving direction.
+    - **Stopping**: The slide ends if:
+        1. The player hits a solid obstacle (wall or solid prop).
+        2. The player exits the slime patch (no longer overlapping with any `isSlime` prop).
+    - **Antislip Protection**: If the player has the **plunger** item, they can walk over slime normally without sliding.
+    - **Control**: Manual movement is disabled (`isSliding = true`) while sliding.
 
 ### 3. Destruction & Persistence
 Props can be destroyed by certain enemies or effects.
@@ -129,4 +132,20 @@ The `propConfigs` table in `PropItem.lua` is critical data that defines collisio
 
 ### 6. Specific Prop Behaviors
 - **Holes**: In Love2D, implement "Edges". If a player's center point is within a Hole's bounding box, trigger the fall logic.
-- **Slime**: This is effectively a "Force Zone". If the player touches a Slime collider, disable input and apply a constant velocity vector until they exit the collider or hit a wall.
+- **Slime Sliding**:
+    - **Detection**: Use `bump:queryRect` or overlapping checks to detect slime contact.
+    - **State Machine**: Implement a `isSliding` state in your Player class that overrides WASD/Joystick input.
+    - **Movement**:
+        ```lua
+        -- Logic snippet for Love2D update
+        if self.isSliding then
+            local goalX, goalY = self.x + self.slideDX * self.slideSpeed, self.y + self.slideDY * self.slideSpeed
+            local actualX, actualY, cols, len = world:move(self, goalX, goalY, self.collisionFilter)
+            self.x, self.y = actualX, actualY
+            
+            -- Stop if we hit something solid or leave slime
+            if len > 0 or not self:onSlime() then
+                self:stopSliding()
+            end
+        end
+        ```

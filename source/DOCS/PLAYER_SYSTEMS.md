@@ -80,14 +80,14 @@ Items and skills can be granted either by picking up a fixed item type or dynami
 - **Items**:
     - `hasLamp`: Enables vision and sanity regeneration. Grants **Lightburst** skill.
     - `hasBoots`: Provides "Hole" safety; player drains battery to walk over holes instead of falling. Grants **Dash** skill.
-    - `hasPlunger`: Provides "Slime" safety; player can walk over slime instead of sliding. Grants **Plungerang** skill.
+    - `hasPlunger`: Provides "Slime" safety; player can walk over slime instead of sliding. Grants **Plungerang** skill. See [PROPS_AND_ITEMS.md](PROPS_AND_ITEMS.md) for sliding mechanics.
     - `hasBag`: Required to capture CrewMembers.
     - `hasRadio` / `hasNotes`: Story-relevant items that enable specific dialogs/video feeds.
     - `hasTools`: Story-relevant or utility item (used for certain environment interactions).
 - **Skills**:
     - `canFlash` (Lightburst): Costs **10 battery**. Blinds enemies in a radius. Granted by `hasLamp`.
     - `canDash`: Costs **10 battery**. Enables a fast dash attack with a cooldown. Granted by `hasBoots`.
-    - `canPlungerang`: Boomerang skill that can stun enemies or interact with props at a distance. Does not consume battery. Granted by `hasPlunger`. **Movement is locked while the projectile is in flight.** See [PLUNGERANG.md](file:///Users/dactrtr-mini/Documents/GitHub/Dinopirates/source/DOCS/PLUNGERANG.md) for exhaustive details and Love2D porting.
+    - `canPlungerang`: Boomerang skill that can stun enemies or interact with props at a distance. Does not consume battery. Granted by `hasPlunger`. **Movement is locked while the projectile is in flight.** See [PLUNGERANG.md](PLUNGERANG.md) for exhaustive details and Love2D porting.
 
 > [!TIP]
 > Always check `PlayerData.isInDarkness`. Most survival mechanics (Sanity drain, Battery drain, Speed debuffs) are gated by this boolean.
@@ -179,3 +179,4 @@ Specific considerations for the three core skills:
 - **Trigger Checks**: To optimize, only check overlapping sprites if the player moved significantly (e.g., > 5 pixels) or if already inside a trigger.
 - **Invincibility**: Implement a flicker effect by toggling visibility based on a timer and refresh rate.
 - **Speed in Darkness**: Always check `PlayerData.isInDarkness`. Reduce speed (e.g., to 50%) when battery is low (< 20) or when the player has no lamp.
+- **Sliding State**: When `isSliding` is active, ignore directional input and apply the sliding vector in the `update` loop.

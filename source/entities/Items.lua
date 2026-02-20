@@ -27,6 +27,8 @@ function Items:initialize(x, y, itemType, world)
 		world:add(self, self.x, self.y, self.width, self.height)
 	end
 	
+	self.removed = false
+	
 	-- Load spritesheet and setup animations
 	self.spritesheet = love.graphics.newImage('assets/images/items/items-key-table-32-32.png')
 	local grid = anim8.newGrid(32, 32, self.spritesheet:getWidth(), self.spritesheet:getHeight())
@@ -90,6 +92,8 @@ function Items:removeAll()
 	if self.world and self.world:hasItem(self) then
 		self.world:remove(self)
 	end
+	
+	self.removed = true
 	
 	-- Disable sonar effect (commented out)
 	-- if self.sonar then
