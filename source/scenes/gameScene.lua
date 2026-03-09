@@ -14,6 +14,7 @@ local SaveSystem = require 'SaveSystem'
 
 -- Simple require for PauseMenu
 local PauseMenu = require 'PauseMenu'
+local InGameMenu = require 'entities.UI.InGameMenu'
 
 -- Load level data
 require 'assets.data.levels'  -- levelsLDTK
@@ -296,6 +297,9 @@ function gameScene.load()
 	
 	-- Load interaction HUD icons
 	gameScene.interactionHUD = InteractionHUD()
+	
+	-- Load In-Game menu
+	InGameMenu:load()
 end
 
 function gameScene.enter()
@@ -905,8 +909,10 @@ function gameScene.update(dt)
 	-- Update pause menu
 	gameScene.pauseMenu:update(dt)
 	
-	-- Only update game if menu is not shown
-	if not gameScene.pauseMenu:isVisible() then
+	-- Update In-Game menu state if needed
+	if PlayerData.isEquiping then
+		-- Skip main game updates while equipping
+	elseif not gameScene.pauseMenu:isVisible() then
 		-- Update timer and player
 		gameScene.timer:update(dt)
 		gameScene.player:update(dt)
@@ -1065,6 +1071,7 @@ function gameScene.draw()
 
 	utilities.drawDebugInfo(gameScene)
 	
+	InGameMenu:draw()
 	gameScene.pauseMenu:draw()
 end
 
@@ -1163,8 +1170,26 @@ function gameScene.keypressed(key)
 	end
 	
 	-- Game input (when menu is not shown)
-	if key == "escape" then
-		-- Show menu
+	if PlayerData.isEquiping then
+		-- Handle In-Game Menu inputs
+		if key == "tab" or key == "escape" then
+			-- Close Menu
+			PlayerData.isGaming = true
+			PlayerData.isEquiping = false
+		else
+			InGameMenu:keypressed(key)
+		end
+	elseif key == "tab" then
+		-- Open In-Game Menu for equipment
+		PlayerData.isGaming = false
+		PlayerData.isEquiping = true
+		
+		-- Also ensure the current active item is valid by triggering nextItem if nil/invalid
+		if PlayerData.activeItem == 0 or PlayerData.activeItem == nil then
+			InGameMenu:nextItem()
+		end
+	elseif key == "escape" then
+		-- Show pause menu
 		gameScene.pauseMenu:show()
 	elseif key == "e" then
 		-- E key toggles size when on minifier (alternative to mouse wheel)
@@ -1183,8 +1208,25 @@ function gameScene.gamepadInput(input)
 		return
 	end
 	
-	-- Pass gamepad input to player when menu is not shown
-	if not gameScene.pauseMenu:isVisible() then
+	-- Pass gamepad input to In-Game Menu or game
+	if PlayerData.isEquiping then
+		if input.y or input.b then
+			-- Close Menu on B or Y
+			PlayerData.isGaming = true
+			PlayerData.isEquiping = false
+		else
+			InGameMenu:gamepadInput(input)
+		end
+	elseif not gameScene.pauseMenu:isVisible() then
+		if input.y then
+			-- Open In-Game Menu for equipment
+			PlayerData.isGaming = false
+			PlayerData.isEquiping = true
+			if PlayerData.activeItem == 0 or PlayerData.activeItem == nil then
+				InGameMenu:nextItem()
+			end
+		end
+
 		if gameScene.player and gameScene.player.handleGamepadInput then
 			gameScene.player:handleGamepadInput(input)
 		end

@@ -1,6 +1,7 @@
 -- entities/player/init.lua
 -- Main Player class using modular components
 local Class = require 'libraries/middleclass'
+local utilities = require 'utilities'
 
 -- Load player modules
 local playerCollisions = require 'entities.player.collisions'
@@ -130,37 +131,74 @@ function Player:update(dt)
 		playerPlunge.update(self, dt)
 	end
 	
-	-- Handle input and get movement delta (skip if plunging)
-	local dx, dy = 0, 0
-	self.manualMovement = false
-
 	if PlayerData.isSliding then
-		dx = (self.slideDX or 0) * PlayerData.slidingSpeed * 60 * dt
-		dy = (self.slideDY or 0) * PlayerData.slidingSpeed * 60 * dt
-	elseif not self.isPlunging then
-		dx, dy = playerMovements.handleInput(self, dt)
-		self.manualMovement = (dx ~= 0 or dy ~= 0)
+		self:updateSliding(dt)
 	else
-		-- While plunging, force idle animation
-		playerAnimations.updateAnimation(self, 0, 0)
+		-- Handle input and get movement delta (skip if plunging)
+		local dx, dy = 0, 0
+		self.manualMovement = false
+
+		if not self.isPlunging then
+			self.slideDX = 0
+			self.slideDY = 0
+			dx, dy = playerMovements.handleInput(self, dt)
+			self.manualMovement = (dx ~= 0 or dy ~= 0)
+		else
+			-- While plunging, force idle animation
+			playerAnimations.updateAnimation(self, 0, 0)
+		end
+
+		self:checkSlimeTile()
+
+		-- Example usage: Check for collisions before moving
+		if dx ~= 0 or dy ~= 0 then
+			local futureCollisions, collisionCount = self:checkCollisionsAt(self.x + dx, self.y + dy)
+		end
+		
+		-- Update animation based on movement
+		playerAnimations.updateAnimation(self, dx, dy)
+		
+		-- Move player with collision detection
+		local cols, len = playerMovements.move(self, dx, dy, function(item, other)
+			return playerCollisions.response(self, other)
+		end)
+		
+		-- Handle collisions
+		for i = 1, len do
+			local col = cols[i]
+			local other = col.other
+			
+			-- Use centralized physics resolution for side effects
+			playerCollisions.resolve(self, other)
+			
+			-- Specialized Door collision
+			if other.class and other.class.name == "Door" then
+				local DoorHandler = require 'DoorHandler'
+				DoorHandler.handleDoorCollision(other, self)
+			end
+		end
+		
+		-- Update movement state for turn-based AI
+		playerMovements.updateMovementState(self, dx, dy)
 	end
 
-	-- Example usage: Check for collisions before moving
-	if dx ~= 0 or dy ~= 0 then
-		local futureCollisions, collisionCount = self:checkCollisionsAt(self.x + dx, self.y + dy)
-		
-		-- You can add custom logic here based on what you collide with
-		-- For example:
-		-- for i = 1, collisionCount do
-		--     local collision = futureCollisions[i]
-		--     if collision.object.type == "enemy" then
-		--         -- Handle enemy collision
-		--     elseif collision.object.type == "powerup" then
-		--         -- Handle powerup collision
-		--     end
-		-- end
+	-- Update animation
+	self.currentAnimation:update(dt)
+
+	-- Update dialog UI
+	if self.dialogUI then
+		self.dialogUI:update(dt)
 	end
 	
+	-- Check for prop interactions (e.g. Minifier)
+	self:checkPropInteractions()
+end
+
+function Player:updateSliding(dt)
+	local slideVelocity = PlayerData.slidingSpeed or 1.5
+	local dx = (self.slideDX or 0) * slideVelocity * 60 * dt
+	local dy = (self.slideDY or 0) * slideVelocity * 60 * dt
+
 	-- Update animation based on movement
 	playerAnimations.updateAnimation(self, dx, dy)
 	
@@ -179,36 +217,21 @@ function Player:update(dt)
 			hitSolid = true
 		end
 		
-		-- Use centralized physics resolution for side effects
+		-- Ensure triggers still process, but don't resolve heavy physics
 		playerCollisions.resolve(self, other)
 		
-		-- Specialized Door collision (remains here for scene transition flow control if needed, 
-		-- but resolve could also handle it)
 		if other.class and other.class.name == "Door" then
 			local DoorHandler = require 'DoorHandler'
 			DoorHandler.handleDoorCollision(other, self)
 		end
 	end
 	
-	-- Update movement state for turn-based AI
 	playerMovements.updateMovementState(self, dx, dy)
 
-	if PlayerData.isSliding then
-		if hitSolid or not self:onSlime() then
-			self:stopSliding()
-		end
+	-- Stop if hitting a solid or leaving slime
+	if hitSolid or not self:onSlime() then
+		self:stopSliding()
 	end
-
-	-- Update animation
-	self.currentAnimation:update(dt)
-
-	-- Update dialog UI
-	if self.dialogUI then
-		self.dialogUI:update(dt)
-	end
-	
-	-- Check for prop interactions (e.g. Minifier)
-	self:checkPropInteractions()
 end
 
 -- Handle action button (X key) for plungerang
@@ -276,7 +299,6 @@ end
 function Player:checkPropInteractions()
 	-- Reset state frame by frame
 	PlayerData.readyToShrink = false
-	local currentlyOnSlime = false
 	
 	-- Check for overlaps with props using centralized logic
 	local collisionsList, count = self:checkCollisions()
@@ -285,15 +307,11 @@ function Player:checkPropInteractions()
 		local col = collisionsList[i]
 		local other = col.object
 		
-		if other.isProp and other.isSlime then
-			currentlyOnSlime = true
-		end
-		
 		-- Trigger collision resolution for side effects (like setting readyToShrink)
 		playerCollisions.resolve(self, other)
 	end
 	
-	if not currentlyOnSlime then
+	if not self:onSlime() then
 		self.slideBounce = false
 	end
 end
@@ -336,15 +354,32 @@ function Player:moveTo(x, y)
 	end
 end
 
+function Player:getTileCoords()
+	local sceneManager = require 'sceneManager'
+	local gameScene = sceneManager.getScene("game")
+	if not gameScene or not gameScene.tileMapData then return nil end
+
+	local startX = 200 - (gameScene.mapWidth * gameScene.tileSize) / 2
+	local startY = 120 - (gameScene.mapHeight * gameScene.tileSize) / 2
+	
+	-- Calculate the center of the player's collision box (the feet)
+	local feetX = self.x + self.collisionOffsetX + (self.width / 2)
+	local feetY = self.y + self.collisionOffsetY + (self.height / 2)
+
+	return utilities.getTileUnderPlayer(gameScene.tileMapData, gameScene.tileSize, feetX, feetY, startX, startY)
+end
+
 function Player:onSlime()
-	local collisionsList, count = self:checkCollisions()
-	for i = 1, count do
-		local other = collisionsList[i].object
-		if other.isProp and other.isSlime then
-			return true
-		end
+	local tileId = self:getTileCoords()
+	return tileId and utilities.SLIME_TILE_IDS[tileId] or false
+end
+
+function Player:checkSlimeTile()
+	if PlayerData.isSliding or not self:onSlime() then return end
+
+	if not PlayerData.items.hasPlunger then
+		playerCollisions.startSliding(self, PlayerData.direction)
 	end
-	return false
 end
 
 function Player:stopSliding()
@@ -352,6 +387,7 @@ function Player:stopSliding()
 	self.slideDX = 0
 	self.slideDY = 0
 	self.slideBounce = true
+	self.slideExitFrames = true
 	printDebug("🛑 Player:stopSliding()")
 end
 

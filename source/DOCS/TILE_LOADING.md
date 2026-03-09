@@ -4,101 +4,169 @@ This document explains the technical flow of how the game determines and loads t
 
 ## 📄 Data Sources
 
-The system relies on two main data tables located in `source/assets/data/`:
+The system relies on two main data tables in `source/assets/data/`:
 
-1.  **`levels.lua` (`levelsLDTK`)**: Contains room information exported from LDtk.
-2.  **`tilemap.lua` (`tileMapData`)**: Contains numeric matrices representing the tile distribution (IDs) for each room layout.
+1.  **`levels.lua` (`levelsLDTK`)**: Room information exported from LDtk.
+2.  **`tilemap.lua` (`tileMapData`)**: Numeric matrices representing tile ID distributions for each room layout.
+
+Total rooms in the game: **80** (defined as `TOTAL_ROOMS = 80` in `MapDrawer.calculateMapPercent()`).
 
 ---
 
 ## 🔄 Loading Flow
 
-When the player enters a room (`MazeScene:enter`), the following process occurs:
+When the player enters a room (`MazeScene:enter`):
 
 ### 1. Room Identification
-The game locates the correct entry in the `levelsLDTK` table using the current level and room number.
-This is stored in the `room` variable (table index).
-
 ```lua
--- MazeScene.lua
-PlayerData.actualTilemap = levelsLDTK[room].customFields.tile 
+PlayerData.actualTilemap = levelsLDTK[room].customFields.tile
 ```
 
 ### 2. Retrieval of Tilemap ID
-Within the `customFields` of the room in `levelsLDTK`, there is a field called **`tile`**.
-This field is an **integer** that serves as an index to fetch the corresponding tile matrix from `tileMapData`.
-
-*Example in `levels.lua`:*
+`customFields.tile` is an integer index into `tileMapData`:
 ```lua
 customFields = {
-    tile = 8, -- Uses map layout #8
+    tile = 8,  -- uses map layout #8
     ...
 }
 ```
 
 ### 3. Fetching the Tile Matrix
-The game uses the retrieved ID (`PlayerData.actualTilemap`) to fetch the data matrix from `tileMapData`.
-
 ```lua
--- MazeScene.lua
 renderTileMap(tileMapData[PlayerData.actualTilemap], map)
 ```
 
 ### 4. Rendering (`renderTileMap`)
-The `renderTileMap` function (defined in `utilities/Utilities.lua`) takes the data matrix and configures the `Graphics.tilemap` object from the Playdate SDK.
-
+Defined in `utilities/Utilities.lua`:
 ```lua
--- utilities/Utilities.lua
 function renderTileMap(tileData, tilemap)
-  local height = #tileData
-  local width = #tileData[1]
-  tilemap:setSize(width, height)
-  for y = 1, height do
-    for x = 1, width do
-      -- Assigns the tile ID at position (x, y)
-      tilemap:setTileAtPosition(x, y, tileData[y][x])
+    local height = #tileData
+    local width  = #tileData[1]
+    tilemap:setSize(width, height)
+    for y = 1, height do
+        for x = 1, width do
+            tilemap:setTileAtPosition(x, y, tileData[y][x])
+        end
     end
-  end
 end
 ```
-
-Finally, this map is assigned to a sprite (`floor`) which is drawn on screen with Z-Index 1.
+The tilemap is assigned to a `floor` sprite at `ZIndex = 1`.
 
 ---
 
 ## 🧱 Collisions and Walls
 
-Beyond rendering, the tilemap is used to generate physical colliders for walls. This logic is handled by `CreateTileColliders` in `utilities/Utilities.lua`.
+### 1. Wall Identification (`SECTION_TILE_IDS`)
+`SECTION_TILE_IDS` in `Utilities.lua` is a lookup table of **walkable** tile IDs. Any tile ID **not** in this set is treated as a solid wall.
 
-### 1. Wall Identification
-The system identifies which tiles are "non-wall" (sections) using a lookup table. Any tile NOT in this list is considered a wall:
-
-```lua
-local SECTION_TILE_IDS = {
-    [5] = true,
-}
-```
+> [!NOTE]
+> The `SECTION_TILE_IDS` table in `Utilities.lua` contains the full set of walkable IDs. The example below shows only one entry for illustration — the actual table may contain many more IDs. Always check the source for the complete set:
+> ```lua
+> local SECTION_TILE_IDS = {
+>     [5] = true,
+>     -- ... additional walkable tile IDs in Utilities.lua
+> }
+> ```
 
 ### 2. Collider Optimization (`CreateTileColliders`)
-Instead of creating a collider for every single tile, the system optimizes them into larger rectangles using a two-phase clustering algorithm:
+Merges non-walkable tiles into larger rectangles using a two-phase algorithm:
+1.  **Phase 1**: Scan each row for contiguous wall tiles → group into horizontal segments.
+2.  **Phase 2**: Compare consecutive rows — merge vertically if same X position and width.
 
-1.  **Phase 1: Horizontal Identification**: Scans each row for contiguous wall tiles and groups them into segments.
-2.  **Phase 2: Vertical Merging**: Compares segments between consecutive rows. If two segments have the same horizontal position and width, they are merged into a single taller rectangle.
-
-This significantly reduces the number of active sprites/colliders, improving performance.
+This significantly reduces active sprite/collider count.
 
 ### 3. The `Box` Class
-Merged areas are instantiated as `Box` objects (a subclass of `playdate.graphics.sprite`).
+Merged wall areas are `Box` sprites:
 - **Collision Group**: `CollideGroups.wall`
-- **Visuals**: Draws a white rectangle (useful for debugging).
-- **Physics**: Uses `setCollideRect` to match the merged tile area.
+- **`setCollideRect`**: Matches the merged tile area.
+
+---
+
+## 🟩 Slime Tiles (IDs 89–97)
+
+Slime is detected **via the tilemap**, not via prop entities. Tile IDs `89` through `97` represent slime.
+
+- **Detection**: `GetTileUnderPlayer(px, py)` (in `Utilities.lua`) samples the tile ID under the player's 16×16 footprint.
+- **Cross-reference**: See [PROPS_AND_ITEMS.md](PROPS_AND_ITEMS.md) for full sliding mechanics.
+- **Immunity**: If `PlayerData.items.hasPlunger == true`, the player ignores slime entirely.
 
 ---
 
 ## 🛠️ Summary of Dependencies
 
-- **LDtk**: Defines which layout each room uses via the `tile` custom field.
-- **levels.lua**: The bridge connecting the logical room (Room_8) with the visual layout ID.
-- **tilemap.lua**: Massive store for all possible tile layouts.
-- **MazeScene.lua**: Orchestrator that reads the data and requests the rendering.
-- **Utilities.lua**: Technical executor that paints the tiles onto the grid.
+| Component | Role |
+|---|---|
+| LDtk | Defines which layout each room uses via `tile` custom field |
+| `levels.lua` | Bridge: logical room ↔ visual layout ID |
+| `tilemap.lua` | Stores all tile matrix layouts |
+| `MazeScene.lua` | Orchestrator — reads data, triggers rendering |
+| `Utilities.lua` | Executes tile painting; defines `SECTION_TILE_IDS` |
+
+---
+
+## 🛠️ Love2D Porting Guide
+
+### 1. Tilemap Rendering
+Replace `Graphics.tilemap` with a `SpriteBatch` or pre-rendered `Canvas`:
+
+```lua
+-- Pre-render room tiles to a Canvas on room entry
+function renderTileMap(tileData, tilesheet)
+    local canvas = love.graphics.newCanvas(400, 240)
+    local TILE_SIZE = 16
+
+    love.graphics.setCanvas(canvas)
+    for y, row in ipairs(tileData) do
+        for x, tileId in ipairs(row) do
+            local quad = tileQuads[tileId]  -- pre-built quad lookup
+            if quad then
+                love.graphics.draw(tilesheet, quad,
+                    (x-1) * TILE_SIZE, (y-1) * TILE_SIZE)
+            end
+        end
+    end
+    love.graphics.setCanvas()
+    return canvas
+end
+```
+
+### 2. Walkable Tile Check
+```lua
+local SECTION_TILE_IDS = { [5] = true, --[[ ... check Utilities.lua for full set ]] }
+
+function isWalkable(tileId)
+    return SECTION_TILE_IDS[tileId] == true
+end
+```
+
+### 3. Slime Detection
+```lua
+local SLIME_TILE_IDS = {}
+for i = 89, 97 do SLIME_TILE_IDS[i] = true end
+
+function getTileAt(tileData, px, py)
+    local col = math.floor(px / 16) + 1
+    local row = math.floor(py / 16) + 1
+    if tileData[row] then return tileData[row][col] end
+    return nil
+end
+
+function Player:checkSlimeTile(tileData)
+    if self.isSliding or self.isDashing then return end
+    if PlayerData.items.hasPlunger then return end  -- immune
+    local id = getTileAt(tileData, self.x, self.y)
+    if id and SLIME_TILE_IDS[id] then
+        self:startSliding(PlayerData.direction)
+    end
+end
+```
+
+### 4. Wall Colliders
+Replicate the two-phase merge algorithm and register merged rectangles in `bump.lua`:
+```lua
+-- After building merged wall rects:
+for _, rect in ipairs(wallRects) do
+    local wallObj = { isWall = true }
+    world:add(wallObj, rect.x, rect.y, rect.w, rect.h)
+end
+```

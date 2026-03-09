@@ -62,6 +62,20 @@ function animations.load(spritesheet)
 		tinyDown  = anim8.newAnimation(getFrames(grid, 88, 90, cols), durTiny),
 		tinyUp    = anim8.newAnimation(getFrames(grid, 91, 93, cols), durTiny),
 		
+		-- Sliding
+		slideRight = anim8.newAnimation(getFrames(grid, 115, 116, cols), 0.1),
+		slideLeft  = anim8.newAnimation(getFrames(grid, 117, 118, cols), 0.1),
+		slideDown  = anim8.newAnimation(getFrames(grid, 119, 120, cols), 0.1),
+		slideUp    = anim8.newAnimation(getFrames(grid, 121, 122, cols), 0.1),
+		
+		slideExitRight = anim8.newAnimation(getFrames(grid, 123, 127, cols), 0.1),
+		slideExitLeft  = anim8.newAnimation(getFrames(grid, 128, 132, cols), 0.13),
+		slideExitUp    = anim8.newAnimation(getFrames(grid, 137, 141, cols), 0.13),
+		slideExitDown  = anim8.newAnimation(getFrames(grid, 133, 136, cols), 0.13),
+		
+		slideTiny = anim8.newAnimation(getFrames(grid, 142, 145, cols), 0.13),
+
+		
 		-- Transitions
 		transformTo    = anim8.newAnimation(getFrames(grid, 94, 99, cols), 0.13), -- 4 ticks
 		transformCycle = anim8.newAnimation(getFrames(grid, 100, 105, cols), 0.1) -- 3 ticks
@@ -84,7 +98,16 @@ function animations.updateAnimation(player, dx, dy)
 	local anims = player.animations
 	
 	if PlayerData.isTiny then
-		if dx > 0 then
+		if player.slideExitFrames then
+			-- Ensure exit animation finishes once played
+			if player.currentAnimation.status ~= "finished" then
+				player.currentAnimation = anims.slideTiny
+			else
+				player.slideExitFrames = false
+			end
+		elseif PlayerData.isSliding then
+			player.currentAnimation = anims.slideTiny
+		elseif dx > 0 then
 			player.currentAnimation = anims.tinyRight
 			PlayerData.direction = "right"
 		elseif dx < 0 then
@@ -102,9 +125,29 @@ function animations.updateAnimation(player, dx, dy)
 		end
 	else
 		-- Normal / Lamp logic
-		-- Check dash state if implemented later, for now just walk
-		
-		if dx > 0 then
+		if player.slideExitFrames then
+			local exitAnim = anims.slideExitDown
+			if PlayerData.direction == "right" then exitAnim = anims.slideExitRight
+			elseif PlayerData.direction == "left" then exitAnim = anims.slideExitLeft
+			elseif PlayerData.direction == "up" then exitAnim = anims.slideExitUp
+			end
+			
+			if player.currentAnimation ~= exitAnim then
+				player.currentAnimation = exitAnim
+				exitAnim:gotoFrame(1)
+				exitAnim:resume()
+			end
+
+			if player.currentAnimation.status == "paused" then
+				player.slideExitFrames = false
+			end
+		elseif PlayerData.isSliding then
+			if PlayerData.direction == "right" then player.currentAnimation = anims.slideRight
+			elseif PlayerData.direction == "left" then player.currentAnimation = anims.slideLeft
+			elseif PlayerData.direction == "up" then player.currentAnimation = anims.slideUp
+			else player.currentAnimation = anims.slideDown
+			end
+		elseif dx > 0 then
 			player.currentAnimation = PlayerData.hasLamp and anims.lampRight or anims.right
 			PlayerData.direction = "right"
 		elseif dx < 0 then
@@ -114,13 +157,6 @@ function animations.updateAnimation(player, dx, dy)
 			player.currentAnimation = PlayerData.hasLamp and anims.lampDown or anims.down
 			PlayerData.direction = "down"
 		elseif dy < 0 then
-			-- User provided 'up' (21-25) but no 'lampUp'? 
-			-- Playdate code checks `PlayerData.hasLamp and ...` but didn't listing `lampUp` explicitly in the provided blocks?
-			-- Wait, input says `lampIdle`, `lampRight`, `lampLeft`, `lampDown`. No `lampUp`.
-			-- So for UP, we always use normal UP? Or flip down?
-			-- Playdate logic: `self.animation:setState('idle')` (or lamp...)
-			-- It doesn't seem to have directional logic in the 'init' block, that's just definitions.
-			-- I will assume 'up' is shared or uses 'up'.
 			player.currentAnimation = anims.up
 			PlayerData.direction = "up"
 		else

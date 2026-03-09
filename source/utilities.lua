@@ -181,7 +181,7 @@ function utilities.CreateTileColliders(tileData, world, tileSize, offsetX, offse
 		local startX = nil
 		for x = 1, width do
 			local tileId = tileData[y][x]
-			local isWall = not SECTION_TILE_IDS[tileId]
+			local isWall = not SECTION_TILE_IDS[tileId] and not utilities.SLIME_TILE_IDS[tileId]
 			
 			if isWall then
 				if not startX then startX = x end
@@ -242,6 +242,29 @@ function utilities.CreateTileColliders(tileData, world, tileSize, offsetX, offse
 	end
 
 	return mergedSegments
+end
+
+utilities.SLIME_TILE_IDS = {}
+for i = 89, 97 do utilities.SLIME_TILE_IDS[i] = true end
+
+function utilities.getTileUnderPlayer(tileData, tileSize, px, py, startX, startY)
+	-- local px, py is player pixel position in world coordinates (from player.x, player.y).
+	-- We need to offset them by the grid start coordinates
+	local relX = px - startX
+	local relY = py - startY
+
+	-- if negative, out of bounds
+	if relX < 0 or relY < 0 then return nil end
+
+	local col = math.floor(relX / tileSize) + 1
+	local row = math.floor(relY / tileSize) + 1
+
+	if tileData[row] then
+		local tileId = tileData[row][col]
+		printDebug("🔍 Tile check at ("..px..","..py..") -> rel("..relX..","..relY..") -> grid["..row.."]["..col.."] = " .. tostring(tileId))
+		return tileId
+	end
+	return nil
 end
 
 return utilities

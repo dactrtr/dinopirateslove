@@ -235,11 +235,6 @@ function collisions.resolve(player, other)
 			collisions.fallBelow(player)
 		end
 	
-	elseif other.isProp and other.isSlime then
-		if PlayerData.items.hasPlunger ~= true then
-			collisions.startSliding(player, PlayerData.direction)
-		end
-	
 	elseif other.isProp and other.type == 'minifier' then
 		player.currentMinifier = other
 		PlayerData.readyToShrink = true

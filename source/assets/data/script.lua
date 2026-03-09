@@ -374,4 +374,13 @@ script = {
             
         }
     },
+    {
+        name = "CM001_tiny",
+        dialog = {
+            {
+            video = 'playerWorry',
+            text = "CM001-01",
+            }, 
+        }
+    },
 }
