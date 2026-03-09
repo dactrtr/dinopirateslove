@@ -68,12 +68,12 @@ function animations.load(spritesheet)
 		slideDown  = anim8.newAnimation(getFrames(grid, 119, 120, cols), 0.1),
 		slideUp    = anim8.newAnimation(getFrames(grid, 121, 122, cols), 0.1),
 		
-		slideExitRight = anim8.newAnimation(getFrames(grid, 123, 127, cols), 0.1),
-		slideExitLeft  = anim8.newAnimation(getFrames(grid, 128, 132, cols), 0.13),
-		slideExitUp    = anim8.newAnimation(getFrames(grid, 137, 141, cols), 0.13),
-		slideExitDown  = anim8.newAnimation(getFrames(grid, 133, 136, cols), 0.13),
-		
-		slideTiny = anim8.newAnimation(getFrames(grid, 142, 145, cols), 0.13),
+		slideExitRight = anim8.newAnimation(getFrames(grid, 123, 127, cols), 0.1,  "pauseAtEnd"),
+		slideExitLeft  = anim8.newAnimation(getFrames(grid, 128, 132, cols), 0.13, "pauseAtEnd"),
+		slideExitUp    = anim8.newAnimation(getFrames(grid, 137, 141, cols), 0.13, "pauseAtEnd"),
+		slideExitDown  = anim8.newAnimation(getFrames(grid, 133, 136, cols), 0.13, "pauseAtEnd"),
+
+		slideTiny = anim8.newAnimation(getFrames(grid, 142, 145, cols), 0.13, "pauseAtEnd"),
 
 		
 		-- Transitions
@@ -99,11 +99,19 @@ function animations.updateAnimation(player, dx, dy)
 	
 	if PlayerData.isTiny then
 		if player.slideExitFrames then
-			-- Ensure exit animation finishes once played
-			if player.currentAnimation.status ~= "finished" then
+			-- Start tiny slide exit animation once if not already playing it
+			if player.currentAnimation ~= anims.slideTiny then
 				player.currentAnimation = anims.slideTiny
-			else
+				anims.slideTiny:gotoFrame(1)
+				anims.slideTiny:resume()
+			end
+
+			-- anim8 calls pauseAtEnd() automatically via onLoop when the animation completes
+			if player.currentAnimation.status == "paused" then
 				player.slideExitFrames = false
+				player.currentAnimation = anims.tinyIdle
+				anims.tinyIdle:gotoFrame(1)
+				anims.tinyIdle:resume()
 			end
 		elseif PlayerData.isSliding then
 			player.currentAnimation = anims.slideTiny
@@ -126,20 +134,27 @@ function animations.updateAnimation(player, dx, dy)
 	else
 		-- Normal / Lamp logic
 		if player.slideExitFrames then
+			-- Determine exit animation based on direction
 			local exitAnim = anims.slideExitDown
 			if PlayerData.direction == "right" then exitAnim = anims.slideExitRight
 			elseif PlayerData.direction == "left" then exitAnim = anims.slideExitLeft
 			elseif PlayerData.direction == "up" then exitAnim = anims.slideExitUp
 			end
-			
+
+			-- Start exit animation once if not already playing it
 			if player.currentAnimation ~= exitAnim then
 				player.currentAnimation = exitAnim
 				exitAnim:gotoFrame(1)
 				exitAnim:resume()
 			end
 
+			-- anim8 calls pauseAtEnd() automatically via onLoop when the animation completes
 			if player.currentAnimation.status == "paused" then
 				player.slideExitFrames = false
+				local idleAnim = PlayerData.hasLamp and anims.lampIdle or anims.idle
+				player.currentAnimation = idleAnim
+				idleAnim:gotoFrame(1)
+				idleAnim:resume()
 			end
 		elseif PlayerData.isSliding then
 			if PlayerData.direction == "right" then player.currentAnimation = anims.slideRight

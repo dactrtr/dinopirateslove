@@ -180,6 +180,11 @@ function Player:update(dt)
 		
 		-- Update movement state for turn-based AI
 		playerMovements.updateMovementState(self, dx, dy)
+
+		-- Distribute movement frames to all enemies after player moves
+		if self.manualMovement then
+			self:distributeMovementFrames(3) -- 3 frames per player move
+		end
 	end
 
 	-- Update animation
@@ -389,6 +394,60 @@ function Player:stopSliding()
 	self.slideBounce = true
 	self.slideExitFrames = true
 	printDebug("🛑 Player:stopSliding()")
+end
+
+-- Distribute movement frames to all enemies and crewmembers
+function Player:distributeMovementFrames(frames)
+	-- Get scene and distribute to all enemies
+	local sceneManager = require 'sceneManager'
+	local gameScene = sceneManager.getScene("game")
+
+	if gameScene then
+		-- Distribute to regular enemies
+		if gameScene.enemies then
+			for _, enemy in ipairs(gameScene.enemies) do
+				if enemy.addMovementFrames then
+					enemy:addMovementFrames(frames)
+				end
+			end
+		end
+
+		-- Distribute to crewmembers
+		if gameScene.crewMembers then
+			for _, crewMember in ipairs(gameScene.crewMembers) do
+				if crewMember.addMovementFrames then
+					crewMember:addMovementFrames(frames)
+				end
+			end
+		end
+	end
+end
+
+-- Distribute movement tokens to all enemies and crewmembers
+function Player:distributeMovementTokens(tokens)
+	-- Get scene and distribute to all enemies
+	local sceneManager = require 'sceneManager'
+	local gameScene = sceneManager.getScene("game")
+
+	if gameScene then
+		-- Distribute to regular enemies
+		if gameScene.enemies then
+			for _, enemy in ipairs(gameScene.enemies) do
+				if enemy.addMovementTokens then
+					enemy:addMovementTokens(tokens)
+				end
+			end
+		end
+
+		-- Distribute to crewmembers
+		if gameScene.crewMembers then
+			for _, crewMember in ipairs(gameScene.crewMembers) do
+				if crewMember.addMovementTokens then
+					crewMember:addMovementTokens(tokens)
+				end
+			end
+		end
+	end
 end
 
 return Player

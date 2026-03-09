@@ -178,9 +178,15 @@ function Projectile:handleCollision(other, col)
 		return
 	end
 	
-	-- CrewMember hit - projectile is lost!
+	-- CrewMember hit - stun and lose projectile
 	if other.class and other.class.name == "CrewMember" then
-		printDebug("💔 Projectile caught by CrewMember - lost!")
+		printDebug("🎯 Projectile hit CrewMember - permanently stunned!")
+		-- Permanently stun the crewmember
+		if other.stunInfinite then
+			other:stunInfinite()
+		end
+		-- Projectile is lost
+		self.player.hasProjectile = false
 		PlayerData.items.hasPlunger = false
 		PlayerData.activeItem = 0
 		self:destroy()

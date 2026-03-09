@@ -161,10 +161,19 @@ function collisions.resolve(player, other)
 		end
 
 	elseif other.class and other.class.name == "CrewMember" then
-		if PlayerData.CrewMemberData.amountTaken == 0 then
-			if player.dialogUI then player.dialogUI:addScreen("gotcha") end
+		-- Tiny mode: just set as current trigger
+		if PlayerData.isTiny then
+			player.currentTrigger = other
+		else
+			-- Normal mode: capture the crewmember
+			if PlayerData.CrewMemberData.amountTaken == 0 then
+				-- Show special dialog on first capture
+				if player.dialogUI then
+					player.dialogUI:addScreen("gotcha", other.sourceFeed)
+				end
+			end
+			if other.taken then other:taken() end
 		end
-		if other.taken then other:taken() end
 
 	elseif other.isTrigger then
 		local trigger = other

@@ -5,6 +5,7 @@ local Player = require 'entities.player'
 local PropItem = require 'entities.props.propItem'
 local Items = require 'entities.Items'
 local Brocorat = require 'entities.Brocorat'
+local CrewMember = require 'entities.CrewMember'
 local Door = require 'entities.Door'
 local DoorHandler = require 'DoorHandler'
 local utilities = require 'utilities'
@@ -36,6 +37,8 @@ local gameScene = {
 	tileMapData = {},
 	-- Enemies
 	enemies = {},
+	-- CrewMembers
+	crewMembers = {},
 	-- Doors
 	doors = {},
 	-- Walls
@@ -121,7 +124,15 @@ function gameScene.clearCurrentRoom()
 		end
 	end
 	gameScene.enemies = {}
-	
+
+	-- Clear crewmembers
+	for _, crewMember in ipairs(gameScene.crewMembers or {}) do
+		if gameScene.world and gameScene.world:hasItem(crewMember) then
+			gameScene.world:remove(crewMember)
+		end
+	end
+	gameScene.crewMembers = {}
+
 	-- Clear doors
 	for _, door in ipairs(gameScene.doors or {}) do
 		if gameScene.world and gameScene.world:hasItem(door) then
@@ -424,11 +435,27 @@ function gameScene.loadEnemies()
 		end
 	end
 	
-	-- TODO: Add support for other enemy types (Bosscolli, CrewMember, etc.)
-	-- if entities.Bosscolli then ... end
-	-- if entities.CrewMember then ... end
-	
-	printDebug("✅ Loaded " .. #gameScene.enemies .. " enemies")
+	-- Load CrewMembers
+	if entities.CrewMember then
+		for _, crewData in ipairs(entities.CrewMember) do
+			local cf = crewData.customFields or {}
+			local x, y = crewData.x, crewData.y
+			local id = crewData.iid
+
+			-- Check if already captured
+			if not PlayerData.CrewMemberData.idNumbers[id] then
+				printDebug("🏴‍☠️ Creating CrewMember at (" .. x .. ", " .. y .. ")")
+				local crewMember = CrewMember(x, y, gameScene.world, gameScene.player, id, crewData)
+				table.insert(gameScene.crewMembers, crewMember)
+			else
+				printDebug("✅ CrewMember at (" .. x .. ", " .. y .. ") already captured, skipping")
+			end
+		end
+	end
+
+	-- TODO: Add support for other enemy types (Bosscolli, etc.)
+
+	printDebug("✅ Loaded " .. #gameScene.enemies .. " enemies, " .. #gameScene.crewMembers .. " crewmembers")
 end
 
 function gameScene.loadDoors()
@@ -948,7 +975,16 @@ function gameScene.update(dt)
 		for i, enemy in ipairs(gameScene.enemies) do
 			enemy:update(dt)
 		end
-		
+
+		-- Update crewmembers
+		for i = #gameScene.crewMembers, 1, -1 do
+			local crewMember = gameScene.crewMembers[i]
+			crewMember:update(dt)
+			if crewMember.isRemoved then
+				table.remove(gameScene.crewMembers, i)
+			end
+		end
+
 		-- Update items
 		for i = #gameScene.items, 1, -1 do
 			local item = gameScene.items[i]
@@ -1027,7 +1063,16 @@ function gameScene.draw()
 			type = "enemy"
 		})
 	end
-	
+
+	-- Add crewmembers
+	for _, crewMember in ipairs(gameScene.crewMembers) do
+		table.insert(drawables, {
+			obj = crewMember,
+			y = crewMember.y + crewMember.spriteHeight, -- Use bottom of sprite
+			type = "crewmember"
+		})
+	end
+
 	-- Add props
 	for _, prop in ipairs(gameScene.props) do
 		-- Props can have custom zIndex or use Y position
