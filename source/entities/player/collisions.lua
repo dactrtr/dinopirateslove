@@ -172,7 +172,7 @@ function collisions.resolve(player, other)
 					player.dialogUI:addScreen("gotcha", other.sourceFeed)
 				end
 			end
-			if other.taken then other:taken() end
+			if other.taken then other:taken(player) end
 		end
 
 	elseif other.isTrigger then

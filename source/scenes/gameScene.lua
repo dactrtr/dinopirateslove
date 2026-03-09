@@ -980,7 +980,7 @@ function gameScene.update(dt)
 		for i = #gameScene.crewMembers, 1, -1 do
 			local crewMember = gameScene.crewMembers[i]
 			crewMember:update(dt)
-			if crewMember.isRemoved then
+			if crewMember.isDead then
 				table.remove(gameScene.crewMembers, i)
 			end
 		end
