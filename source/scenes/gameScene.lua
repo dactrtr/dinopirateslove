@@ -13,6 +13,8 @@ local InteractionHUD = require 'entities.UI.interactionHUD'
 local SaveSystem = require 'SaveSystem'
 
 
+local FXshadow = require 'entities.UI.FXshadow'
+
 -- Simple require for PauseMenu
 local PauseMenu = require 'PauseMenu'
 local InGameMenu = require 'entities.UI.InGameMenu'
@@ -58,7 +60,9 @@ local gameScene = {
 	currentRoom = nil,        -- Index in levelsLDTK
 	currentLevelData = nil,   -- Reference to current level
 	-- Debug mode
-	debugMode = false         -- Toggle for debug visualizations
+	debugMode = false,        -- Toggle for debug visualizations
+	-- Darkness overlay
+	globalLightAmount = 0     -- 0 = full bright, 1 = full dark
 }
 
 local padding = 8
@@ -387,6 +391,15 @@ function gameScene.reloadCurrentRoom()
 	
 	-- Update room info in pause menu
 	gameScene.updateRoomInfo()
+
+	-- Read darkness config from the new room
+	if gameScene.currentLevelData and gameScene.currentLevelData.customFields then
+		local cf = gameScene.currentLevelData.customFields
+		PlayerData.isInDarkness = cf.shadow == true
+		gameScene.globalLightAmount = cf.light or 0
+		printDebug("🌑 Darkness: " .. tostring(PlayerData.isInDarkness) .. " | Light: " .. tostring(gameScene.globalLightAmount))
+	end
+	FXshadow.markDirty()
 end
 
 -- Update room information in pause menu
@@ -1108,6 +1121,11 @@ function gameScene.draw()
 		drawable.obj:draw(gameScene.debugMode)
 	end
 	
+	-- Darkness overlay (after all entities, before HUD/dialog)
+	if PlayerData.isInDarkness and gameScene.player then
+		FXshadow.draw(gameScene.player, gameScene.globalLightAmount or 0)
+	end
+
 	-- Draw dialog UI on top of everything
 	if gameScene.player and gameScene.player.dialogUI then
 		gameScene.player.dialogUI:draw()
@@ -1246,6 +1264,12 @@ function gameScene.keypressed(key)
 		-- E key toggles size when on minifier (alternative to mouse wheel)
 		if PlayerData.readyToShrink and gameScene.player and gameScene.player.handleCrankInput then
 			gameScene.player:handleCrankInput(1) -- Simulate wheel movement
+		end
+	elseif key == "lshift" or key == "rshift" then
+		-- Shift: dash in current facing direction
+		if gameScene.player and PlayerData.skills.canDash then
+			local dir = (PlayerData.direction ~= "idle") and PlayerData.direction or "right"
+			gameScene.player:startDash(dir)
 		end
 	end
 end

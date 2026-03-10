@@ -437,7 +437,12 @@ end
 
 -- Grab helpers
 function collisions.grabKey(player, num) PlayerData.keys[num] = true end
-function collisions.grabLamp(player) PlayerData.items.hasLamp = true end
+function collisions.grabLamp(player)
+	PlayerData.items.hasLamp = true
+	PlayerData.skills.canFlash = true
+	local FXshadow = require 'entities.UI.FXshadow'
+	FXshadow.markDirty()
+end
 function collisions.grabRadio(player) PlayerData.items.hasRadio = true end
 function collisions.grabTools(player) PlayerData.items.hasTools = true end
 function collisions.grabBoots(player) 

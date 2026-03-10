@@ -60,6 +60,37 @@ function Player:initialize(x, y, world)
 	
 	-- Initialize dialog system
 	self.dialogUI = DialogScreen()
+
+	-- Dash state
+	self.isDashing = false
+	self.dashDir = "right"
+	self.dashDistanceTraveled = 0
+	self.dashSpeed = 6
+	self.dashMaxDistance = 56
+	self.dashBounceDistance = 16
+
+	-- Sanity timer: runs every 2 seconds via the game scene timer
+	local sceneManager = require 'sceneManager'
+	local gs = sceneManager.getScene("game")
+	if gs and gs.timer then
+		gs.timer:every(2, function()
+			local loss = PlayerData.sanityLoss or 1
+			if PlayerData.isInDarkness then
+				if PlayerData.battery < 20 then
+					PlayerData.sanity = math.max(0, PlayerData.sanity - 2 * loss)
+				elseif PlayerData.battery < 40 then
+					PlayerData.sanity = math.max(0, PlayerData.sanity - loss)
+				end
+				if PlayerData.sanity <= 0 then
+					PlayerData.sanityCounter = PlayerData.sanityCounter + 1
+					PlayerData.sanity = 100
+					PlayerData.EnemiesData.powerLevel = math.min(20, PlayerData.EnemiesData.powerLevel + 1)
+				end
+			else
+				PlayerData.sanity = math.min(100, PlayerData.sanity + 2 * loss)
+			end
+		end)
+	end
 end
 
 function Player:syncDimensions(skipBumpUpdate)
@@ -131,7 +162,9 @@ function Player:update(dt)
 		playerPlunge.update(self, dt)
 	end
 	
-	if PlayerData.isSliding then
+	if self.isDashing then
+		self:updateDash()
+	elseif PlayerData.isSliding then
 		self:updateSliding(dt)
 	else
 		-- Handle input and get movement delta (skip if plunging)
@@ -394,6 +427,78 @@ function Player:stopSliding()
 	self.slideBounce = true
 	self.slideExitFrames = true
 	printDebug("🛑 Player:stopSliding()")
+end
+
+function Player:idle()
+	local anims = self.animations
+	if PlayerData.isTiny then
+		self.currentAnimation = anims.tinyIdle
+	elseif PlayerData.items.hasLamp then
+		self.currentAnimation = anims.lampIdle
+	else
+		self.currentAnimation = anims.idle
+	end
+end
+
+function Player:setDashAnimation(direction)
+	local anims = self.animations
+	if direction == "right" then self.currentAnimation = anims.dashRight
+	elseif direction == "left" then self.currentAnimation = anims.dashLeft
+	elseif direction == "up" then self.currentAnimation = anims.dashUp
+	else self.currentAnimation = anims.dashDown
+	end
+end
+
+function Player:startDash(direction)
+	if not PlayerData.skills.canDash then return end
+	if PlayerData.battery < 10 then return end
+	if self.isDashing or self.isPlunging or PlayerData.isSliding then return end
+	PlayerData.battery = PlayerData.battery - 10
+	self.isDashing = true
+	self.dashDir = direction
+	self.dashDistanceTraveled = 0
+	self:setDashAnimation(direction)
+	printDebug("💨 Dash started: " .. direction)
+end
+
+function Player:updateDash()
+	local dx, dy = 0, 0
+	if self.dashDir == "left" then dx = -self.dashSpeed
+	elseif self.dashDir == "right" then dx = self.dashSpeed
+	elseif self.dashDir == "up" then dy = -self.dashSpeed
+	elseif self.dashDir == "down" then dy = self.dashSpeed end
+
+	local newCollisionX = self.x + self.collisionOffsetX + dx
+	local newCollisionY = self.y + self.collisionOffsetY + dy
+	local actualX, actualY, cols, len = self.world:move(self, newCollisionX, newCollisionY, function(item, other)
+		return playerCollisions.response(self, other)
+	end)
+
+	local prevX, prevY = self.x, self.y
+	self.x = actualX - self.collisionOffsetX
+	self.y = actualY - self.collisionOffsetY
+	self:updateCollisionPosition()
+
+	local moved = math.abs(self.x - prevX) + math.abs(self.y - prevY)
+	self.dashDistanceTraveled = self.dashDistanceTraveled + moved
+
+	if len > 0 then
+		-- Bounce back on wall hit
+		local ratio = self.dashBounceDistance / self.dashSpeed
+		local bounceColX = self.x + self.collisionOffsetX - dx * ratio
+		local bounceColY = self.y + self.collisionOffsetY - dy * ratio
+		local bx, by = self.world:move(self, bounceColX, bounceColY, function(item, other)
+			return playerCollisions.response(self, other)
+		end)
+		self.x = bx - self.collisionOffsetX
+		self.y = by - self.collisionOffsetY
+		self:updateCollisionPosition()
+		self.isDashing = false
+		self:idle()
+	elseif self.dashDistanceTraveled >= self.dashMaxDistance then
+		self.isDashing = false
+		self:idle()
+	end
 end
 
 -- Distribute movement frames to all enemies and crewmembers

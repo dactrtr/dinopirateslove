@@ -28,6 +28,7 @@ local DefaultPlayerData = {
 	steps = 0,
 	totalSteps = 1000,
 	sanityCounter = 0, -- top 100
+	sanityLoss = 1,    -- multiplier for sanity drain/regen rate
 	mapPercent = 0, -- Percentage of map explored (0-100)
 	keys = {}, -- Table to store collected keys by number: {[1] = true, [2] = true, ...}
 	canDance = false,
@@ -77,13 +78,13 @@ local DefaultPlayerData = {
 		hasRadio = true,
 		hasDWatch = false,
 		hasNotes = true,
-		hasBoots = false,
-		hasPlunger = false,
+		hasBoots = true,
+		hasPlunger = true,
 	},
 	skills ={
-		canFlash = false,
-		canDash = false,
-		canPlungerang = false,
+		canFlash = true,
+		canDash = true,
+		canPlungerang = true,
 	},
 	EnemiesData ={
 		powerLevel = 1, -- max 20

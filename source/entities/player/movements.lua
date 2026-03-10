@@ -44,11 +44,23 @@ function movements.move(player, dx, dy, filter)
 	local newCollisionX = player.x + player.collisionOffsetX + dx
 	local newCollisionY = player.y + player.collisionOffsetY + dy
 	local actualCollisionX, actualCollisionY, cols, len = player.world:move(player, newCollisionX, newCollisionY, filter)
-	
+
 	-- Convert collision box position back to sprite position
+	local prevX, prevY = player.x, player.y
 	player.x = actualCollisionX - player.collisionOffsetX
 	player.y = actualCollisionY - player.collisionOffsetY
-	
+
+	-- Track stats only when the player actually displaced
+	if (dx ~= 0 or dy ~= 0) and (math.abs(player.x - prevX) + math.abs(player.y - prevY) > 0) then
+		if PlayerData.isInDarkness then
+			PlayerData.battery = math.max(0, PlayerData.battery - 0.5)
+		end
+		PlayerData.steps = (PlayerData.steps or 0) + 1
+		if PlayerData.steps % 200 == 0 then
+			PlayerData.calories = math.max(0, PlayerData.calories - 10)
+		end
+	end
+
 	return cols, len
 end
 
