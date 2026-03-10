@@ -51,7 +51,7 @@ local DefaultPlayerData = {
 	isGaming = false,
 	isDancing = false,
 	amountDances = 0,
-	isInDarkness = false,
+	isInDarkness = false, -- set per-room via customFields.shadow (e.g. room 13 has shadow=true)
 	showLightCone = false,
 	direction = "idle",
 	lastRoom = nil,
@@ -74,12 +74,12 @@ local DefaultPlayerData = {
 		y = nil
 	},
 	items={
-		hasLamp = false,
+		hasLamp = false	,   -- TEST: lamp equipped; grants light circle + canFlash
 		hasRadio = true,
 		hasDWatch = false,
 		hasNotes = true,
-		hasBoots = true,
-		hasPlunger = true,
+		hasBoots = false,
+		hasPlunger = false,
 	},
 	skills ={
 		canFlash = true,

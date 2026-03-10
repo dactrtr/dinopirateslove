@@ -289,7 +289,10 @@ end
 function gameScene.load()
 	-- Debug mode starts disabled
 	DRAW_DEBUG_DOORS = false
-	
+
+	-- Darkness default (can be overridden per-room via customFields.light)
+	gameScene.globalLightAmount = 0.7
+
 	-- Initialize BUMP world for physics
 	gameScene.world = bump.newWorld(32) -- 32 = cell size
 	
