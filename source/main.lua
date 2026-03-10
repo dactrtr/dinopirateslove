@@ -50,7 +50,7 @@ moonshinSettings = {
 		angle = 0
 	},
 	playerOutline = {
-		thickness = 1,
+		thickness = 0,
 		color = {1, 1, 1, 1}
 	}
 }

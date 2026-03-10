@@ -328,12 +328,10 @@ function gameScene.enter()
 		local startRoom = PlayerData.saveLevel or 2
 		local startLevel = PlayerData.actualLevel or 4
 		
-		-- Restore player position
-		if PlayerData.x and PlayerData.y then
-			gameScene.player:moveTo(PlayerData.x, PlayerData.y)
-		else
-			gameScene.player:moveTo(200, 120)
-		end
+		-- Restore player position (playerSpawn is source of truth, x/y is fallback for old saves)
+		local spawnX = (PlayerData.playerSpawn and PlayerData.playerSpawn.x) or PlayerData.x or 200
+		local spawnY = (PlayerData.playerSpawn and PlayerData.playerSpawn.y) or PlayerData.y or 120
+		gameScene.player:moveTo(spawnX, spawnY)
 
 		-- Force sync player dimensions
 		gameScene.player:syncDimensions()
@@ -349,6 +347,11 @@ end
 
 function gameScene.exit()
 	printDebug("🚪 gameScene: Exited")
+	-- Capture exit position for possible return from DanceScene
+	if gameScene.player then
+		PlayerData.playerExit.x = gameScene.player.x
+		PlayerData.playerExit.y = gameScene.player.y
+	end
 	-- Save on exit if gaming
 	if PlayerData.isGaming then
 		SaveSystem.save()
@@ -791,7 +794,7 @@ function gameScene.performChangeLevel(nextLevelIid, enterDirection, player, exit
 			-- Spawn player centered relative to the door width/height based on exitRatio
 			local spawnX, spawnY
 			local offset = 32 -- Offset away from the wall to prevent immediate re-trigger
-			
+
 			if targetDir == "top" then
 				spawnX = entranceDoor.x + exitRatio * entranceDoor.width
 				spawnY = entranceDoor.y + entranceDoor.height + offset
@@ -805,20 +808,23 @@ function gameScene.performChangeLevel(nextLevelIid, enterDirection, player, exit
 				spawnX = entranceDoor.x - offset
 				spawnY = entranceDoor.y + exitRatio * entranceDoor.height
 			end
-			
-			gameScene.player.x = spawnX
-			gameScene.player.y = spawnY
-			-- Update collision position in BUMP
-			gameScene.player:updateCollisionPosition()
+
+			-- Write to playerSpawn (source of truth) and record entry direction
+			PlayerData.playerSpawn.x = spawnX
+			PlayerData.playerSpawn.y = spawnY
+			PlayerData.lastRoom = enterDirection
+
+			gameScene.player:moveTo(spawnX, spawnY)
 			printDebug("📍 Player aligned spawn at: (" .. spawnX .. ", " .. spawnY .. ") from " .. targetDir .. " door")
 		else
 			-- Fallback to old behavior if no matching door found
 			printDebug("⚠️ WARNING: No " .. tostring(targetDir) .. " door found in new room. Using fallback spawn.")
 			local spawn = utilities.spawnCoordinates[enterDirection]
 			if spawn then
-				gameScene.player.x = spawn.x
-				gameScene.player.y = spawn.y
-				gameScene.player:updateCollisionPosition()
+				PlayerData.playerSpawn.x = spawn.x
+				PlayerData.playerSpawn.y = spawn.y
+				PlayerData.lastRoom = enterDirection
+				gameScene.player:moveTo(spawn.x, spawn.y)
 			end
 		end
 	end
