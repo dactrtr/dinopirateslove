@@ -662,46 +662,92 @@ function gameScene.loadProps()
 end
 
 -- MARK: Items Loading
+
+-- Returns true if an item of this type should be spawned based on PlayerData.
+-- Mirrors the Playdate shouldGenerate logic: PlayerData is the source of truth,
+-- not a per-entity "collected" flag (which is stale across session resets).
+local itemRequirements = {
+	lamp    = "hasLamp",
+	radio   = "hasRadio",
+	notes   = "hasNotes",
+	boots   = "hasBoots",
+	plunger = "hasPlunger",
+}
+
+local function shouldSpawnItem(itemType, keyNumber, grants)
+	if itemType == "keycard" then
+		-- Spawn if the player doesn't already have this specific key
+		local keyNum = keyNumber or 1
+		return not PlayerData.keys[keyNum]
+
+	elseif grants and grants ~= "" then
+		-- Spawn if the player doesn't already have ALL the granted items/skills
+		for pair in string.gmatch(grants, "([^,]+)") do
+			local key = string.match(pair, "([^:]+):")
+			if key then
+				key = key:gsub("%s+", "")
+				if PlayerData.items[key] == true or PlayerData.skills[key] == true then
+					return false  -- player already has this grant
+				end
+			end
+		end
+		return true
+
+	elseif itemRequirements[itemType] then
+		-- Spawn if the player doesn't already have the item
+		return PlayerData.items[itemRequirements[itemType]] ~= true
+
+	end
+
+	-- Unknown type — spawn it (bag, honk, tools, etc.)
+	return true
+end
+
 function gameScene.loadItems()
-	-- Ensure we have a level loaded
 	if not gameScene.currentLevelData then return end
-	
-	-- Clear existing items
+
 	for _, item in ipairs(gameScene.items) do
 		if item.removeAll then item:removeAll() end
 	end
 	gameScene.items = {}
-	
+
 	local entities = gameScene.currentLevelData.entities
 	if not entities then return end
-	
-	-- Calculate offsets (same as in drawFloor)
+
 	local startX = 200 - (gameScene.mapWidth * gameScene.tileSize) / 2
 	local startY = 120 - (gameScene.mapHeight * gameScene.tileSize) / 2
-	
-	-- Iterate over all entity types looking for items
+
 	for typeName, entityList in pairs(entities) do
 		for _, entity in ipairs(entityList) do
-			-- Check if it's an item (layer is "Items")
-			if entity.layer == "Items" then
-				local cf = entity.customFields or {}
+			local cf = entity.customFields or {}
+			local isItem = (entity.layer == "Items") or (cf.isItem == true)
+			local isKey  = (entity.layer == "Keys")  or (typeName == "Keys")
 
-				-- Skip already-collected items (persisted by SaveSystem)
-				if not cf.collected then
-					local itemType = cf.type or typeName:lower()
-					local worldX = entity.x + startX
-					local worldY = entity.y + startY
+			if isItem or isKey then
+				local itemType
+				if isKey then
+					itemType = "keycard"
+				else
+					itemType = (cf.type or typeName):lower()
+				end
 
-					local item = Items(worldX, worldY, itemType, cf.keyNumber, cf.grants, gameScene.world)
+				local keyNumber = cf.KeyNumber or cf.keyNumber
+				local grants    = cf.grants
+
+				if shouldSpawnItem(itemType, keyNumber, grants) then
+					local worldX = entity.x + startX + (entity.width or 32) / 2
+					local worldY = entity.y + startY + (entity.height or 32) / 2
+
+					local item = Items(worldX, worldY, itemType, keyNumber, grants, gameScene.world)
 					item.sourceData = entity
 
 					table.insert(gameScene.items, item)
-					printDebug("🎁 Created item: " .. itemType .. " at (" .. worldX .. ", " .. worldY .. ")")
+					printDebug("🎁 Item spawned: " .. itemType .. " at (" .. worldX .. ", " .. worldY .. ")")
 				end
 			end
 		end
 	end
-	
+
 	printDebug("✅ Loaded " .. #gameScene.items .. " items")
 end
 

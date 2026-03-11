@@ -23,10 +23,10 @@ function Items:initialize(x, y, itemType, keyNumber, grants, world)
 	self.grants = grants        -- used by notes / itemgift collision
 	self.zIndex = 3 -- ZIndex.items equivalent
 
-	-- BUMP physics
+	-- BUMP physics  (x,y is the CENTER of the sprite, so register top-left offset)
 	self.world = world
 	if world then
-		world:add(self, self.x, self.y, self.width, self.height)
+		world:add(self, self.x - self.width / 2, self.y - self.height / 2, self.width, self.height)
 	end
 
 	self.removed = false
@@ -71,7 +71,7 @@ end
 function Items:draw()
 	-- Draw sprite
 	if self.spritesheet and self.currentAnimation then
-		self.currentAnimation:draw(self.spritesheet, self.x, self.y)
+		self.currentAnimation:draw(self.spritesheet, self.x, self.y, 0, 1, 1, self.spriteWidth / 2, self.spriteHeight / 2)
 	else
 		-- Fallback placeholder
 		love.graphics.setColor(1, 1, 0, 0.7)

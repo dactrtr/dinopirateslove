@@ -76,15 +76,15 @@ local DefaultPlayerData = {
 	items={
 		hasLamp = false	,   -- TEST: lamp equipped; grants light circle + canFlash
 		hasRadio = true,
-		hasDWatch = true,
+		hasDWatch = false,
 		hasNotes = true,
 		hasBoots = false,
 		hasPlunger = false,
 	},
 	skills ={
-		canFlash = true,
-		canDash = true,
-		canPlungerang = true,
+		canFlash = false,
+		canDash = false,
+		canPlungerang = false,
 	},
 	EnemiesData ={
 		powerLevel = 1, -- max 20
