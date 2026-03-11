@@ -261,7 +261,7 @@ function utilities.getTileUnderPlayer(tileData, tileSize, px, py, startX, startY
 
 	if tileData[row] then
 		local tileId = tileData[row][col]
-		printDebug("🔍 Tile check at ("..px..","..py..") -> rel("..relX..","..relY..") -> grid["..row.."]["..col.."] = " .. tostring(tileId))
+		-- printDebug("🔍 Tile check at ("..px..","..py..") -> rel("..relX..","..relY..") -> grid["..row.."]["..col.."] = " .. tostring(tileId))
 		return tileId
 	end
 	return nil

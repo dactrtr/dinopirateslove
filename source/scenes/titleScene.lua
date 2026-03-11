@@ -282,43 +282,43 @@ end
 
 function titleScene.keypressed(key)
 	if titleScene.inSettings then
-		if key == "up" then
+		if Input.is(key, "up") then
 			titleScene.settingsOption = titleScene.settingsOption - 1
 			if titleScene.settingsOption < 1 then titleScene.settingsOption = #titleScene.settingsOptions end
-		elseif key == "down" then
+		elseif Input.is(key, "down") then
 			titleScene.settingsOption = titleScene.settingsOption + 1
 			if titleScene.settingsOption > #titleScene.settingsOptions then titleScene.settingsOption = 1 end
-		elseif key == "left" or key == "right" then
+		elseif Input.is(key, "left") or Input.is(key, "right") then
 			local option = titleScene.settingsOptions[titleScene.settingsOption]
 			if option.type == "slider" then
 				local current = moonshinSettings[option.setting[1]][option.setting[2]]
-				local change = (key == "right" and 1 or -1) * option.step
+				local change = (Input.is(key, "right") and 1 or -1) * option.step
 				current = current + change
 				if current > option.max then current = option.max end
 				if current < option.min then current = option.min end
 				moonshinSettings[option.setting[1]][option.setting[2]] = current
 				applyCRTSettings()
 			end
-		elseif key == "return" or key == "kpenter" or key == "z" or key == "a" then
+		elseif Input.is(key, "menuConfirm") then
 			local option = titleScene.settingsOptions[titleScene.settingsOption]
 			if option.type == "action" and option.name == "Back" then
 				titleScene.inSettings = false
 			elseif option.type == "toggle" then
 				_G[option.setting] = not _G[option.setting]
 			end
-		elseif key == "escape" or key == "x" or key == "b" then
+		elseif Input.is(key, "menuBack") then
 			titleScene.inSettings = false
 		end
 	else
-		if key == "up" then
+		if Input.is(key, "up") then
 			titleScene.currentOption = titleScene.currentOption - 1
 			if titleScene.currentOption < 1 then titleScene.currentOption = #titleScene.menuItems end
 			titleScene.updateSelection()
-		elseif key == "down" then
+		elseif Input.is(key, "down") then
 			titleScene.currentOption = titleScene.currentOption + 1
 			if titleScene.currentOption > #titleScene.menuItems then titleScene.currentOption = 1 end
 			titleScene.updateSelection()
-		elseif key == "return" or key == "kpenter" or key == "z" or key == "a" then
+		elseif Input.is(key, "menuConfirm") then
 			local item = titleScene.menuItems[titleScene.currentOption]
 			if item and item.action then
 				item.action()

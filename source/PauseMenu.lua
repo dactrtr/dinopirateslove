@@ -103,15 +103,15 @@ end
 function PauseMenu:keypressed(key)
 	if not self.visible then return false end
 	
-	if key == "up" then
+	if Input.is(key, "up") then
 		self:navigateUp()
 		return true
-	elseif key == "down" then
+	elseif Input.is(key, "down") then
 		self:navigateDown()
 		return true
-	elseif key == "return" or key == "space" then
+	elseif Input.is(key, "confirm") then
 		return self:selectButton()
-	elseif key == "escape" then
+	elseif Input.is(key, "pause") then
 		self:hide()
 		return true
 	end

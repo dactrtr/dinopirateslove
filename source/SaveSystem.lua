@@ -259,15 +259,17 @@ end
 -------------------------------------------------------------
 function SaveSystem.delete()
     local filename = "gameState.lua"
-    local success = love.filesystem.remove(filename)
-    
+    local success, err = love.filesystem.remove(filename)
+
     if success then
-        printDebug("🗑️ Save deleted successfully")
+        printDebug("🗑️ SaveSystem: Save deleted successfully")
     else
-        printDebug("⚠️ Could not delete save file or it doesn't exist")
+        -- File didn't exist or couldn't be removed — still reset in-memory state
+        printDebug("⚠️ SaveSystem: Could not delete save file: " .. tostring(err))
     end
-    
+
     SaveSystem.reset()
+    return success
 end
 
 -------------------------------------------------------------

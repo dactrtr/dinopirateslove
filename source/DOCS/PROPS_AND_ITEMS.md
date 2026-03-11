@@ -20,21 +20,208 @@ Items are implemented in `entities/items/Items.lua`.
   - **`keycard`**: (Frames 13–15) Grants access to doors with matching `keyNumber`.
   - **`itemgift`**: (Frames 16–18) Generic delivery item — grants items/skills via `grants` field.
 
-### 2. Positioning & Dynamic Grants (LDtk)
+### 2. Sprite Sheet — Coordenadas Detalladas
+
+Hoja: `assets/images/items/items-key-table-32-32.png`
+Tamaño por frame: **32×32 px**. Todos los ítems tienen **3 frames de animación** con duración de 8 frames cada uno.
+
+| Tipo de ítem | Frames en hoja | Columnas (32 px c/u) | Descripción visual |
+|---|---|---|---|
+| `boots` | 1 – 3 | cols 1-3, fila 1 | Botas de plataforma, animación de brillo |
+| `plunger` | 4 – 6 | cols 4-6, fila 1 | Sopapa / ventosa, parpadeo |
+| `lamp` | 7 – 9 | cols 7-9, fila 1 | Linterna, pulso de luz |
+| `notes` | 10 – 12 | cols 10-12, fila 1 | Papeles/notas, ondeo |
+| `keycard` | 13 – 15 | cols 13-15, fila 1 | Tarjeta llave, destellos |
+| `itemgift` | 16 – 18 | cols 16-18, fila 1 | Caja regalo genérica |
+
+> Todos los ítems están en una sola fila horizontal. La numeración de frames empieza en 1 (convención Noble Engine / Playdate imageTable).
+
+**Hoja de íconos del menú** (`assets/images/ui/menu/menuitems-table-32-32.png`):
+
+| Frame | Estado | Ítem representado |
+|---|---|---|
+| 1 | Sin seleccionar | Plunger (sopapa) |
+| 2 | Seleccionado | Plunger |
+| 3 | Sin seleccionar | Boot (botas) |
+| 4 | Seleccionado | Boot |
+| 5 | Sin seleccionar | Lamp (linterna) |
+| 6 | Seleccionado | Lamp |
+
+---
+
+### 3. Posicionamiento y Sistema de Grants (LDtk)
+
 ```lua
 Items(x, y, type, keyNumber, cf.grants)
 ```
-For `itemgift` and `notes`, the `grants` field directly updates `PlayerData`:
-- **Format**: `"key1:value1,key2:value2"` (e.g., `"hasPlunger:true"` or `"canFlash:true"`).
-- **Conditional Rendering**: Items with a `grants` field are only spawned if the player **does not** already own the granted item/skill.
 
-### 3. Collection & Interaction Flow
-When the player collides with an Item:
-1. `other:removeAll()` — disables `FXsonar` and removes the sprite.
-2. `self:grabKey()`, `self:grabBoots()`, etc. (in `entities/player/items.lua`) are called.
-3. Modifies `PlayerData.items.*`, `PlayerData.skills.*`, or `PlayerData.keys[keyNumber] = true`.
+#### ¿Qué es `grants`?
 
-### 4. FXsonar
+`grants` es un campo personalizado de LDtk que define qué entrada de `PlayerData` se modifica al recoger el ítem. Es la forma extensible de otorgar habilidades o ítems sin hardcodear una función `grab*()` específica.
+
+**Formato:**
+```
+"clave1:valor1,clave2:valor2,..."
+```
+
+**Ejemplos reales del juego:**
+```lua
+grants = "canDance:true"          -- notes en Room 1: desbloquea la habilidad de bailar
+grants = "hasDWatch:true"         -- itemgift en Room 14: otorga el reloj digital
+grants = "canFlash:true"          -- otorga habilidad de luz burst
+grants = "hasBoots:true,canDash:true"   -- otorga botas Y habilidad de dash juntas
+```
+
+#### Cómo se procesan los grants (`processGrants`)
+
+Implementado en `entities/player/items.lua`:
+
+```lua
+function Player:processGrants(grants, targetTable)
+  if not grants or grants == "" then return end
+  for pair in string.gmatch(grants, "([^,]+)") do
+    local key, value = string.match(pair, "([^:]+):([^:]+)")
+    if key and value then
+      key   = key:gsub("%s+", "")       -- elimina espacios
+      value = value:gsub("%s+", "")
+      -- Conversión automática de tipos
+      local val = value
+      if     value == "true"  then val = true
+      elseif value == "false" then val = false
+      elseif tonumber(value)  then val = tonumber(value)
+      end
+      targetTable[key] = val
+      printDebug("🎁 Granted:", key, "=", val)
+    end
+  end
+end
+```
+
+**Conversión de tipos automática:**
+| Valor en string | Resultado en Lua |
+|---|---|
+| `"true"` | `true` (boolean) |
+| `"false"` | `false` (boolean) |
+| `"5"` | `5` (number) |
+| Cualquier otro | string sin cambios |
+
+#### ¿A qué tabla de PlayerData va cada tipo?
+
+| Tipo de ítem | Función llamada | Tabla destino |
+|---|---|---|
+| `notes` | `Player:grabNotes(grants)` | `PlayerData.skills` |
+| `itemgift` | `Player:grabItemGift(grants)` | `PlayerData.items` |
+
+> **Regla:** `notes` → habilidades/skills. `itemgift` → ítems del inventario.
+
+#### Claves válidas para `PlayerData.items` (via itemgift)
+
+| Clave | Tipo | Efecto |
+|---|---|---|
+| `hasLamp` | bool | Posee la linterna |
+| `hasRadio` | bool | Posee la radio |
+| `hasDWatch` | bool | **Desbloquea el menú de equipamiento** |
+| `hasNotes` | bool | Posee las notas |
+| `hasBoots` | bool | Posee las botas |
+| `hasPlunger` | bool | Posee la sopapa |
+
+#### Claves válidas para `PlayerData.skills` (via notes)
+
+| Clave | Tipo | Efecto |
+|---|---|---|
+| `canFlash` | bool | Habilidad Light Burst (linterna) |
+| `canDash` | bool | Habilidad Dash (botas) |
+| `canPlungerang` | bool | Habilidad Plungerang |
+| `canDance` | bool | Habilidad de bailar (DanceScene) |
+
+> Ambas tablas son extensibles: cualquier clave/valor puede ser granteado aunque no esté pre-definido en `PlayerDataTables.lua`.
+
+#### Generación condicional de ítems
+
+Al cargar la escena (`MazeScene.lua` líneas ~180-254), los ítems solo se spawnan si el jugador **no los tiene ya**:
+
+```lua
+-- Para ítems con grants: no spawnear si ya tiene CUALQUIER clave granteada
+if cf.grants then
+  shouldGenerate = true
+  for pair in string.gmatch(cf.grants, "([^,]+)") do
+    local key, value = string.match(pair, "([^:]+):([^:]+)")
+    if key then
+      key = key:gsub("%s+", "")
+      if PlayerData.items[key] == true or PlayerData.skills[key] == true then
+        shouldGenerate = false
+        break
+      end
+    end
+  end
+end
+
+-- Para ítems estándar (lamp, boots, etc.): verificación directa
+local itemRequirements = {
+  lamp    = "items.hasLamp",
+  boots   = "items.hasBoots",
+  plunger = "items.hasPlunger",
+  radio   = "items.hasRadio",
+  notes   = "items.hasNotes",
+}
+```
+
+### 4. Flujo Completo de Recolección
+
+Cuando el jugador colisiona con un ítem (`entities/player/collisions.lua`):
+
+1. `other:removeAll()` — desactiva `FXsonar` y elimina el sprite de la escena.
+2. Se llama la función `grab*()` correspondiente (`entities/player/items.lua`):
+
+```lua
+-- Ítems estándar (hardcodeados):
+Player:grabBoots()    → items.hasBoots = true, skills.canDash = true, fillBattery()
+Player:grabPlunger()  → items.hasPlunger = true, skills.canPlungerang = true, fillBattery()
+Player:grabLamp()     → items.hasLamp = true, skills.canFlash = true, fillBattery()
+Player:grabRadio()    → items.hasRadio = true
+Player:grabKey(n)     → keys[n] = true
+
+-- Ítems dinámicos (via grants):
+Player:grabNotes(grants)    → processGrants(grants, PlayerData.skills)
+Player:grabItemGift(grants) → processGrants(grants, PlayerData.items)
+```
+
+3. `PlayerData` queda actualizado y el ítem ya no se regenera en esa habitación.
+
+**Flujo de vida completo:**
+```
+LDtk (levels.lua) → MazeScene carga ítems → spawn condicional
+→ Items(x, y, type, ...) con FXsonar activo
+→ Jugador toca el ítem → collisionResponse()
+→ removeAll() + grab*() → PlayerData actualizado
+→ Habilidad disponible en menú (si hasDWatch == true)
+```
+
+### 5. Estado inicial de PlayerData (ítems y skills)
+
+Definido en `assets/data/PlayerDataTables.lua`:
+
+```lua
+items = {
+  hasLamp    = false,
+  hasRadio   = true,    -- el jugador comienza con la radio
+  hasDWatch  = false,   -- clave para el menú de equipamiento
+  hasNotes   = true,    -- comienza con las notas
+  hasBoots   = false,
+  hasPlunger = false,
+},
+skills = {
+  canFlash      = false,
+  canDash       = false,
+  canPlungerang = false,
+  -- canDance se agrega dinámicamente via grants
+},
+keys = {}    -- se pobla con keys[n] = true al recoger keycards
+```
+
+> **Nota crítica:** `hasDWatch` es el gate del menú de equipamiento. Sin él, mantener A no abre nada.
+
+### 6. FXsonar
 Items emit a visual **FXsonar** ping — a pulsing circle that radiates outward from the item's position. This helps players locate items in dark or visually noisy rooms.
 - Sonar is active while the item exists and is disabled via `removeAll()` on collection.
 - **Love2D equivalent**: Animated circle with alpha oscillation (e.g., `love.graphics.circle("line", x, y, radius)` where radius and alpha cycle over time).

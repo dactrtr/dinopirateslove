@@ -10,6 +10,7 @@ local Door = require 'entities.Door'
 local DoorHandler = require 'DoorHandler'
 local utilities = require 'utilities'
 local InteractionHUD = require 'entities.UI.interactionHUD'
+local PlayerHud = require 'entities.UI.playerHud'
 local SaveSystem = require 'SaveSystem'
 
 
@@ -53,6 +54,10 @@ local gameScene = {
 	triggers = {},
 	-- Interaction HUD
 	interactionHUD = nil,
+	-- Player HUD (battery, health, sanity)
+	playerHud = nil,
+	-- True after the player has moved at least once (prevents auto-save on fresh New Game load)
+	hasActed = false,
 	-- Level management
 
 
@@ -270,9 +275,11 @@ function gameScene.setFloor(levelNumber, roomNumber)
 				PlayerData.y = gameScene.player.y
 			end
 
-			-- Auto-save on room entry
-			printDebug("💾 gameScene: Saving state for Level " .. levelNumber .. ", Room " .. roomNumber)
-			SaveSystem.save()
+			-- Auto-save on room entry (skip on the very first load of a fresh session)
+			if gameScene.hasActed then
+				printDebug("💾 gameScene: Saving state for Level " .. levelNumber .. ", Room " .. roomNumber)
+				SaveSystem.save()
+			end
 			
 			-- Trigger full visual/entity reload
 			gameScene.reloadCurrentRoom()
@@ -315,6 +322,9 @@ function gameScene.load()
 	
 	-- Load interaction HUD icons
 	gameScene.interactionHUD = InteractionHUD()
+
+	-- Load player HUD (battery, health, sanity)
+	gameScene.playerHud = PlayerHud()
 	
 	-- Load In-Game menu
 	InGameMenu:load()
@@ -323,6 +333,7 @@ end
 function gameScene.enter()
 	-- Set PlayerData gaming status
 	PlayerData.isGaming = true
+	gameScene.hasActed = false  -- reset so first room load won't auto-save
 
 	-- Full reload of current floor state
 	if gameScene.transitionData then
@@ -674,19 +685,19 @@ function gameScene.loadItems()
 			-- Check if it's an item (layer is "Items")
 			if entity.layer == "Items" then
 				local cf = entity.customFields or {}
-				local x, y = entity.x, entity.y
-				local itemType = cf.type or typeName:lower()
-				
-				-- Adjust position to world coordinates
-				local worldX = x + startX
-				local worldY = y + startY
-				
-				-- Create the item
-				local item = Items(worldX, worldY, itemType, gameScene.world)
-				item.sourceData = entity -- Link to levelsLDTK entry
-				
-				table.insert(gameScene.items, item)
-				printDebug("🎁 Created item: " .. itemType .. " at (" .. worldX .. ", " .. worldY .. ")")
+
+				-- Skip already-collected items (persisted by SaveSystem)
+				if not cf.collected then
+					local itemType = cf.type or typeName:lower()
+					local worldX = entity.x + startX
+					local worldY = entity.y + startY
+
+					local item = Items(worldX, worldY, itemType, cf.keyNumber, cf.grants, gameScene.world)
+					item.sourceData = entity
+
+					table.insert(gameScene.items, item)
+					printDebug("🎁 Created item: " .. itemType .. " at (" .. worldX .. ", " .. worldY .. ")")
+				end
 			end
 		end
 	end
@@ -965,6 +976,11 @@ function gameScene.update(dt)
 		-- Update timer and player
 		gameScene.timer:update(dt)
 		gameScene.player:update(dt)
+
+		-- Mark that the player has acted (unlocks auto-save for room transitions)
+		if not gameScene.hasActed and (Input.isDown("up") or Input.isDown("down") or Input.isDown("left") or Input.isDown("right")) then
+			gameScene.hasActed = true
+		end
 		
 		-- Keep player collision box on screen (boundary check using collision rectangle)
 		local collisionX, collisionY, collisionW, collisionH = gameScene.player:getCollisionRect()
@@ -1028,6 +1044,11 @@ function gameScene.update(dt)
 		if gameScene.interactionHUD then
 			gameScene.drawTriggerIcons() -- Updates visibility and state
 			gameScene.interactionHUD:update(dt)
+		end
+
+		-- Update player HUD
+		if gameScene.playerHud then
+			gameScene.playerHud:update(dt)
 		end
 
 	-- Check for pending level changes (safe to do here)
@@ -1134,6 +1155,11 @@ function gameScene.draw()
 		gameScene.player.dialogUI:draw()
 	end
 
+	-- Draw player HUD (battery, health, sanity) above player
+	if gameScene.playerHud and gameScene.player then
+		gameScene.playerHud:draw(gameScene.player)
+	end
+
 	-- Draw interaction HUD icons above player
 	if gameScene.interactionHUD and gameScene.player then
 		gameScene.interactionHUD:draw(gameScene.player.x, gameScene.player.y)
@@ -1213,63 +1239,54 @@ end
 function gameScene.keypressed(key)
 	-- If talking, any 'confirm' key advances dialog
 	if PlayerData.isTalking then
-		if key == "z" or key == "return" or key == "space" then
+		if Input.is(key, "confirm") then
 			gameScene.player:displayDialog()
 			return
 		end
 	else
 		-- Check for interaction on confirm keys
-		if key == "z" or key == "return" or key == "space" then
+		if Input.is(key, "confirm") then
 			gameScene.checkTriggerInteraction()
 		end
-		
-		-- Action button (X) for plungerang
-		if key == "x" then
+
+		-- Action button for Plungerang
+		if Input.is(key, "action") then
 			if gameScene.player and gameScene.player.handleActionButton then
 				gameScene.player:handleActionButton()
 			end
 		end
 	end
 
-
 	-- Let pause menu handle its own input first
-
 	local action = gameScene.pauseMenu:keypressed(key)
 	if action then
-		-- Handle menu actions
 		gameScene.handleMenuAction(action)
 		return
 	end
-	
+
 	-- Game input (when menu is not shown)
 	if PlayerData.isEquiping then
 		-- Handle In-Game Menu inputs
-		if key == "tab" or key == "escape" then
-			-- Close Menu
+		if Input.is(key, "menu") or Input.is(key, "pause") then
 			PlayerData.isGaming = true
 			PlayerData.isEquiping = false
 		else
 			InGameMenu:keypressed(key)
 		end
-	elseif key == "tab" then
+	elseif Input.is(key, "menu") then
 		-- Open In-Game Menu for equipment
 		PlayerData.isGaming = false
 		PlayerData.isEquiping = true
-		
-		-- Also ensure the current active item is valid by triggering nextItem if nil/invalid
 		if PlayerData.activeItem == 0 or PlayerData.activeItem == nil then
 			InGameMenu:nextItem()
 		end
-	elseif key == "escape" then
-		-- Show pause menu
+	elseif Input.is(key, "pause") then
 		gameScene.pauseMenu:show()
-	elseif key == "e" then
-		-- E key toggles size when on minifier (alternative to mouse wheel)
+	elseif Input.is(key, "resize") then
 		if PlayerData.readyToShrink and gameScene.player and gameScene.player.handleCrankInput then
-			gameScene.player:handleCrankInput(1) -- Simulate wheel movement
+			gameScene.player:handleCrankInput(1)
 		end
-	elseif key == "lshift" or key == "rshift" then
-		-- Shift: dash in current facing direction
+	elseif Input.is(key, "dash") then
 		if gameScene.player and PlayerData.skills.canDash then
 			local dir = (PlayerData.direction ~= "idle") and PlayerData.direction or "right"
 			gameScene.player:startDash(dir)

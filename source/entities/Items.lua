@@ -5,10 +5,10 @@ local anim8 = require 'libraries/anim8'
 
 local Items = Class('Items')
 
-function Items:initialize(x, y, itemType, world)
+function Items:initialize(x, y, itemType, keyNumber, grants, world)
 	self.x = x
 	self.y = y
-	
+
 	-- Sprite and collision dimensions
 	self.spriteWidth = 32
 	self.spriteHeight = 32
@@ -16,36 +16,39 @@ function Items:initialize(x, y, itemType, world)
 	self.height = 32
 	self.collisionOffsetX = 0
 	self.collisionOffsetY = 0
-	
-	-- Item properties
-	self.type = itemType or "keycard"
+
+	-- Item properties (normalize type to lowercase for animation lookup)
+	self.type = itemType and itemType:lower() or "keycard"
+	self.keyNumber = keyNumber  -- used by keycard collision
+	self.grants = grants        -- used by notes / itemgift collision
 	self.zIndex = 3 -- ZIndex.items equivalent
-	
+
 	-- BUMP physics
 	self.world = world
 	if world then
 		world:add(self, self.x, self.y, self.width, self.height)
 	end
-	
+
 	self.removed = false
-	
+
 	-- Load spritesheet and setup animations
+	-- Spritesheet: 192×96 px, 6 cols × 3 rows at 32×32 per frame (18 frames total)
+	-- Frame layout matches Playdate sequential numbering 1–18:
+	--   Row 1 (cols 1-6): boots(1-3), plunger(4-6)
+	--   Row 2 (cols 1-6): lamp(7-9), notes(10-12)
+	--   Row 3 (cols 1-6): keycard(13-15), itemgift(16-18)
 	self.spritesheet = love.graphics.newImage('assets/images/items/items-key-table-32-32.png')
 	local grid = anim8.newGrid(32, 32, self.spritesheet:getWidth(), self.spritesheet:getHeight())
-	
-	-- Animation states (matching Playdate sequential frame numbering)
-	-- Spritesheet is 6 columns x 3 rows = 18 frames total
-	-- Playdate uses sequential numbering: frames 1-18
-	-- Row 1: frames 1-6, Row 2: frames 7-12, Row 3: frames 13-18
+
 	self.animations = {
-		boots = anim8.newAnimation(grid('1-3', 1), 8/60),      -- frames 1-3 (Playdate: 1-3)
-		plunger = anim8.newAnimation(grid('4-6', 1), 8/60),    -- frames 4-6 (Playdate: 4-6)
-		lamp = anim8.newAnimation(grid('1-3', 2), 8/60),       -- frames 7-9 (Playdate: 7-9)
-		notes = anim8.newAnimation(grid('4-6', 2), 8/60),      -- frames 10-12 (Playdate: 10-12)
-		keycard = anim8.newAnimation(grid('1-3', 3), 8/60),    -- frames 13-15 (Playdate: 13-15)
-		itemgift = anim8.newAnimation(grid('4-6', 3), 8/60)    -- frames 16-18 (Playdate: 16-18)
+		boots    = anim8.newAnimation(grid('1-3', 1), 8/60),
+		plunger  = anim8.newAnimation(grid('4-6', 1), 8/60),
+		lamp     = anim8.newAnimation(grid('1-3', 2), 8/60),
+		notes    = anim8.newAnimation(grid('4-6', 2), 8/60),
+		keycard  = anim8.newAnimation(grid('1-3', 3), 8/60),
+		itemgift = anim8.newAnimation(grid('4-6', 3), 8/60),
 	}
-	
+
 	-- Set current animation based on type
 	self.currentAnimation = self.animations[self.type] or self.animations.keycard
 	
@@ -88,11 +91,16 @@ function Items:sonar(x, y)
 end
 
 function Items:removeAll()
+	-- Mark as collected in levelsLDTK so SaveSystem persists the state
+	if self.sourceData and self.sourceData.customFields then
+		self.sourceData.customFields.collected = true
+	end
+
 	-- Remove from BUMP world (only if still in world)
 	if self.world and self.world:hasItem(self) then
 		self.world:remove(self)
 	end
-	
+
 	self.removed = true
 	
 	-- Disable sonar effect (commented out)

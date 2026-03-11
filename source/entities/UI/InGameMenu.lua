@@ -107,10 +107,10 @@ function InGameMenu:prevItem()
 end
 
 function InGameMenu:keypressed(key)
-    if key == "right" or key == "d" then
+    if Input.is(key, "right") then
         self:nextItem()
         return true
-    elseif key == "left" or key == "a" then
+    elseif Input.is(key, "left") then
         self:prevItem()
         return true
     end

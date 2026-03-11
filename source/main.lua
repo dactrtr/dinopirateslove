@@ -26,6 +26,56 @@ VIRTUAL_HEIGHT = 240
 -- UI constants
 UI_OVERLAY_OPACITY = 0.8 -- Opacity for menu overlays and backgrounds
 
+-- ─────────────────────────────────────────────────────────────
+-- INPUT BINDINGS  (edit here to remap controls globally)
+-- ─────────────────────────────────────────────────────────────
+Input = {
+	-- Player movement  (checked every frame with Input.isDown)
+	up    = {"w", "up"},
+	down  = {"s", "down"},
+	left  = {"a", "left"},
+	right = {"d", "right"},
+
+	-- In-game one-shot actions  (checked in keypressed)
+	confirm = {"z", "return", "space"},   -- advance dialog / interact
+	action  = {"x"},                      -- throw Plungerang
+	dash    = {"lshift", "rshift"},       -- dash
+	resize  = {"e"},                      -- minifier / size toggle
+
+	-- Menu keys
+	menu    = {"tab"},                    -- open equipment menu
+	pause   = {"escape"},                 -- open pause / close menus
+
+	-- Title-screen / UI navigation
+	menuConfirm = {"return", "kpenter", "z", "a"},
+	menuBack    = {"escape", "x", "b"},
+
+	-- Dev / window controls
+	toggleCRT  = {"q"},
+	fullscreen = {"f"},
+	res1 = {"1"}, res2 = {"2"}, res3 = {"3"},
+}
+
+--- Returns true if `key` matches any binding in Input[action].
+function Input.is(key, action)
+	local binds = Input[action]
+	if not binds then return false end
+	for _, k in ipairs(binds) do
+		if key == k then return true end
+	end
+	return false
+end
+
+--- Returns true if any key bound to Input[action] is currently held.
+function Input.isDown(action)
+	local binds = Input[action]
+	if not binds then return false end
+	for _, k in ipairs(binds) do
+		if love.keyboard.isDown(k) then return true end
+	end
+	return false
+end
+
 -- Global variables
 crt_effect = nil -- Made global for settings menu access
 local font
@@ -218,20 +268,20 @@ function love.draw()
 end
 
 function love.keypressed(key)
-	if key == "q" then
+	if Input.is(key, "toggleCRT") then
 		crtEnabled = not crtEnabled
-	elseif key == "f" then
+	elseif Input.is(key, "fullscreen") then
 		local wasFullscreen = love.window.getFullscreen()
 		love.window.setFullscreen(not wasFullscreen)
 		love.timer.sleep(0.02)
 		updateScale()
-	elseif key == "1" then
+	elseif Input.is(key, "res1") then
 		love.window.setMode(400, 240, {resizable=true, minwidth=400, minheight=240})
 		updateScale()
-	elseif key == "2" then
+	elseif Input.is(key, "res2") then
 		love.window.setMode(800, 480, {resizable=true, minwidth=400, minheight=240})
 		updateScale()
-	elseif key == "3" then -- Toggle resolution doubling
+	elseif Input.is(key, "res3") then
 		local currentWidth, currentHeight = love.window.getMode()
 		if currentWidth == 800 and currentHeight == 480 then
 			love.window.setMode(400, 240, {resizable=true, minwidth=400, minheight=240})
@@ -241,7 +291,7 @@ function love.keypressed(key)
 		love.timer.sleep(0.02)
 		updateScale()
 	end
-	-- Removed the ESC key handler - let scenes handle their own ESC logic
+	-- Scenes handle their own logic
 	sceneManager.keypressed(key)
 end
 
