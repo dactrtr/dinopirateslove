@@ -735,8 +735,8 @@ function gameScene.loadItems()
 				local grants    = cf.grants
 
 				if shouldSpawnItem(itemType, keyNumber, grants) then
-					local worldX = entity.x + startX + (entity.width or 32) / 2
-					local worldY = entity.y + startY + (entity.height or 32) / 2
+					local worldX = entity.x + startX
+					local worldY = entity.y + startY
 
 					local item = Items(worldX, worldY, itemType, keyNumber, grants, gameScene.world)
 					item.sourceData = entity
