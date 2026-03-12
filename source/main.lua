@@ -202,6 +202,9 @@ function love.resize(w, h)
 	-- Small delay to ensure window dimensions are updated
 	love.timer.sleep(0.01)
 	updateScale()
+	-- Shadow canvas may be invalidated by the GL context resize; force recreation
+	local FXshadow = require 'entities.UI.FXshadow'
+	FXshadow.resize()
 end
 
 function love.update(dt)
@@ -278,9 +281,11 @@ function love.keypressed(key)
 	elseif Input.is(key, "res1") then
 		love.window.setMode(400, 240, {resizable=true, minwidth=400, minheight=240})
 		updateScale()
+		require('entities.UI.FXshadow').resize()
 	elseif Input.is(key, "res2") then
 		love.window.setMode(800, 480, {resizable=true, minwidth=400, minheight=240})
 		updateScale()
+		require('entities.UI.FXshadow').resize()
 	elseif Input.is(key, "res3") then
 		local currentWidth, currentHeight = love.window.getMode()
 		if currentWidth == 800 and currentHeight == 480 then
@@ -290,6 +295,7 @@ function love.keypressed(key)
 		end
 		love.timer.sleep(0.02)
 		updateScale()
+		require('entities.UI.FXshadow').resize()
 	end
 	-- Scenes handle their own logic
 	sceneManager.keypressed(key)

@@ -74,7 +74,7 @@ local DefaultPlayerData = {
 		y = nil
 	},
 	items={
-		hasLamp = false	,   -- TEST: lamp equipped; grants light circle + canFlash
+		hasLamp = true	,   -- TEST: lamp equipped; grants light circle + canFlash
 		hasRadio = true,
 		hasDWatch = false,
 		hasNotes = true,

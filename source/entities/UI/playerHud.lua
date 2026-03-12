@@ -100,14 +100,14 @@ function PlayerHud:draw(player)
     --    Left edge: 4px padding from sprite left edge → sx+4 = tx-13
     local batteryW = math.floor((PlayerData.battery * BATTERY_MAX_W) / 100)
     if batteryW > 0 then
-        love.graphics.setColor(0, 0, 0)
+        love.graphics.setColor(0.196, 0.184, 0.161)
         love.graphics.rectangle('fill', sx + 4, ty - 3 - 1, batteryW, BATTERY_BAR_H)
     end
 
     -- 3. Health squares (one black square per health point, up to 10)
     local hp = math.max(0, math.min(math.floor(PlayerData.healthPoints), 10))
     if hp > 0 then
-        love.graphics.setColor(0, 0, 0)
+        love.graphics.setColor(0.196, 0.184, 0.161)
         for i = 1, hp do
             if HEALTH_X[i] then
                 love.graphics.rectangle('fill',

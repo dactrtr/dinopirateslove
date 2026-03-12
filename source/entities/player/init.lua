@@ -451,9 +451,9 @@ end
 
 function Player:startDash(direction)
 	if not PlayerData.skills.canDash then return end
-	if PlayerData.battery < 10 then return end
+	if PlayerData.battery <= 10 then return end
 	if self.isDashing or self.isPlunging or PlayerData.isSliding then return end
-	PlayerData.battery = PlayerData.battery - 10
+	PlayerData.battery = math.max(10, PlayerData.battery - 10)
 	self.isDashing = true
 	self.dashDir = direction
 	self.dashDistanceTraveled = 0

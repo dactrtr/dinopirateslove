@@ -154,6 +154,8 @@ function titleScene.enter()
 		bgState = "newGame",
 		action = function()
 			SaveSystem.reset()
+			PlayerData.actualLevel = 4
+			PlayerData.saveLevel = 7
 			sceneManager.startTransition("title", "game", "animated", "transitionFall")
 		end
 	})
@@ -230,7 +232,7 @@ function titleScene.draw()
 
 	if titleScene.inSettings then
 		-- Draw Settings Menu
-		love.graphics.setColor(0, 0, 0, 0.8)
+		love.graphics.setColor(0.196, 0.184, 0.161, 0.8)
 		love.graphics.rectangle("fill", 50, 40, 300, 160)
 		love.graphics.setColor(1, 1, 1)
 		love.graphics.rectangle("line", 50, 40, 300, 160)

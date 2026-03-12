@@ -57,7 +57,7 @@ function PauseMenu:draw()
 	if not self.visible then return end
 	
 	-- Semi-transparent overlay
-	love.graphics.setColor(0, 0, 0, 0.7)
+	love.graphics.setColor(0.196, 0.184, 0.161, 0.7)
 	love.graphics.rectangle("fill", 0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT)
 	
 	-- Menu dimensions

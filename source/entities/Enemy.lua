@@ -64,7 +64,7 @@ end
 function Enemy:linealSearch(player, dt)
 	dt = dt or 1/60 -- Default to 60fps if dt not provided
 	
-	if PlayerData.battery == 0 then
+	if PlayerData.battery <= 10 then
 		self.moveSpeed = 0
 	elseif PlayerData.battery > 60 then
 		self.moveSpeed = self.initialSpeed

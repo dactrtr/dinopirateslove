@@ -35,7 +35,7 @@ function InGameMenu:draw()
     if not PlayerData.isEquiping then return end
 
     -- Draw Semi-transparent background
-    love.graphics.setColor(0, 0, 0, 0.7)
+    love.graphics.setColor(0.196, 0.184, 0.161, 0.7)
     love.graphics.rectangle("fill", 0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT)
     
     -- Draw Menu Box

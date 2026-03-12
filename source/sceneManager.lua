@@ -197,7 +197,7 @@ function drawTransition()
 			end
 			
 			-- Fade to black overlay
-			love.graphics.setColor(0, 0, 0, fadeProgress)
+			love.graphics.setColor(0.196, 0.184, 0.161, fadeProgress)
 			love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
 		else
 			-- Second half: Fade from black to new scene
@@ -210,7 +210,7 @@ function drawTransition()
 			end
 			
 			-- Fade from black overlay
-			love.graphics.setColor(0, 0, 0, 1 - fadeInProgress)
+			love.graphics.setColor(0.196, 0.184, 0.161, 1 - fadeInProgress)
 			love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
 		end
 		

@@ -14,7 +14,11 @@ local PlayerHud = require 'entities.UI.playerHud'
 local SaveSystem = require 'SaveSystem'
 
 
-local FXshadow = require 'entities.UI.FXshadow'
+local FXshadow    = require 'entities.UI.FXshadow'
+local ComicPlayer = require 'entities.UI.ComicPlayer'
+
+-- Load comic data (defines global `comics` table and Panels stubs)
+require 'assets.comics.comicsData'
 
 -- Simple require for PauseMenu
 local PauseMenu = require 'PauseMenu'
@@ -232,8 +236,17 @@ local function handleTriggerActivation(trigger, script)
 		isOneTime = true
 		printDebug("📈 Story Counter incremented: " .. PlayerData.storyCounter)
 	elseif trigger.type == "Cutscene" then
-		PlayerData.isCutscene = true
 		printDebug("🎬 Triggering cutscene: " .. cleanScript)
+		if comics and comics[cleanScript] then
+			PlayerData.isGaming   = false
+			PlayerData.isCutscene = true
+			ComicPlayer.start(comics[cleanScript], function()
+				PlayerData.isGaming   = true
+				PlayerData.isCutscene = false
+			end)
+		else
+			printDebug("⚠️ Comic not found: " .. cleanScript)
+		end
 	else
 		-- Default: Dialog
 		if gameScene.player and gameScene.player.dialogUI then
@@ -414,6 +427,20 @@ function gameScene.reloadCurrentRoom()
 		printDebug("🌑 Darkness: " .. tostring(PlayerData.isInDarkness) .. " | Light: " .. tostring(gameScene.globalLightAmount))
 	end
 	FXshadow.markDirty()
+
+	-- Room-entry comic: play once if the room has a comic_name field
+	if gameScene.currentLevelData and gameScene.currentLevelData.customFields then
+		local cf = gameScene.currentLevelData.customFields
+		if cf.comic_name and not cf.comic_wasPlayed and comics and comics[cf.comic_name] then
+			PlayerData.isGaming   = false
+			PlayerData.isCutscene = true
+			ComicPlayer.start(comics[cf.comic_name], function()
+				PlayerData.isGaming   = true
+				PlayerData.isCutscene = false
+				cf.comic_wasPlayed    = true
+			end)
+		end
+	end
 end
 
 -- Update room information in pause menu
@@ -864,22 +891,43 @@ function gameScene.performChangeLevel(nextLevelIid, enterDirection, player, exit
 		end
 		
 		if entranceDoor then
-			-- Spawn player centered relative to the door width/height based on exitRatio
-			local spawnX, spawnY
-			local offset = 32 -- Offset away from the wall to prevent immediate re-trigger
+			-- Spawn player so the collision box clears the door edge by a safe margin.
+			-- player.x/y = sprite top-left; collision box starts at (x+colOffX, y+colOffY).
+			-- We compute offsets from the actual collider so the player never
+			-- spawns with the collider overlapping a wall tile next to the door.
+			local p = gameScene.player
+			local colOffX = p and p.collisionOffsetX or -15
+			local colOffY = p and p.collisionOffsetY or 0
+			local colW    = p and p.width  or 30
+			local colH    = p and p.height or 24
+			local margin  = 16 -- extra gap beyond the collision box edge
 
+			local spawnX, spawnY
+
+			-- colOffX is negative (= -colW/2), so -colOffX gives the half-width.
+			-- Formulas ensure: collider edge is exactly `margin` px clear of the door edge.
 			if targetDir == "top" then
+				-- Door at top: collider top = door_bottom + margin
+				-- spawnY + colOffY = door_bottom + margin → spawnY = door_bottom - colOffY + margin
 				spawnX = entranceDoor.x + exitRatio * entranceDoor.width
-				spawnY = entranceDoor.y + entranceDoor.height + offset
+				spawnY = entranceDoor.y + entranceDoor.height - colOffY + margin
 			elseif targetDir == "down" then
+				-- Door at bottom: collider bottom = door_top - margin
+				-- spawnY + colOffY + colH = door_top - margin → spawnY = door_top - colOffY - colH - margin
 				spawnX = entranceDoor.x + exitRatio * entranceDoor.width
-				spawnY = entranceDoor.y - offset
+				spawnY = entranceDoor.y - colOffY - colH - margin
 			elseif targetDir == "left" then
-				spawnX = entranceDoor.x + entranceDoor.width + offset
-				spawnY = entranceDoor.y + exitRatio * entranceDoor.height
+				-- Door at left: collider left = door_right + margin
+				-- spawnX + colOffX = door_right + margin → spawnX = door_right - colOffX + margin
+				spawnX = entranceDoor.x + entranceDoor.width - colOffX + margin
+				-- Center collision box vertically on the preserved ratio position
+				spawnY = entranceDoor.y + exitRatio * entranceDoor.height - colOffY - colH * 0.5
 			elseif targetDir == "right" then
-				spawnX = entranceDoor.x - offset
-				spawnY = entranceDoor.y + exitRatio * entranceDoor.height
+				-- Door at right: collider right = door_left - margin
+				-- spawnX + colOffX + colW = door_left - margin → spawnX = door_left - colOffX - colW - margin
+				spawnX = entranceDoor.x - colOffX - colW - margin
+				-- Center collision box vertically on the preserved ratio position
+				spawnY = entranceDoor.y + exitRatio * entranceDoor.height - colOffY - colH * 0.5
 			end
 
 			-- Write to playerSpawn (source of truth) and record entry direction
@@ -1012,6 +1060,12 @@ function gameScene.drawFloor()
 end
 
 function gameScene.update(dt)
+	-- Comic cutscene takes full control while active
+	if ComicPlayer.isActive() then
+		ComicPlayer.update(dt)
+		return
+	end
+
 	-- Update pause menu
 	gameScene.pauseMenu:update(dt)
 	
@@ -1217,6 +1271,11 @@ function gameScene.draw()
 	
 	InGameMenu:draw()
 	gameScene.pauseMenu:draw()
+
+	-- Comic cutscene draws over everything
+	if ComicPlayer.isActive() then
+		ComicPlayer.draw()
+	end
 end
 
 -- Handle trigger interaction (Manual)
@@ -1283,6 +1342,11 @@ end
 
 
 function gameScene.keypressed(key)
+	if ComicPlayer.isActive() then
+		ComicPlayer.keypressed(key)
+		return
+	end
+
 	-- If talking, any 'confirm' key advances dialog
 	if PlayerData.isTalking then
 		if Input.is(key, "confirm") then
@@ -1329,9 +1393,9 @@ function gameScene.keypressed(key)
 	elseif Input.is(key, "pause") then
 		gameScene.pauseMenu:show()
 	elseif Input.is(key, "resize") then
-		if PlayerData.readyToShrink and gameScene.player and gameScene.player.handleCrankInput then
-			gameScene.player:handleCrankInput(1)
-		end
+		PlayerData.battery = 100
+		FXshadow.markDirty()
+		printDebug("🔋 DEBUG: Battery charged to 100")
 	elseif Input.is(key, "dash") then
 		if gameScene.player and PlayerData.skills.canDash then
 			local dir = (PlayerData.direction ~= "idle") and PlayerData.direction or "right"

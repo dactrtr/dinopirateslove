@@ -341,12 +341,16 @@ function collisions.fallBelow(player)
 	local nextLevelIid = lowerNeighbor.levelIid
 	
 	printDebug("🕳️ Player:fallBelow() -> " .. nextLevelIid .. " from " .. currentRoom.identifier)
-	
-	-- 4. Trigger level transition
+
+	-- 4. Preserve exact player position (lands at same X,Y in the lower room)
+	PlayerData.playerSpawn.x = player.x
+	PlayerData.playerSpawn.y = player.y
+
+	-- 5. Trigger level transition (no enterDirection so spawn is not overridden)
 	local sceneManager = require 'sceneManager'
 	local gameScene = sceneManager.getScene("game")
 	if gameScene then
-		gameScene.changeLevel(nextLevelIid, "down", player, 0.5, "animated", "transitionFall")
+		gameScene.changeLevel(nextLevelIid, nil, player, nil, "animated", "transitionFall")
 	end
 end
 
@@ -382,17 +386,21 @@ function collisions.riseAbove(player)
 	local nextLevelIid = upperNeighbor.levelIid
 	
 	printDebug("🚀 Player:riseAbove() -> " .. nextLevelIid .. " from " .. currentRoom.identifier)
-	
-	-- 4. Trigger level transition
+
+	-- 4. Preserve exact player position (appears at same X,Y in the upper room)
+	PlayerData.playerSpawn.x = player.x
+	PlayerData.playerSpawn.y = player.y
+
+	-- 5. Trigger level transition (no enterDirection so spawn is not overridden)
 	local sceneManager = require 'sceneManager'
 	local gameScene = sceneManager.getScene("game")
 	if gameScene then
-		gameScene.changeLevel(nextLevelIid, "top", player, 0.5, "animated", "transitionFall")
+		gameScene.changeLevel(nextLevelIid, nil, player, nil, "animated", "transitionFall")
 	end
 end
 
 function collisions.drainBattery(player, amount)
-	PlayerData.battery = math.max(0, PlayerData.battery - amount)
+	PlayerData.battery = math.max(10, PlayerData.battery - amount)
 end
 
 function collisions.startInvincibility(player, durationMs)

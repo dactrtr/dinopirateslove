@@ -134,7 +134,7 @@ function DialogScreen:draw()
     -- Draw Text
     -- User requested black color and smaller size
     love.graphics.setFont(self.font)
-    love.graphics.setColor(0, 0, 0, 1) -- Black
+    love.graphics.setColor(0.196, 0.184, 0.161, 1)
     love.graphics.printf(self.currentText, self.textX, self.textY, self.textWidth)
     
     -- Reset to default font/color for other components

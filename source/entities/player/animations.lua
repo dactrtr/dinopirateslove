@@ -129,7 +129,7 @@ function animations.updateAnimation(player, dx, dy)
 			PlayerData.direction = "up"
 		else
 			player.currentAnimation = anims.tinyIdle
-			-- Don't change direction when idle - keep last direction
+			PlayerData.direction = "idle"
 		end
 	else
 		-- Normal / Lamp logic
@@ -176,7 +176,7 @@ function animations.updateAnimation(player, dx, dy)
 			PlayerData.direction = "up"
 		else
 			player.currentAnimation = PlayerData.hasLamp and anims.lampIdle or anims.idle
-			-- Don't change direction when idle - keep last direction
+			PlayerData.direction = "idle"
 		end
 	end
 end
