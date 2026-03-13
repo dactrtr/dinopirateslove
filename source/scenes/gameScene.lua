@@ -391,7 +391,12 @@ end
 
 function gameScene.reloadCurrentRoom()
 	-- Helper to perform a full reload of the current room
-	
+
+	-- Mark this room as visited (drives the minimap)
+	if gameScene.currentLevelData and gameScene.currentLevelData.customFields then
+		gameScene.currentLevelData.customFields.visited = true
+	end
+
 	-- First, clear everything to avoid leaks
 	gameScene.clearCurrentRoom()
 	
@@ -1383,8 +1388,8 @@ function gameScene.keypressed(key)
 		else
 			InGameMenu:keypressed(key)
 		end
-	elseif Input.is(key, "menu") then
-		-- Open In-Game Menu for equipment
+	elseif Input.is(key, "menu") and PlayerData.items.hasDWatch then
+		-- Open In-Game Menu for equipment (requires D-Watch)
 		PlayerData.isGaming = false
 		PlayerData.isEquiping = true
 		if PlayerData.activeItem == 0 or PlayerData.activeItem == nil then
@@ -1423,8 +1428,8 @@ function gameScene.gamepadInput(input)
 			InGameMenu:gamepadInput(input)
 		end
 	elseif not gameScene.pauseMenu:isVisible() then
-		if input.y then
-			-- Open In-Game Menu for equipment
+		if input.y and PlayerData.items.hasDWatch then
+			-- Open In-Game Menu for equipment (requires D-Watch)
 			PlayerData.isGaming = false
 			PlayerData.isEquiping = true
 			if PlayerData.activeItem == 0 or PlayerData.activeItem == nil then
