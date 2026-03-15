@@ -16,6 +16,7 @@ local SaveSystem = require 'SaveSystem'
 
 local FXshadow    = require 'entities.UI.FXshadow'
 local ComicPlayer = require 'entities.UI.ComicPlayer'
+local SanitySystem = require 'entities.player.sanity'
 
 -- Load comic data (defines global `comics` table and Panels stubs)
 require 'assets.comics.comicsData'
@@ -425,6 +426,7 @@ function gameScene.reloadCurrentRoom()
 	gameScene.updateRoomInfo()
 
 	-- Read darkness config from the new room
+	SanitySystem.reset()   -- restart 2s tick on each room entry
 	if gameScene.currentLevelData and gameScene.currentLevelData.customFields then
 		local cf = gameScene.currentLevelData.customFields
 		PlayerData.isInDarkness = cf.shadow == true
@@ -436,7 +438,7 @@ function gameScene.reloadCurrentRoom()
 	-- Room-entry comic: play once if the room has a comic_name field
 	if gameScene.currentLevelData and gameScene.currentLevelData.customFields then
 		local cf = gameScene.currentLevelData.customFields
-		if cf.comic_name and not cf.comic_wasPlayed and comics and comics[cf.comic_name] then
+		if cf.comic_name and cf.play == "Enter" and not cf.comic_wasPlayed and comics and comics[cf.comic_name] then
 			PlayerData.isGaming   = false
 			PlayerData.isCutscene = true
 			ComicPlayer.start(comics[cf.comic_name], function()
@@ -503,9 +505,10 @@ function gameScene.loadEnemies()
 			local cf = crewData.customFields or {}
 			local x, y = crewData.x, crewData.y
 			local id = crewData.iid
+			local crewID = cf.crewID   -- "CM001", "CM002", etc.
 
-			-- Check if already captured
-			if not PlayerData.CrewMemberData.idNumbers[id] then
+			-- Check if already captured (keyed by crewID string, not iid)
+			if not PlayerData.CrewMemberData.idNumbers[crewID] then
 				printDebug("🏴‍☠️ Creating CrewMember at (" .. x .. ", " .. y .. ")")
 				local crewMember = CrewMember(x, y, gameScene.world, gameScene.player, id, crewData)
 				table.insert(gameScene.crewMembers, crewMember)
@@ -1156,6 +1159,9 @@ function gameScene.update(dt)
 			gameScene.playerHud:update(dt)
 		end
 
+		-- Sanity tick (every 2s)
+		SanitySystem.update(dt)
+
 	-- Check for pending level changes (safe to do here)
 		if gameScene.pendingLevelChange then
 			local plc = gameScene.pendingLevelChange
@@ -1388,8 +1394,8 @@ function gameScene.keypressed(key)
 		else
 			InGameMenu:keypressed(key)
 		end
-	elseif Input.is(key, "menu") and PlayerData.items.hasDWatch then
-		-- Open In-Game Menu for equipment (requires D-Watch)
+	elseif Input.is(key, "menu") and PlayerData.isGaming and PlayerData.items.hasDWatch then
+		-- Open In-Game Menu for equipment (requires D-Watch, only while gaming)
 		PlayerData.isGaming = false
 		PlayerData.isEquiping = true
 		if PlayerData.activeItem == 0 or PlayerData.activeItem == nil then
@@ -1428,8 +1434,8 @@ function gameScene.gamepadInput(input)
 			InGameMenu:gamepadInput(input)
 		end
 	elseif not gameScene.pauseMenu:isVisible() then
-		if input.y and PlayerData.items.hasDWatch then
-			-- Open In-Game Menu for equipment (requires D-Watch)
+		if input.y and PlayerData.isGaming and PlayerData.items.hasDWatch then
+			-- Open In-Game Menu for equipment (requires D-Watch, only while gaming)
 			PlayerData.isGaming = false
 			PlayerData.isEquiping = true
 			if PlayerData.activeItem == 0 or PlayerData.activeItem == nil then

@@ -12,11 +12,30 @@ local CrewMember = Class('CrewMember')
 local Hat = {}
 Hat.__index = Hat
 
-function Hat.new(x, y)
+local HAT_W, HAT_H = 20, 16
+local hatsSheet = nil
+local hatQuads  = {}   -- [1..21] indexed by crew number
+
+local function ensureHatAssets()
+	if hatsSheet then return end
+	local ok, img = pcall(love.graphics.newImage, "assets/images/props/hats-table-20-16.png")
+	if not ok then return end
+	hatsSheet = img
+	local w, h = hatsSheet:getDimensions()
+	for i = 0, 20 do
+		hatQuads[i + 1] = love.graphics.newQuad(i * HAT_W, 0, HAT_W, HAT_H, w, h)
+	end
+end
+
+function Hat.new(x, y, crewId)
+	ensureHatAssets()
 	local self = setmetatable({}, Hat)
 	self.x = x
-	self.y = y
+	self.y = y - 15   -- same offset as moveTo: 15px above center
 	self.visible = true
+	-- Frame index from crewId: "CM001" → 1, "CM021" → 21
+	local idNum = crewId and tonumber(crewId:match("%d+"))
+	self.frame = idNum or 1
 	return self
 end
 
@@ -30,11 +49,13 @@ function Hat:setVisible(v)
 end
 
 function Hat:draw()
-	-- Placeholder: dibuja un pequeño rectángulo amarillo si no hay asset
 	if not self.visible then return end
-	love.graphics.setColor(0.9, 0.8, 0.1, 1)
-	love.graphics.rectangle("fill", self.x - 6, self.y - 4, 12, 6)
-	love.graphics.setColor(1, 1, 1, 1)
+	if hatsSheet and hatQuads[self.frame] then
+		love.graphics.setColor(1, 1, 1, 1)
+		love.graphics.draw(hatsSheet, hatQuads[self.frame],
+			self.x - HAT_W / 2,       -- centrar horizontalmente
+			self.y - HAT_H / 2)       -- centrar verticalmente
+	end
 end
 
 -- ---------------------------------------------------------------------------
@@ -50,7 +71,7 @@ function CrewMember:initialize(x, y, world, player, iid, data)
 	self.y = y - self.spriteHeight / 2
 
 	self.iid    = iid
-	self.crewId = (data and data.customFields and data.customFields.crewId) or nil
+	self.crewId = (data and data.customFields and data.customFields.crewID) or nil
 	self.room   = (data and data.customFields and data.customFields.roomNumber) or nil
 	self.sourceData = data or {}
 	self.player = player
@@ -103,8 +124,9 @@ function CrewMember:initialize(x, y, world, player, iid, data)
 	self.animState       = "idle"
 	self.currentAnimation = self.animations.idle
 
-	-- Hat
-	self.hat = Hat.new(self.x + self.spriteWidth / 2, self.y)
+	-- Hat (frame determinado por crewId: "CM003" → frame 3)
+	-- Pasa el centro del sprite como referencia de posición
+	self.hat = Hat.new(self.x + self.spriteWidth / 2, self.y + self.spriteHeight / 2, self.crewId)
 
 	-- Movimiento (token budget)
 	self.moveSpeed    = 1.5  -- px por frame activo
@@ -290,7 +312,7 @@ function CrewMember:moveAndDetectBlock(goalX, goalY)
 
 	self.x = actualX
 	self.y = actualY
-	self.hat:moveTo(self.x + self.spriteWidth / 2, self.y)
+	self.hat:moveTo(self.x + self.spriteWidth / 2, self.y + self.spriteHeight / 2)
 
 	return blockedX, blockedY
 end

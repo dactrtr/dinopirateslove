@@ -25,7 +25,7 @@ local imageCache  = {}   -- path → love.graphics.Image
 -- ── Image loader ───────────────────────────────────────────────────────────────
 local function tryLoadImage(path)
 	if imageCache[path] ~= nil then return imageCache[path] end
-	local fullPath = "assets/images/" .. path .. ".png"
+	local fullPath = "images/" .. path .. ".png"
 	if not love.filesystem.getInfo(fullPath) then
 		imageCache[path] = false   -- mark as not found so we don't retry
 		return false

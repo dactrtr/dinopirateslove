@@ -63,6 +63,7 @@ function DialogScreen:addScreen(scriptName)
     self.currentIndex = 0
     self.active = true
     PlayerData.isTalking = true
+    PlayerData.isGaming  = false
     
     self:nextDialog()
 end
