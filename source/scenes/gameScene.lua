@@ -40,7 +40,7 @@ local gameScene = {
 	map = {},
 	mapWidth = 25,  -- Updated from 16 to 25
 	mapHeight = 15, -- Updated from 9 to 15
-	tileSize = 16,
+	tileSize = (Config and Config.Tiles and Config.Tiles.size) or 16,
 	-- Tilemap data storage
 	tileMapData = {},
 	-- Enemies
@@ -589,8 +589,8 @@ function gameScene.loadDoors()
 				end
 				
 				-- Calculate offsets (same as in drawFloor)
-				local startX = 200 - (gameScene.mapWidth * gameScene.tileSize) / 2
-				local startY = 120 - (gameScene.mapHeight * gameScene.tileSize) / 2
+				local startX = VIRTUAL_WIDTH / 2 - (gameScene.mapWidth * gameScene.tileSize) / 2
+				local startY = VIRTUAL_HEIGHT / 2 - (gameScene.mapHeight * gameScene.tileSize) / 2
 				
 				-- Create door using entity position and dimensions
 				-- We use the entity's x, y, width, height directly from LDtk, + screen offsets
@@ -636,8 +636,8 @@ function gameScene.loadWalls()
 	end
 
 	-- Calculate offsets (same as in drawFloor)
-	local startX = 200 - (gameScene.mapWidth * gameScene.tileSize) / 2
-	local startY = 120 - (gameScene.mapHeight * gameScene.tileSize) / 2
+	local startX = VIRTUAL_WIDTH / 2 - (gameScene.mapWidth * gameScene.tileSize) / 2
+	local startY = VIRTUAL_HEIGHT / 2 - (gameScene.mapHeight * gameScene.tileSize) / 2
 
 	-- Create walls from tile data
 	printDebug("🧱 Generating walls from tilemap...")
@@ -749,8 +749,8 @@ function gameScene.loadItems()
 	local entities = gameScene.currentLevelData.entities
 	if not entities then return end
 
-	local startX = 200 - (gameScene.mapWidth * gameScene.tileSize) / 2
-	local startY = 120 - (gameScene.mapHeight * gameScene.tileSize) / 2
+	local startX = VIRTUAL_WIDTH / 2 - (gameScene.mapWidth * gameScene.tileSize) / 2
+	local startY = VIRTUAL_HEIGHT / 2 - (gameScene.mapHeight * gameScene.tileSize) / 2
 
 	for typeName, entityList in pairs(entities) do
 		for _, entity in ipairs(entityList) do
@@ -796,8 +796,8 @@ function gameScene.loadTriggers()
 	local entities = gameScene.currentLevelData.entities
 	if not entities or not entities.Triggers then return end
 	
-	local startX = 200 - (gameScene.mapWidth * gameScene.tileSize) / 2
-	local startY = 120 - (gameScene.mapHeight * gameScene.tileSize) / 2
+	local startX = VIRTUAL_WIDTH / 2 - (gameScene.mapWidth * gameScene.tileSize) / 2
+	local startY = VIRTUAL_HEIGHT / 2 - (gameScene.mapHeight * gameScene.tileSize) / 2
 	
 	for _, triggerEntity in ipairs(entities.Triggers) do
 		local cf = triggerEntity.customFields or {}
@@ -1045,8 +1045,8 @@ function gameScene.drawFloor()
 	end
 	
 	-- Calculate the starting position to center the map around (200, 120)
-	local startX = 200 - (gameScene.mapWidth * gameScene.tileSize) / 2
-	local startY = 120 - (gameScene.mapHeight * gameScene.tileSize) / 2
+	local startX = VIRTUAL_WIDTH / 2 - (gameScene.mapWidth * gameScene.tileSize) / 2
+	local startY = VIRTUAL_HEIGHT / 2 - (gameScene.mapHeight * gameScene.tileSize) / 2
 	
 	-- Draw each tile in the map
 	for y = 1, gameScene.mapHeight do

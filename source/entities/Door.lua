@@ -77,11 +77,12 @@ function Door:prevRoom(direction, playerX, playerY)
 	-- We increase the offsets to prevent immediate collision with the door
 	PlayerData.lastRoom = direction
 	
+	local sc = Config and Config.Doors and Config.Doors.spawnCoords or {}
 	local spawnCoordinates = {
-		top = {x = playerX or 200, y = 185},    -- Entering FROM top (appear near bottom)
-		down = {x = playerX or 200, y = 55},    -- Entering FROM bottom (appear near top)
-		right = {x = 55, y = playerY or 120},   -- Entering FROM right (appear near left)
-		left = {x = 345, y = playerY or 120}    -- Entering FROM left (appear near right)
+		top   = {x = playerX or (sc.top   and sc.top.x)   or 200, y = (sc.top   and sc.top.y)   or 185},
+		down  = {x = playerX or (sc.down  and sc.down.x)  or 200, y = (sc.down  and sc.down.y)  or 55},
+		right = {x = (sc.right and sc.right.x) or 55,  y = playerY or (sc.right and sc.right.y) or 120},
+		left  = {x = (sc.left  and sc.left.x)  or 345, y = playerY or (sc.left  and sc.left.y)  or 120},
 	}
 	
 	-- Store in PlayerData (Global state)

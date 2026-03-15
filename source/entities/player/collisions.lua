@@ -156,7 +156,7 @@ function collisions.resolve(player, other)
 			if PlayerData.healthPoints < (PlayerData.danceThresholdHP or 5) then
 				collisions.fight(player)
 			else
-				collisions.startInvincibility(player, 1000)
+				collisions.startInvincibility(player, (Config and Config.Invincibility and Config.Invincibility.duration) or 1000)
 			end
 		end
 
@@ -239,7 +239,8 @@ function collisions.resolve(player, other)
 
 	elseif other.isProp and other.isHole then
 		if PlayerData.items.hasBoots == true and PlayerData.battery > 0 then
-			collisions.drainBattery(player, PlayerData.isTiny and 0.2 or 0.5)
+			local bat = Config and Config.Battery or {}
+		collisions.drainBattery(player, PlayerData.isTiny and (bat.drainHoleTiny or 0.2) or (bat.drainHoleNormal or 0.5))
 		else
 			collisions.fallBelow(player)
 		end
@@ -400,7 +401,8 @@ function collisions.riseAbove(player)
 end
 
 function collisions.drainBattery(player, amount)
-	PlayerData.battery = math.max(10, PlayerData.battery - amount)
+	local batteryFloor = (Config and Config.Battery and Config.Battery.floor) or 10
+	PlayerData.battery = math.max(batteryFloor, PlayerData.battery - amount)
 end
 
 function collisions.startInvincibility(player, durationMs)

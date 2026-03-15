@@ -6,11 +6,11 @@ local utilities = {}
 -- MARK: Spawn Coordinates
 -- Single source of truth for player spawn coordinates
 -- These coordinates represent the CENTER of the player sprite
-utilities.spawnCoordinates = {
-	top = {x = 200, y = 185},    -- Entering FROM top (appear near bottom)
-	down = {x = 200, y = 55},    -- Entering FROM bottom (appear near top)
-	right = {x = 55, y = 120},   -- Entering FROM right (appear near left)
-	left = {x = 345, y = 120}    -- Entering FROM left (appear near right)
+utilities.spawnCoordinates = Config and Config.Doors and Config.Doors.spawnCoords or {
+	top   = {x = 200, y = 185},
+	down  = {x = 200, y = 55},
+	right = {x = 55,  y = 120},
+	left  = {x = 345, y = 120},
 }
 
 -- MARK: Debug Drawing Functions
@@ -172,9 +172,11 @@ function utilities.CreateTileColliders(tileData, world, tileSize, offsetX, offse
 	local width = #tileData[1]
 	local wallSegments = {}
 
-	-- SECTION_TILE_IDS: tiles that are NOT walls (floor)
-	-- According to TILE_LOADING.md, ID 5 is the floor.
-	local SECTION_TILE_IDS = { [5] = true }
+	-- SECTION_TILE_IDS: tiles that are NOT walls (floor/walkable)
+	local SECTION_TILE_IDS = {}
+	for _, id in ipairs((Config and Config.Tiles and Config.Tiles.walkable) or {5}) do
+		SECTION_TILE_IDS[id] = true
+	end
 
 	-- Phase 1: Horizontal Identification
 	for y = 1, height do
@@ -245,7 +247,9 @@ function utilities.CreateTileColliders(tileData, world, tileSize, offsetX, offse
 end
 
 utilities.SLIME_TILE_IDS = {}
-for i = 89, 97 do utilities.SLIME_TILE_IDS[i] = true end
+for _, id in ipairs((Config and Config.Tiles and Config.Tiles.slime) or {89,90,91,92,93,94,95,96,97,98}) do
+	utilities.SLIME_TILE_IDS[id] = true
+end
 
 function utilities.getTileUnderPlayer(tileData, tileSize, px, py, startX, startY)
 	-- local px, py is player pixel position in world coordinates (from player.x, player.y).

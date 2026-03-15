@@ -28,7 +28,6 @@ local DefaultPlayerData = {
 	steps = 0,
 	totalSteps = 1000,
 	sanityCounter = 0, -- top 100
-	sanityLoss = 1,    -- multiplier for sanity drain/regen rate
 	mapPercent = 0, -- Percentage of map explored (0-100)
 	keys = {}, -- Table to store collected keys by number: {[1] = true, [2] = true, ...}
 	canDance = false,
@@ -51,7 +50,7 @@ local DefaultPlayerData = {
 	isGaming = false,
 	isDancing = false,
 	amountDances = 0,
-	isInDarkness = false, -- set per-room via customFields.shadow (e.g. room 13 has shadow=true)
+	isInDarkness = false,
 	showLightCone = false,
 	direction = "idle",
 	lastRoom = nil,
@@ -74,7 +73,7 @@ local DefaultPlayerData = {
 		y = nil
 	},
 	items={
-		hasLamp = true	,   -- TEST: lamp equipped; grants light circle + canFlash
+		hasLamp = false,
 		hasRadio = true,
 		hasDWatch = false,
 		hasNotes = true,

@@ -4,8 +4,9 @@
 
 local SanitySystem = {}
 
-local TICK_INTERVAL = 2.0   -- seconds between each check
-local SANITY_LOSS   = 1     -- base multiplier
+local cfg = Config and Config.Sanity or {}
+local TICK_INTERVAL = cfg.tickInterval   or 2.0
+local SANITY_LOSS   = cfg.lossMultiplier or 1
 
 local tickTimer = 0
 
@@ -28,10 +29,10 @@ function SanitySystem.tick()
 
     -- ── Lower sanity: darkness + low battery ─────────────────────────────────
     if PlayerData.isInDarkness then
-        if PlayerData.battery < 20 then
-            PlayerData.sanity = PlayerData.sanity - (2 * SANITY_LOSS)
-        elseif PlayerData.battery < 40 then
-            PlayerData.sanity = PlayerData.sanity - SANITY_LOSS
+        if PlayerData.battery < (cfg.batteryThresholdLow or 20) then
+            PlayerData.sanity = PlayerData.sanity - ((cfg.lossLowBattery or 2) * SANITY_LOSS)
+        elseif PlayerData.battery < (cfg.batteryThresholdMid or 40) then
+            PlayerData.sanity = PlayerData.sanity - ((cfg.lossMidBattery or 1) * SANITY_LOSS)
         end
     end
 
@@ -43,8 +44,8 @@ function SanitySystem.tick()
     end
 
     -- ── Raise sanity: high battery OR not in darkness ─────────────────────────
-    if PlayerData.battery > 50 or not PlayerData.isInDarkness then
-        PlayerData.sanity = PlayerData.sanity + (2 * SANITY_LOSS)
+    if PlayerData.battery > (cfg.batteryThresholdHigh or 50) or not PlayerData.isInDarkness then
+        PlayerData.sanity = PlayerData.sanity + ((cfg.gainHighBattery or 2) * SANITY_LOSS)
     end
 
     -- ── Clamp 0–100 ──────────────────────────────────────────────────────────
@@ -53,8 +54,9 @@ end
 
 -- ── Manual focus ability (costs 20 sanity) ───────────────────────────────────
 function SanitySystem.focus()
-    if PlayerData.sanity > 20 then
-        PlayerData.sanity = PlayerData.sanity - 20
+    local cost = cfg.focusCost or 20
+    if PlayerData.sanity > cost then
+        PlayerData.sanity = PlayerData.sanity - cost
         PlayerData.isFocused = true
     end
 end

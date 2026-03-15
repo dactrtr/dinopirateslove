@@ -24,11 +24,11 @@ function Projectile:initialize(player, direction, world)
 	self.y = player.y + 15
 	
 	-- Movement
-	self.speed = 480 -- Pixels per second (8 pixels per frame at 60fps)
+	self.speed = ((Config and Config.Projectile and Config.Projectile.speed) or 8) * 60 -- px/sec
 	self.direction = direction -- "left", "right", "up", "down"
 	self.returning = false
 	self.distanceTraveled = 0
-	self.maxDistance = 100 -- Maximum travel distance before returning
+	self.maxDistance = (Config and Config.Projectile and Config.Projectile.maxDistance) or 100
 	
 	-- Velocity based on direction
 	self.vx = 0

@@ -23,7 +23,7 @@ function Brocorat:initialize(x, y, moveSpeed, zIndex, player, id, world)
 	self.initialSpeed = self.moveSpeed
 	self.stunProc = self.moveSpeed * 20 -- if speed is below 0.5 the enemy doesn't move
 	self.player = player
-	self.Zindex = zIndex or 5
+	self.Zindex = zIndex or ZIndex.enemy
 	self.sightRadius = ((PlayerData.EnemiesData and PlayerData.EnemiesData.sightRadius) or 50) + 
 	                   self.powerLevel * 3
 	

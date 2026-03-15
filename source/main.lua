@@ -5,6 +5,10 @@ function printDebug(...)
 		print(...)
 	end
 end
+-- Config must load before everything else (other modules read it at load time)
+Config = require 'assets.data.Config'
+-- Expose ZIndex globally so all existing code continues to work unchanged
+ZIndex = Config.ZIndex
 require 'assets/data/PlayerDataTables'
 local sceneManager = require "sceneManager"
 local titleScene = require "scenes/titleScene"

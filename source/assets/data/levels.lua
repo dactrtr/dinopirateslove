@@ -779,7 +779,7 @@ levelsLDTK = {
 	},
 	customFields = {
 	  shadow = true,
-	  light = 0,
+	  light = 0.7,
 	  visited = false,
 	  comic_name = nil,
 	  comic_wasPlayed = false,
@@ -930,7 +930,7 @@ levelsLDTK = {
 		  height = 32,
 		  color = 7552569,
 		  customFields = {
-			NeedsKey = true,
+			NeedsKey = false,
 			DoorsConnection = "Left",
 			KeyNumber = 1
 		  }

@@ -20,7 +20,7 @@ function Items:initialize(x, y, itemType, keyNumber, grants, world)
 	self.type = itemType and itemType:lower() or "keycard"
 	self.keyNumber = keyNumber  -- used by keycard collision
 	self.grants = grants        -- used by notes / itemgift collision
-	self.zIndex = 3 -- ZIndex.items equivalent
+	self.zIndex = ZIndex.items
 
 	-- BUMP physics (self.x, self.y is already top-left)
 	self.world = world

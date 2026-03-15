@@ -30,7 +30,7 @@ function Enemy:initialize(x, y, world, enemyType)
 	self.powerLevel = 0
 	self.id = math.random(1000, 9999)
 	self.enemyType = enemyType or "generic"
-	self.Zindex = 5
+	self.Zindex = ZIndex.enemy
 	
 	-- BUMP physics
 	self.world = world

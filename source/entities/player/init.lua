@@ -62,35 +62,14 @@ function Player:initialize(x, y, world)
 	self.dialogUI = DialogScreen()
 
 	-- Dash state
-	self.isDashing = false
-	self.dashDir = "right"
+	local dashCfg = Config and Config.Dash or {}
+	self.isDashing            = false
+	self.dashDir              = "right"
 	self.dashDistanceTraveled = 0
-	self.dashSpeed = 6
-	self.dashMaxDistance = 56
-	self.dashBounceDistance = 16
-
-	-- Sanity timer: runs every 2 seconds via the game scene timer
-	local sceneManager = require 'sceneManager'
-	local gs = sceneManager.getScene("game")
-	if gs and gs.timer then
-		gs.timer:every(2, function()
-			local loss = PlayerData.sanityLoss or 1
-			if PlayerData.isInDarkness then
-				if PlayerData.battery < 20 then
-					PlayerData.sanity = math.max(0, PlayerData.sanity - 2 * loss)
-				elseif PlayerData.battery < 40 then
-					PlayerData.sanity = math.max(0, PlayerData.sanity - loss)
-				end
-				if PlayerData.sanity <= 0 then
-					PlayerData.sanityCounter = PlayerData.sanityCounter + 1
-					PlayerData.sanity = 100
-					PlayerData.EnemiesData.powerLevel = math.min(20, PlayerData.EnemiesData.powerLevel + 1)
-				end
-			else
-				PlayerData.sanity = math.min(100, PlayerData.sanity + 2 * loss)
-			end
-		end)
-	end
+	self.dashSpeed            = dashCfg.speed          or 6
+	self.dashMaxDistance      = dashCfg.totalDistance  or 56
+	self.dashBounceDistance   = dashCfg.bounceDistance or 16
+	-- Sanity ticking is handled by SanitySystem.update(dt) in gameScene — no timer here.
 end
 
 function Player:syncDimensions(skipBumpUpdate)
@@ -181,42 +160,54 @@ function Player:update(dt)
 			playerAnimations.updateAnimation(self, 0, 0)
 		end
 
-		self:checkSlimeTile()
-
-		-- Example usage: Check for collisions before moving
-		if dx ~= 0 or dy ~= 0 then
-			local futureCollisions, collisionCount = self:checkCollisionsAt(self.x + dx, self.y + dy)
+		-- Derive direction from current input so checkSlimeTile uses fresh direction
+		local inputDir
+		if     dx > 0 then inputDir = "right"
+		elseif dx < 0 then inputDir = "left"
+		elseif dy > 0 then inputDir = "down"
+		elseif dy < 0 then inputDir = "up"
 		end
-		
-		-- Update animation based on movement
-		playerAnimations.updateAnimation(self, dx, dy)
-		
-		-- Move player with collision detection
-		local cols, len = playerMovements.move(self, dx, dy, function(item, other)
-			return playerCollisions.response(self, other)
-		end)
-		
-		-- Handle collisions
-		for i = 1, len do
-			local col = cols[i]
-			local other = col.other
-			
-			-- Use centralized physics resolution for side effects
-			playerCollisions.resolve(self, other)
-			
-			-- Specialized Door collision
-			if other.class and other.class.name == "Door" then
-				local DoorHandler = require 'DoorHandler'
-				DoorHandler.handleDoorCollision(other, self)
+		self:checkSlimeTile(inputDir)
+
+		-- If slide just started, hand off to updateSliding (skip normal movement)
+		if PlayerData.isSliding then
+			self:updateSliding(dt)
+		else
+			-- Example usage: Check for collisions before moving
+			if dx ~= 0 or dy ~= 0 then
+				local futureCollisions, collisionCount = self:checkCollisionsAt(self.x + dx, self.y + dy)
 			end
-		end
-		
-		-- Update movement state for turn-based AI
-		playerMovements.updateMovementState(self, dx, dy)
 
-		-- Distribute movement frames to all enemies after player moves
-		if self.manualMovement then
-			self:distributeMovementFrames(3) -- 3 frames per player move
+			-- Update animation based on movement
+			playerAnimations.updateAnimation(self, dx, dy)
+
+			-- Move player with collision detection
+			local cols, len = playerMovements.move(self, dx, dy, function(item, other)
+				return playerCollisions.response(self, other)
+			end)
+
+			-- Handle collisions
+			for i = 1, len do
+				local col = cols[i]
+				local other = col.other
+
+				-- Use centralized physics resolution for side effects
+				playerCollisions.resolve(self, other)
+
+				-- Specialized Door collision
+				if other.class and other.class.name == "Door" then
+					local DoorHandler = require 'DoorHandler'
+					DoorHandler.handleDoorCollision(other, self)
+				end
+			end
+
+			-- Update movement state for turn-based AI
+			playerMovements.updateMovementState(self, dx, dy)
+
+			-- Distribute movement frames to all enemies after player moves
+			if self.manualMovement then
+				self:distributeMovementFrames(3) -- 3 frames per player move
+			end
 		end
 	end
 
@@ -412,11 +403,11 @@ function Player:onSlime()
 	return tileId and utilities.SLIME_TILE_IDS[tileId] or false
 end
 
-function Player:checkSlimeTile()
+function Player:checkSlimeTile(direction)
 	if PlayerData.isSliding or not self:onSlime() then return end
 
 	if not PlayerData.items.hasPlunger then
-		playerCollisions.startSliding(self, PlayerData.direction)
+		playerCollisions.startSliding(self, direction or PlayerData.direction)
 	end
 end
 
@@ -451,9 +442,11 @@ end
 
 function Player:startDash(direction)
 	if not PlayerData.skills.canDash then return end
-	if PlayerData.battery <= 10 then return end
+	local bat      = Config and Config.Battery or {}
+	local dashCost = (Config and Config.Dash and Config.Dash.batteryCost) or 10
+	if PlayerData.battery <= (bat.floor or 10) then return end
 	if self.isDashing or self.isPlunging or PlayerData.isSliding then return end
-	PlayerData.battery = math.max(10, PlayerData.battery - 10)
+	PlayerData.battery = math.max(bat.floor or 10, PlayerData.battery - dashCost)
 	self.isDashing = true
 	self.dashDir = direction
 	self.dashDistanceTraveled = 0

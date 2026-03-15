@@ -128,26 +128,29 @@ function CrewMember:initialize(x, y, world, player, iid, data)
 	-- Pasa el centro del sprite como referencia de posición
 	self.hat = Hat.new(self.x + self.spriteWidth / 2, self.y + self.spriteHeight / 2, self.crewId)
 
+	local cm = (Config and Config.CrewMember) or {}
+
 	-- Movimiento (token budget)
-	self.moveSpeed    = 1.5  -- px por frame activo
+	self.moveSpeed      = cm.moveSpeed          or 1.5
 	self.movementFrames = 0
 
-	-- Throttle: AI cada 2 frames
-	self.updateFrameCounter = math.random(0, 1)
+	-- Throttle: AI runs every aiThrottle frames
+	self.aiThrottle         = cm.aiThrottle or 2
+	self.updateFrameCounter = math.random(0, self.aiThrottle - 1)
 
 	-- Bounce system
 	self.bounceFrames            = 0
 	self.bounceDirection         = nil
 	self.recentBounceCount       = 0
 	self.bounceCountDecayFrames  = 0
-	self.bouncesRequiredToHide   = 2
-	self.BOUNCE_DECAY_RATE       = 30
+	self.bouncesRequiredToHide   = cm.bouncesRequiredToHide  or 2
+	self.BOUNCE_DECAY_RATE       = cm.bounceCountDecayRate   or 30
 
 	-- Hiding
-	self.isHiding                    = false
-	self.hidingTokensAccumulated     = 0
-	self.hidingVisionRange           = 80
-	self.hidingMovementTokensRequired = 3
+	self.isHiding                     = false
+	self.hidingTokensAccumulated      = 0
+	self.hidingVisionRange            = cm.hidingVisionRange      or 80
+	self.hidingMovementTokensRequired = cm.hidingTokensRequired   or 3
 
 	-- Stun
 	self.isBlinded          = false
@@ -163,20 +166,26 @@ end
 -- ---------------------------------------------------------------------------
 
 function CrewMember:addMovementFrames(frames)
+	local cm = (Config and Config.CrewMember) or {}
+	local fpt = cm.framesPerToken    or 30
+	local cap = cm.movementFramesCap or 90
 	if self.isHiding then
-		self.hidingTokensAccumulated = self.hidingTokensAccumulated + (frames / 30)
+		self.hidingTokensAccumulated = self.hidingTokensAccumulated + (frames / fpt)
 		self:checkExitHiding()
 	else
-		self.movementFrames = math.min(self.movementFrames + frames, 90)
+		self.movementFrames = math.min(self.movementFrames + frames, cap)
 	end
 end
 
 function CrewMember:addMovementTokens(amount)
+	local cm = (Config and Config.CrewMember) or {}
+	local fpt = cm.framesPerToken    or 30
+	local cap = cm.movementFramesCap or 90
 	if self.isHiding then
 		self.hidingTokensAccumulated = self.hidingTokensAccumulated + amount
 		self:checkExitHiding()
 	else
-		self.movementFrames = math.min(self.movementFrames + amount * 30, 90)
+		self.movementFrames = math.min(self.movementFrames + amount * fpt, cap)
 	end
 end
 
@@ -186,8 +195,9 @@ end
 
 function CrewMember:blind(frames)
 	if self.isHiding then return end
-	self.isBlinded      = true
-	self.blindFrames    = frames or 60
+	local defaultBlind = (Config and Config.CrewMember and Config.CrewMember.blindDuration) or 60
+	self.isBlinded   = true
+	self.blindFrames = frames or defaultBlind
 	self.movementFrames = 0
 	self.animState      = "idle"
 end
@@ -372,7 +382,7 @@ function CrewMember:processBounce(blockedX, blockedY)
 			self.bounceDirection = playerToLeft and 'right' or 'left'
 		end
 
-		self.bounceFrames = 20
+		self.bounceFrames = (Config and Config.CrewMember and Config.CrewMember.bounceFrames) or 20
 	end
 end
 
@@ -429,7 +439,7 @@ function CrewMember:update(dt)
 	if self.isDead then return end
 
 	-- Throttle: incrementar contador cada frame
-	self.updateFrameCounter = (self.updateFrameCounter + 1) % 2
+	self.updateFrameCounter = (self.updateFrameCounter + 1) % self.aiThrottle
 
 	-- [1] Hiding: inmóvil, hat oculto, solo espera tokens
 	if self.isHiding then

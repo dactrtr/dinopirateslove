@@ -25,7 +25,7 @@ function movements.handleInput(player, dt)
 		local axisY = joy:getAxis(2) -- left stick Y
 
 		-- Apply deadzone
-		local deadzone = 0.2
+		local deadzone = (Config and Config.Player and Config.Player.gamepadDeadzone) or 0.2
 		if math.abs(axisX) > deadzone then
 			dx = dx + axisX * player.speed * dt
 		end
@@ -51,12 +51,16 @@ function movements.move(player, dx, dy, filter)
 
 	-- Track stats only when the player actually displaced
 	if (dx ~= 0 or dy ~= 0) and (math.abs(player.x - prevX) + math.abs(player.y - prevY) > 0) then
+		local bat = Config and Config.Battery or {}
+		local ped = Config and Config.Pedometer or {}
 		if PlayerData.isInDarkness then
-			PlayerData.battery = math.max(10, PlayerData.battery - 0.5)
+			PlayerData.battery = math.max(bat.floor or 10,
+				PlayerData.battery - (bat.drainMovementDark or 0.5))
 		end
 		PlayerData.steps = (PlayerData.steps or 0) + 1
-		if PlayerData.steps % 200 == 0 then
-			PlayerData.calories = math.max(0, PlayerData.calories - 10)
+		if PlayerData.steps % (ped.stepsToTrigger or 200) == 0 then
+			PlayerData.calories = math.max(ped.calorieMin or 0,
+				PlayerData.calories - (ped.caloriesPerBurn or 10))
 		end
 	end
 
