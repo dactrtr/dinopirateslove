@@ -39,6 +39,11 @@ end
 
 -- Move player with BUMP collision detection
 function movements.move(player, dx, dy, filter)
+	-- Clear slideHitWall when player voluntarily moves
+	if dx ~= 0 or dy ~= 0 then
+		player.slideHitWall = false
+	end
+
 	-- BUMP collision - move collision box and get sprite position back
 	local newCollisionX = player.x + player.collisionOffsetX + dx
 	local newCollisionY = player.y + player.collisionOffsetY + dy

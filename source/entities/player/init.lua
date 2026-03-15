@@ -224,42 +224,43 @@ function Player:update(dt)
 end
 
 function Player:updateSliding(dt)
-	local slideVelocity = PlayerData.slidingSpeed or 1.5
+	local slideVelocity = (Config and Config.Slide and Config.Slide.speed) or 4
 	local dx = (self.slideDX or 0) * slideVelocity * 60 * dt
 	local dy = (self.slideDY or 0) * slideVelocity * 60 * dt
 
 	-- Update animation based on movement
 	playerAnimations.updateAnimation(self, dx, dy)
-	
+
 	-- Move player with collision detection
 	local cols, len = playerMovements.move(self, dx, dy, function(item, other)
 		return playerCollisions.response(self, other)
 	end)
-	
+
 	local hitSolid = false
-	-- Handle collisions
 	for i = 1, len do
 		local col = cols[i]
 		local other = col.other
-		
+
+		-- Walls ('slide' response) and solid props/boxes ('touch') stop the slide
+		-- Doors return 'cross' from the filter but still stop the slide
 		if col.type == 'slide' or col.type == 'touch' then
 			hitSolid = true
+		elseif other.class and other.class.name == "Door" then
+			hitSolid = true
 		end
-		
-		-- Ensure triggers still process, but don't resolve heavy physics
+
 		playerCollisions.resolve(self, other)
-		
+
 		if other.class and other.class.name == "Door" then
 			local DoorHandler = require 'DoorHandler'
 			DoorHandler.handleDoorCollision(other, self)
 		end
 	end
-	
+
 	playerMovements.updateMovementState(self, dx, dy)
 
-	-- Stop if hitting a solid or leaving slime
 	if hitSolid or not self:onSlime() then
-		self:stopSliding()
+		self:endSliding(hitSolid)
 	end
 end
 
@@ -340,9 +341,6 @@ function Player:checkPropInteractions()
 		playerCollisions.resolve(self, other)
 	end
 	
-	if not self:onSlime() then
-		self.slideBounce = false
-	end
 end
 
 
@@ -404,20 +402,40 @@ function Player:onSlime()
 end
 
 function Player:checkSlimeTile(direction)
-	if PlayerData.isSliding or not self:onSlime() then return end
+	if PlayerData.isSliding then return end
+	if self.isDashing then return end
+	if self.isPlunging then return end
+	if self.slideHitWall then return end
+	if not self:onSlime() then return end
+	if PlayerData.items.hasPlunger then return end
 
-	if not PlayerData.items.hasPlunger then
-		playerCollisions.startSliding(self, direction or PlayerData.direction)
-	end
+	local dir = direction or PlayerData.direction
+	if not dir or dir == "idle" then return end
+
+	playerCollisions.startSliding(self, dir)
 end
 
-function Player:stopSliding()
+function Player:endSliding(hitWall)
 	PlayerData.isSliding = false
 	self.slideDX = 0
 	self.slideDY = 0
-	self.slideBounce = true
-	self.slideExitFrames = true
-	printDebug("🛑 Player:stopSliding()")
+
+	if hitWall then
+		self.slideHitWall = true
+	end
+
+	if PlayerData.isTiny then
+		-- Tiny: go directly to tinyIdle, no exit animation
+		self.slideExitFrames = false
+		self.currentAnimation = self.animations.tinyIdle
+		self.animations.tinyIdle:gotoFrame(1)
+		self.animations.tinyIdle:resume()
+	else
+		-- Normal: trigger exit animation
+		self.slideExitFrames = true
+	end
+
+	printDebug("🛑 Player:endSliding(hitWall=" .. tostring(hitWall) .. ")")
 end
 
 function Player:idle()

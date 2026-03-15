@@ -420,26 +420,17 @@ end
 function collisions.startSliding(player, direction)
 	if PlayerData.isSliding then return end
 
-	if player.slideBounce then
-		if not player.manualMovement then
-			return
-		else
-			player.slideBounce = false
-		end
-	end
-
 	local dx, dy = 0, 0
-	if direction == "up" then dy = -1
-	elseif direction == "down" then dy = 1
-	elseif direction == "left" then dx = -1
-	elseif direction == "right" then dx = 1
+	if     direction == "up"    then dy = -1
+	elseif direction == "down"  then dy =  1
+	elseif direction == "left"  then dx = -1
+	elseif direction == "right" then dx =  1
+	else   return  -- nil or "idle" — no valid direction, don't slide
 	end
 
-	if dx == 0 and dy == 0 then
-		dy = 1 -- Fallback just in case
-	end
-
-	printDebug("🧊 Player:startSliding(" .. tostring(direction) .. ")")
+	printDebug("🧊 startSliding(" .. tostring(direction) .. ")")
+	player.slideExitFrames = false  -- cancel any lingering exit animation
+	PlayerData.direction = direction
 	PlayerData.isSliding = true
 	player.slideDX = dx
 	player.slideDY = dy

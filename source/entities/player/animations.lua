@@ -73,7 +73,7 @@ function animations.load(spritesheet)
 		slideExitUp    = anim8.newAnimation(getFrames(grid, 137, 141, cols), 0.13, "pauseAtEnd"),
 		slideExitDown  = anim8.newAnimation(getFrames(grid, 133, 136, cols), 0.13, "pauseAtEnd"),
 
-		slideTiny = anim8.newAnimation(getFrames(grid, 142, 145, cols), 0.13, "pauseAtEnd"),
+		slideTiny = anim8.newAnimation(getFrames(grid, 142, 145, cols), 0.13),
 
 		
 		-- Transitions
@@ -98,23 +98,9 @@ function animations.updateAnimation(player, dx, dy)
 	local anims = player.animations
 	
 	if PlayerData.isTiny then
-		if player.slideExitFrames then
-			-- Start tiny slide exit animation once if not already playing it
-			if player.currentAnimation ~= anims.slideTiny then
-				player.currentAnimation = anims.slideTiny
-				anims.slideTiny:gotoFrame(1)
-				anims.slideTiny:resume()
-			end
-
-			-- anim8 calls pauseAtEnd() automatically via onLoop when the animation completes
-			if player.currentAnimation.status == "paused" then
-				player.slideExitFrames = false
-				player.currentAnimation = anims.tinyIdle
-				anims.tinyIdle:gotoFrame(1)
-				anims.tinyIdle:resume()
-			end
-		elseif PlayerData.isSliding then
-			player.currentAnimation = anims.slideTiny
+		-- Tiny never uses slideExitFrames — endSliding() goes directly to tinyIdle
+		if PlayerData.isSliding then
+			player.currentAnimation = anims.slideTiny  -- same for all 4 directions
 		elseif dx > 0 then
 			player.currentAnimation = anims.tinyRight
 			PlayerData.direction = "right"
