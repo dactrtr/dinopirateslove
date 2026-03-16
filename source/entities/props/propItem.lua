@@ -154,8 +154,7 @@ function PropItem:initialize(x, y, type, zIndex, nocollide, isDestroyed, id, wor
     -- Z-Index logic
     self.zIndex = zIndex or (self.y + self.height)
     if self.nocollide or self.isDestroyed or self.isHole or self.isSlime or self.isTube or self.type == 'minifier' then
-        -- Low static Z
-        self.zIndex = 50 -- Below characters
+        self.zIndex = ZIndex.props  -- always below gameplay entities
     end
 end
 
@@ -202,7 +201,7 @@ function PropItem:destroyProp()
     local col, row = f(fIdx)
     self.animation = anim8.newAnimation(propsGrid(col, row), 1)
     self.nocollide = true
-    self.zIndex = 50
+    self.zIndex = ZIndex.props
 end
 
 function PropItem:remove()
