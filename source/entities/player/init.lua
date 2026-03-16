@@ -386,9 +386,9 @@ function Player:getTileCoords()
 	local gameScene = sceneManager.getScene("game")
 	if not gameScene or not gameScene.tileMapData then return nil end
 
-	local startX = 200 - (gameScene.mapWidth * gameScene.tileSize) / 2
-	local startY = 120 - (gameScene.mapHeight * gameScene.tileSize) / 2
-	
+	local startX = VIRTUAL_WIDTH / 2 - (gameScene.mapWidth * gameScene.tileSize) / 2
+	local startY = VIRTUAL_HEIGHT / 2 - (gameScene.mapHeight * gameScene.tileSize) / 2
+
 	-- Calculate the center of the player's collision box (the feet)
 	local feetX = self.x + self.collisionOffsetX + (self.width / 2)
 	local feetY = self.y + self.collisionOffsetY + (self.height / 2)

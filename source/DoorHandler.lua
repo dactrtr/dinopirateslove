@@ -16,26 +16,16 @@ function DoorHandler.handleDoorCollision(door, player)
 		return
 	end
 	
-	-- Calculate relative position ratio within the door to preserve alignment.
-	-- Clamp to [0,1] so a player at the door edge never spawns outside door bounds
-	-- (which could be inside a wall in the destination room).
-	-- For vertical doors (top/down): preserve X using collision center (= player.x
-	--   because collisionOffsetX = -width/2).
-	-- For lateral doors (left/right): preserve Y using collision box center Y
-	--   (= player.y + height/2) for accurate alignment, not the sprite top-left.
-	local exitRatio = 0.5 -- Default to center
-	if door.direction == "top" or door.direction == "down" then
-		exitRatio = (player.x - door.x) / door.width
-	else
-		local colCenterY = player.y + (player.height or 0) * 0.5
-		exitRatio = (colCenterY - door.y) / door.height
-	end
-	exitRatio = math.max(0, math.min(1, exitRatio))
-	
-	-- Trigger level transition with alignment info and fade
-	DoorHandler.gameScene.changeLevel(door.nextLevelIid, door.direction, player, exitRatio, "fade")
-	
-	printDebug("🚪 Transitioning through door: " .. door.direction)
+	-- Capture the player's absolute position at the moment of collision.
+	-- For vertical doors (top/down): X is preserved in the new room.
+	-- For lateral doors (left/right): Y is preserved in the new room.
+	local capturedX = player.x
+	local capturedY = player.y
+
+	-- Trigger level transition with captured coords and fade
+	DoorHandler.gameScene.changeLevel(door.nextLevelIid, door.direction, capturedX, capturedY, "fade")
+
+	printDebug("🚪 Transitioning through door: " .. door.direction .. " at (" .. capturedX .. ", " .. capturedY .. ")")
 end
 
 return DoorHandler

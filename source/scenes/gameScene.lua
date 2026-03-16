@@ -354,7 +354,7 @@ function gameScene.enter()
 		local td = gameScene.transitionData
 		gameScene.transitionData = nil
 		printDebug("Performing deferred level change during transition enter")
-		gameScene.performChangeLevel(td.iid, td.dir, td.player, td.ratio)
+		gameScene.performChangeLevel(td.iid, td.dir, td.px, td.py)
 	else
 		-- Normal entry (e.g. from Title) - Load from save or defaults
 		local startRoom = PlayerData.saveLevel or 2
@@ -836,8 +836,8 @@ end
 
 
 -- MARK: Level Transition
-function gameScene.performChangeLevel(nextLevelIid, enterDirection, player, exitRatio)
-	printDebug("🔄 Changing level to IID: " .. nextLevelIid .. " (Exit Ratio: " .. tostring(exitRatio) .. ")")
+function gameScene.performChangeLevel(nextLevelIid, enterDirection, capturedX, capturedY)
+	printDebug("🔄 Changing level to IID: " .. nextLevelIid .. " (dir: " .. tostring(enterDirection) .. ", capturedX: " .. tostring(capturedX) .. ", capturedY: " .. tostring(capturedY) .. ")")
 	
 	-- Find the level by IID
 	local nextRoomIndex = nil
@@ -878,94 +878,48 @@ function gameScene.performChangeLevel(nextLevelIid, enterDirection, player, exit
 	gameScene.updateRoomInfo()
 	
 	
-	-- Reposition player based on entry direction
+	-- Reposition player based on entry direction (prevRoom logic)
+	-- Lateral (left/right): preserve Y from previous room, fix X to opposite edge
+	-- Vertical (top/down):  preserve X from previous room, fix Y to opposite edge
 	if enterDirection and gameScene.player then
-		-- Map enter direction to the expected door direction in the NEW room
-		local oppositeDir = {
-			top = "down",
-			down = "top",
-			left = "right",
-			right = "left"
+		local sc = (Config and Config.Doors and Config.Doors.spawnCoords) or {
+			top   = {x=196, y=196},
+			down  = {x=196, y=32 },
+			right = {x=32,  y=116},
+			left  = {x=364, y=116},
 		}
-		local targetDir = oppositeDir[enterDirection]
-		
-		-- Find the door in the new room that we are entering from
-		local entranceDoor = nil
-		for _, door in ipairs(gameScene.doors) do
-			if door.direction == targetDir then
-				entranceDoor = door
-				break
-			end
+		local spawnX, spawnY
+		if     enterDirection == "top"   then
+			spawnX = capturedX or sc.top.x
+			spawnY = sc.top.y
+		elseif enterDirection == "down"  then
+			spawnX = capturedX or sc.down.x
+			spawnY = sc.down.y
+		elseif enterDirection == "right" then
+			spawnX = sc.right.x
+			spawnY = capturedY or sc.right.y
+		elseif enterDirection == "left"  then
+			spawnX = sc.left.x
+			spawnY = capturedY or sc.left.y
 		end
-		
-		if entranceDoor then
-			-- Spawn player so the collision box clears the door edge by a safe margin.
-			-- player.x/y = sprite top-left; collision box starts at (x+colOffX, y+colOffY).
-			-- We compute offsets from the actual collider so the player never
-			-- spawns with the collider overlapping a wall tile next to the door.
-			local p = gameScene.player
-			local colOffX = p and p.collisionOffsetX or -15
-			local colOffY = p and p.collisionOffsetY or 0
-			local colW    = p and p.width  or 30
-			local colH    = p and p.height or 24
-			local margin  = 16 -- extra gap beyond the collision box edge
 
-			local spawnX, spawnY
-
-			-- colOffX is negative (= -colW/2), so -colOffX gives the half-width.
-			-- Formulas ensure: collider edge is exactly `margin` px clear of the door edge.
-			if targetDir == "top" then
-				-- Door at top: collider top = door_bottom + margin
-				-- spawnY + colOffY = door_bottom + margin → spawnY = door_bottom - colOffY + margin
-				spawnX = entranceDoor.x + exitRatio * entranceDoor.width
-				spawnY = entranceDoor.y + entranceDoor.height - colOffY + margin
-			elseif targetDir == "down" then
-				-- Door at bottom: collider bottom = door_top - margin
-				-- spawnY + colOffY + colH = door_top - margin → spawnY = door_top - colOffY - colH - margin
-				spawnX = entranceDoor.x + exitRatio * entranceDoor.width
-				spawnY = entranceDoor.y - colOffY - colH - margin
-			elseif targetDir == "left" then
-				-- Door at left: collider left = door_right + margin
-				-- spawnX + colOffX = door_right + margin → spawnX = door_right - colOffX + margin
-				spawnX = entranceDoor.x + entranceDoor.width - colOffX + margin
-				-- Center collision box vertically on the preserved ratio position
-				spawnY = entranceDoor.y + exitRatio * entranceDoor.height - colOffY - colH * 0.5
-			elseif targetDir == "right" then
-				-- Door at right: collider right = door_left - margin
-				-- spawnX + colOffX + colW = door_left - margin → spawnX = door_left - colOffX - colW - margin
-				spawnX = entranceDoor.x - colOffX - colW - margin
-				-- Center collision box vertically on the preserved ratio position
-				spawnY = entranceDoor.y + exitRatio * entranceDoor.height - colOffY - colH * 0.5
-			end
-
-			-- Write to playerSpawn (source of truth) and record entry direction
+		if spawnX and spawnY then
 			PlayerData.playerSpawn.x = spawnX
 			PlayerData.playerSpawn.y = spawnY
 			PlayerData.lastRoom = enterDirection
-
 			gameScene.player:moveTo(spawnX, spawnY)
-			printDebug("📍 Player aligned spawn at: (" .. spawnX .. ", " .. spawnY .. ") from " .. targetDir .. " door")
-		else
-			-- Fallback to old behavior if no matching door found
-			printDebug("⚠️ WARNING: No " .. tostring(targetDir) .. " door found in new room. Using fallback spawn.")
-			local spawn = utilities.spawnCoordinates[enterDirection]
-			if spawn then
-				PlayerData.playerSpawn.x = spawn.x
-				PlayerData.playerSpawn.y = spawn.y
-				PlayerData.lastRoom = enterDirection
-				gameScene.player:moveTo(spawn.x, spawn.y)
-			end
+			printDebug("📍 Player spawn: (" .. spawnX .. ", " .. spawnY .. ") entering from " .. enterDirection)
 		end
 	end
 end
 
-function gameScene.changeLevel(nextLevelIid, enterDirection, player, exitRatio, transitionType, animationName)
+function gameScene.changeLevel(nextLevelIid, enterDirection, px, py, transitionType, animationName)
 	-- Defer the level change to avoid breaking BUMP physics loops
 	gameScene.pendingLevelChange = {
 		iid = nextLevelIid,
 		dir = enterDirection,
-		player = player,
-		ratio = exitRatio,
+		px  = px,
+		py  = py,
 		transitionType = transitionType or "fade",
 		animationName = animationName
 	}
@@ -1171,8 +1125,8 @@ function gameScene.update(dt)
 			gameScene.transitionData = {
 				iid = plc.iid,
 				dir = plc.dir,
-				player = plc.player,
-				ratio = plc.ratio
+				px  = plc.px,
+				py  = plc.py,
 			}
 			
 			-- Start the transition via sceneManager
