@@ -66,18 +66,6 @@ local propConfigs = {
     Tube        = { frame = 48, nocollide = true }, -- Decorative only, no collision
 }
 
-function PropItem.static:isValidType(type)
-    if propConfigs[type] then return true end
-    local norm = getNormalizedConfigs()
-    return norm[type:lower()] ~= nil
-end
-
-function PropItem.static:getConfigKey(type)
-    if propConfigs[type] then return type end
-    local norm = getNormalizedConfigs()
-    return norm[type:lower()]
-end
-
 -- Mappings an index to col, row
 local normalizedConfigs = nil
 local function getNormalizedConfigs()
@@ -88,6 +76,18 @@ local function getNormalizedConfigs()
         end
     end
     return normalizedConfigs
+end
+
+function PropItem.static:isValidType(type)
+    if propConfigs[type] then return true end
+    local norm = getNormalizedConfigs()
+    return norm[type:lower()] ~= nil
+end
+
+function PropItem.static:getConfigKey(type)
+    if propConfigs[type] then return type end
+    local norm = getNormalizedConfigs()
+    return norm[type:lower()]
 end
 
 local function f(n)

@@ -669,24 +669,19 @@ function gameScene.loadProps()
 	-- Iterate over all entity types
 	for typeName, entityList in pairs(entities) do
 		for _, entity in ipairs(entityList) do
-			-- Check if it's a prop (layer is "Props" or "Holes")
-			if entity.layer == "Props" or entity.layer == "Holes" then
-				local cf = entity.customFields or {}
+			local cf = entity.customFields or {}
+			-- Use custom field type or entity name to resolve prop type
+			local propType = PropItem:getConfigKey(cf.type or typeName)
+			if propType then
 				local x, y = entity.x, entity.y
-				-- Use custom field type or entity name
-				local type = PropItem:getConfigKey(cf.type or typeName) or typeName:lower()
 				local nocollide = cf.nocollider or false
 				local isDestroyed = cf.destroyed or false
 				local id = entity.iid
-				
-				-- Create the prop first to get adjusted positions
-				local prop = PropItem(x, y, type, nil, nocollide, isDestroyed, id, gameScene.world)
-				prop.sourceData = entity -- Link to levelsLDTK entry
-				
-				-- Calculate zIndex based on bottom of sprite (after position adjustment)
-				-- This ensures consistent depth sorting that doesn't change
+
+				local prop = PropItem(x, y, propType, nil, nocollide, isDestroyed, id, gameScene.world)
+				prop.sourceData = entity
 				prop.zIndex = prop.y + prop.height
-				
+
 				table.insert(gameScene.props, prop)
 			end
 		end
@@ -752,18 +747,23 @@ function gameScene.loadItems()
 	local startX = VIRTUAL_WIDTH / 2 - (gameScene.mapWidth * gameScene.tileSize) / 2
 	local startY = VIRTUAL_HEIGHT / 2 - (gameScene.mapHeight * gameScene.tileSize) / 2
 
+	local validItemTypes = {
+		boots=true, plunger=true, lamp=true, notes=true, keycard=true, itemgift=true
+	}
+
 	for typeName, entityList in pairs(entities) do
 		for _, entity in ipairs(entityList) do
 			local cf = entity.customFields or {}
-			local isItem = (entity.layer == "Items") or (cf.isItem == true)
-			local isKey  = (entity.layer == "Keys")  or (typeName == "Keys")
+			local resolvedType = (cf.type or typeName):lower()
+			local isKey  = (typeName == "Keys")
+			local isItem = not isKey and validItemTypes[resolvedType]
 
 			if isItem or isKey then
 				local itemType
 				if isKey then
 					itemType = "keycard"
 				else
-					itemType = (cf.type or typeName):lower()
+					itemType = resolvedType
 				end
 
 				local keyNumber = cf.KeyNumber or cf.keyNumber

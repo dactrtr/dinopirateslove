@@ -67,7 +67,6 @@ Config.Invincibility = {
 
 -- Battery
 Config.Battery = {
-    floor             = 10,    -- minimum battery value (can't drain below this)
     drainMovementDark = 0.5,   -- per frame moving in darkness
     drainHoleNormal   = 0.5,   -- per frame crossing a hole (normal size)
     drainHoleTiny     = 0.2,   -- per frame crossing a hole (tiny)
@@ -75,7 +74,7 @@ Config.Battery = {
 
 -- Sanity
 Config.Sanity = {
-    tickInterval         = 2.0,   -- seconds between checks
+    tickInterval         = 2000,  -- ms between checks
     lossLowBattery       = 2,     -- multiplier per tick when battery < batteryThresholdLow
     lossMidBattery       = 1,     -- multiplier per tick when battery < batteryThresholdMid
     gainHighBattery      = 2,     -- multiplier per tick when battery > batteryThresholdHigh or not dark
