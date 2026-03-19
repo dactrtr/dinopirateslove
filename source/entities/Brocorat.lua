@@ -50,8 +50,15 @@ function Brocorat:initialize(x, y, moveSpeed, zIndex, player, id, world)
 	self.collisionOffsetX = 0
 	self.collisionOffsetY = 0
 	
-	-- BUMP world is already added in parent Enemy:initialize()
-	-- No need to update here
+	-- Enemy:initialize() added us to bump with its default (offset 2, size 28x28).
+	-- Sync now that we've overridden offset and size.
+	if self.world and self.world:hasItem(self) then
+		self.world:update(self,
+			self.x + self.collisionOffsetX,
+			self.y + self.collisionOffsetY,
+			self.width,
+			self.height)
+	end
 	
 	-- Movement tracking for animation
 	self.isMoving = false

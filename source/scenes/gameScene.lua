@@ -369,10 +369,7 @@ function gameScene.enter()
 		gameScene.player:syncDimensions()
 
 		gameScene.setFloor(startLevel, startRoom)
-		
-		-- Full reload of current floor state
-		gameScene.reloadCurrentRoom()
-		
+
 		printDebug("gameScene: Entered (Normal Load)")
 	end
 end
@@ -483,14 +480,15 @@ function gameScene.loadEnemies()
 	if entities.Brocorat then
 		for _, enemy in ipairs(entities.Brocorat) do
 			local cf = enemy.customFields or {}
-			local x, y = enemy.x, enemy.y
+			local x = enemy.x - (enemy.width or 32) / 2
+			local y = enemy.y - (enemy.height or 32) / 2
 			local speed = cf.speed or 1
 			local dead = cf.dead or false
 			local id = enemy.iid
-			
+
 			if not dead then
 				printDebug("🥦 Creating Brocorat at (" .. x .. ", " .. y .. ")")
-				local brocorat = Brocorat(x, y, nil, speed, gameScene.player, id, gameScene.world)
+				local brocorat = Brocorat(x, y, nil, nil, gameScene.player, id, gameScene.world)
 				brocorat.sourceData = enemy -- Link to levelsLDTK entry
 				table.insert(gameScene.enemies, brocorat)
 			else
