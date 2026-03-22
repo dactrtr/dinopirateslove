@@ -16,6 +16,7 @@ require "src/entities/ButtonCover"
 require "src/entities/WinIndicator"
 require "src/entities/LoseIndicator"
 require "src/entities/ResultsScreen"
+require "src/scenes/TitleScene"
 
 DanceScene = {}
 DanceScene.__index = DanceScene
@@ -153,7 +154,7 @@ function DanceScene:update(dt)
     end
 
     -- Update all button positions
-    for _, btn in ipairs(self.buttons) do
+    for _, btn in ipairs(self.buttons or {}) do
         btn:update(dt)
     end
 
