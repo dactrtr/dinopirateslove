@@ -14,15 +14,15 @@
 
 ## Reference Material
 
-The Playdate original `scenes/DanceScene.lua` **does not exist in this repo** — it was a Playdate SDK source file. All mechanics needed for implementation are fully documented below. Key facts extracted from the original:
+The Playdate original lives at `source/scenes/DanceScene.lua` in this repo. Key facts extracted from it:
 
-**Balance system**: `balancePosition` runs from `-balanceMaxOffset` to `+balanceMaxOffset` (default ±50, tied to `enemyHP=50`). Correct A/B press → `+5`. Correct arrow press → `+accuracy`. Wrong/miss → `-5`. Miss while button in zone → `-0.3` per frame after 5-frame grace. Win when `>= +max`, lose when `<= -max`.
+**Balance system**: `balancePosition` runs from `-balanceMaxOffset` to `+balanceMaxOffset`. `balanceMaxOffset` is initialised to `self.enemyHP` (default 50) — they are linked. Correct A/B press → `+5`. Correct arrow press → `+accuracy`. Wrong press → `-5`. Miss while button in zone → `-0.3` per frame after 5-frame grace. Win when `>= +max`, lose when `<= -max`. **Dead code note**: the original also computes `balanceOffset = (enemyFactor - playerFactor) * balanceMaxOffset` but immediately shadows the variable with `local balanceOffset = self.balancePosition` — the `enemyFactor/playerFactor` formula is never used for anything. `lifes = 3` is declared but never decremented and only ever appears in the dead formula. Both are intentionally excluded from this port.
 
 **Difficulty**: `determineDifficultyUpgrade()` → probability 0–100 based on sanity (35%), powerLevel (45%), calories (20%). If `roll <= chance`, call `determineEnemyType()` which maps powerLevel ranges → basic/evolve/badass/boss → bpm + numberOfButtons (16/4, 24/6, 28/8, 32/12).
 
-**ButtonPress timing**: Entities scroll right→left. All `numberOfButtons` are created with the same `bpm` and `keyProvider`. Stagger: each button gets `(i-1) * 300ms` movement delay.
+**ButtonPress timing**: Entities scroll right→left. All `numberOfButtons` are created at `startPoint = 400` (right edge) with the same `bpm` and `keyProvider`. Stagger is applied **after** creation via `btn:movementDelay((i-1) * 300)` — this is a two-phase design: create all buttons first, then set delays.
 
-**HitZone**: Fixed sprite at x=40, y=30. Detects overlapping ButtonPress sprites each frame. `overlappingSprites()` → list of colliding buttons, checked against `self.ButtonPressed`.
+**HitZone**: Fixed sprite at x=40, y=30 in Playdate logical coords (200×120 half-screen). Love2D port uses x=30, y=100 in 400×240 logical space — a deliberate position adjustment for the wider canvas.
 
 **Input flow**: `danceStep(key)` stores the key → checked in `update()` against whatever ButtonPress is in the HitZone that frame → `clearButton()` on button release.
 
@@ -44,6 +44,8 @@ love2d-dancescene/
 │   ├── scenes/
 │   │   ├── DanceScene.lua          -- main scene: difficulty, update loop, input, win/lose
 │   │   └── TitleScene.lua          -- stub title scene (just "Game Over" text + restart)
+│   ├── logic/
+│   │   └── balance.lua             -- pure balance math (no love2d deps, testable with busted)
 │   └── entities/
 │       ├── ButtonPress.lua         -- scrolling input-prompt entity
 │       ├── HitZone.lua             -- fixed left-side zone, AABB collision list
@@ -64,7 +66,8 @@ love2d-dancescene/
 └── tests/
     ├── test_difficulty.lua         -- busted tests: determineDifficultyUpgrade, determineEnemyType
     ├── test_patterns.lua           -- busted tests: getPatternKey distribution
-    └── test_balance.lua            -- busted tests: balance position clamping / win-lose detection
+    ├── test_balance.lua            -- busted tests: Balance module (clamp, hit deltas, win/lose)
+    └── test_button_press.lua       -- busted tests: ButtonPress entity
 ```
 
 ---
@@ -301,12 +304,12 @@ describe("determineEnemyType", function()
 end)
 ```
 
-- [ ] **Step 2: Run and verify FAIL (functions not yet in a module)**
+- [ ] **Step 2: Run and verify the logic tests pass**
 
 ```bash
 cd love2d-dancescene && busted tests/test_difficulty.lua
 ```
-Expected: Tests pass (the functions are inlined in the test file — this validates the logic itself).
+Expected: All tests PASS — the difficulty functions are inlined in the test, so this is a logic validation, not a TDD red-green cycle.
 
 - [ ] **Step 3: Write `test_patterns.lua`**
 
@@ -355,64 +358,123 @@ describe("getPatternKey", function()
 end)
 ```
 
-- [ ] **Step 4: Write `test_balance.lua`**
+- [ ] **Step 4: Create `src/logic/balance.lua`** — pure balance math, no love2d dependencies
+
+```lua
+-- src/logic/balance.lua
+-- Pure balance-position logic extracted for testability.
+-- DanceScene requires this module and delegates all balance math to it.
+Balance = {}
+
+Balance.A_BUTTON_DELTA    =  5
+Balance.WRONG_PRESS_DELTA = -5
+Balance.MISS_DELTA        = -0.3
+Balance.MISS_GRACE_FRAMES =  5
+
+function Balance.applyABHit(pos)
+    return pos + Balance.A_BUTTON_DELTA
+end
+
+function Balance.applyArrowHit(pos, accuracy)
+    return pos + accuracy
+end
+
+function Balance.applyWrongPress(pos)
+    return pos + Balance.WRONG_PRESS_DELTA
+end
+
+-- Called every frame a button is in the zone with no input.
+-- `accuracyFrames` is the miss-streak counter (resets to 0 on any zone collision).
+function Balance.applyMissPenalty(pos, accuracyFrames)
+    if accuracyFrames > Balance.MISS_GRACE_FRAMES then
+        return pos + Balance.MISS_DELTA
+    end
+    return pos
+end
+
+function Balance.clamp(pos, maxOffset)
+    return math.max(-maxOffset, math.min(maxOffset, pos))
+end
+
+function Balance.isWin(pos, maxOffset)  return pos >= maxOffset  end
+function Balance.isLose(pos, maxOffset) return pos <= -maxOffset end
+```
+
+- [ ] **Step 5: Write `tests/test_balance.lua`** — verify FAIL before balance.lua exists, then PASS after
 
 ```lua
 -- tests/test_balance.lua
--- Tests the balance position math and win/lose thresholds.
+package.path = package.path .. ";../src/logic/?.lua"
+require("balance")
 
-describe("balance position", function()
-    local function clamp(v, lo, hi) return math.max(lo, math.min(hi, v)) end
-    local maxOffset = 50  -- default balanceMaxOffset (= enemyHP)
-
-    it("correct A press moves balance +5", function()
-        local pos = 0
-        pos = pos + 5
-        assert.equals(5, pos)
+describe("Balance.applyABHit", function()
+    it("adds 5 to position", function()
+        assert.equals(5,  Balance.applyABHit(0))
+        assert.equals(15, Balance.applyABHit(10))
     end)
+end)
 
-    it("correct arrow press adds accuracy to balance", function()
-        local pos = 0
-        local accuracy = 3
-        pos = pos + accuracy
-        assert.equals(3, pos)
+describe("Balance.applyArrowHit", function()
+    it("adds accuracy to position", function()
+        assert.equals(3, Balance.applyArrowHit(0, 3))
+        assert.equals(8, Balance.applyArrowHit(5, 3))
     end)
+end)
 
-    it("wrong press moves balance -5", function()
-        local pos = 10
-        pos = pos - 5
-        assert.equals(5, pos)
+describe("Balance.applyWrongPress", function()
+    it("subtracts 5 from position", function()
+        assert.equals( 5, Balance.applyWrongPress(10))
+        assert.equals(-5, Balance.applyWrongPress(0))
     end)
+end)
 
-    it("balance is clamped to [-maxOffset, +maxOffset]", function()
-        assert.equals(maxOffset,  clamp(maxOffset + 100, -maxOffset, maxOffset))
-        assert.equals(-maxOffset, clamp(-maxOffset - 100, -maxOffset, maxOffset))
+describe("Balance.applyMissPenalty", function()
+    it("no penalty within grace period", function()
+        assert.equals(10, Balance.applyMissPenalty(10, 3))
+        assert.equals(10, Balance.applyMissPenalty(10, 5))
     end)
-
-    it("win condition triggers at >= +maxOffset", function()
-        local pos = maxOffset
-        assert.is_true(pos >= maxOffset)
+    it("applies -0.3 after grace period", function()
+        local result = Balance.applyMissPenalty(10, 6)
+        assert.is_true(math.abs(result - 9.7) < 0.001)
     end)
+end)
 
-    it("lose condition triggers at <= -maxOffset", function()
-        local pos = -maxOffset
-        assert.is_true(pos <= -maxOffset)
+describe("Balance.clamp", function()
+    it("clamps to +maxOffset", function()
+        assert.equals(50, Balance.clamp(999, 50))
+    end)
+    it("clamps to -maxOffset", function()
+        assert.equals(-50, Balance.clamp(-999, 50))
+    end)
+    it("leaves in-range values unchanged", function()
+        assert.equals(25, Balance.clamp(25, 50))
+    end)
+end)
+
+describe("Balance win/lose", function()
+    it("isWin true at exactly +maxOffset", function()
+        assert.is_true(Balance.isWin(50, 50))
+        assert.is_false(Balance.isWin(49, 50))
+    end)
+    it("isLose true at exactly -maxOffset", function()
+        assert.is_true(Balance.isLose(-50, 50))
+        assert.is_false(Balance.isLose(-49, 50))
     end)
 end)
 ```
 
-- [ ] **Step 5: Run all tests**
+- [ ] **Step 6: Run all tests**
 
 ```bash
 cd love2d-dancescene && busted tests/
 ```
 Expected: All tests PASS.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add love2d-dancescene/tests/
-git commit -m "test: add unit tests for difficulty, patterns, and balance logic"
+git add love2d-dancescene/src/logic/ love2d-dancescene/tests/
+git commit -m "feat: add Balance logic module with busted tests"
 ```
 
 ---
@@ -444,31 +506,32 @@ require("EnemyPatterns")  -- for getPatternKey
 require("ButtonPress")
 
 describe("ButtonPress", function()
-    it("starts at x=400 (right edge, logical coords)", function()
-        local btn = ButtonPress.new(16, 500, function() return "aButton" end)
+    it("starts at the given startX position", function()
+        local btn = ButtonPress.new(16, 400, function() return "aButton" end)
         assert.equals(400, btn.x)
     end)
 
     it("has a valid buttonKey after creation", function()
-        local btn = ButtonPress.new(16, 500, function() return "leftButton" end)
+        local btn = ButtonPress.new(16, 400, function() return "leftButton" end)
         assert.equals("leftButton", btn.buttonKey)
     end)
 
-    it("moves left when updated after delay expires", function()
-        local btn = ButtonPress.new(16, 0, function() return "aButton" end)
-        -- delay is 0, so movement starts immediately
+    it("moves left when updated with no delay set", function()
+        local btn = ButtonPress.new(16, 400, function() return "aButton" end)
+        -- no movementDelay call → delay is 0, movement starts immediately
         btn:update(0.1)
         assert.is_true(btn.x < 400)
     end)
 
-    it("does not move before delay expires", function()
-        local btn = ButtonPress.new(16, 5000, function() return "aButton" end)
+    it("does not move before movementDelay expires", function()
+        local btn = ButtonPress.new(16, 400, function() return "aButton" end)
+        btn:movementDelay(5000)  -- large delay
         btn:update(0.1)
         assert.equals(400, btn.x)
     end)
 
     it("is marked hit after hit() is called", function()
-        local btn = ButtonPress.new(16, 0, function() return "aButton" end)
+        local btn = ButtonPress.new(16, 400, function() return "aButton" end)
         assert.is_false(btn.isHit)
         btn:hit()
         assert.is_true(btn.isHit)
@@ -502,18 +565,19 @@ local BUTTON_LABELS = {
 }
 
 -- bpm        : beats per minute (controls scroll speed)
--- delayMs    : milliseconds before this button starts moving
+-- startX     : initial x position in logical coords (pass 400 for right edge)
 -- keyProvider: function() → buttonKey string
-function ButtonPress.new(bpm, delayMs, keyProvider)
+-- NOTE: movementDelay(ms) must be called separately after construction to stagger buttons.
+function ButtonPress.new(bpm, startX, keyProvider)
     local self  = setmetatable({}, ButtonPress)
     self.buttonKey   = keyProvider()
     self.label       = BUTTON_LABELS[self.buttonKey] or "?"
-    self.x           = 400          -- logical right edge
-    self.y           = 110          -- vertical center of battle area
+    self.x           = startX or 400  -- logical starting x position
+    self.y           = 110            -- vertical center of battle area
     self.width       = 20
     self.height      = 20
     self.isHit       = false
-    self.delayMs     = delayMs or 0
+    self.delayMs     = 0              -- set via movementDelay() after construction
     self.elapsedMs   = 0
     -- Speed: cross 400px in (60/bpm) seconds
     self.speed       = 400 / (60 / bpm)   -- px/sec
@@ -1055,9 +1119,10 @@ This is the direct port of `scenes/DanceScene.lua`. Read the original carefully.
 
 local SCALE = 2  -- logical 400×240 → physical 800×480
 
--- Require all entities
+-- Require all entities and logic
 require "src/data/PlayerData"
 require "src/data/EnemyPatterns"
+require "src/logic/balance"
 require "src/entities/ButtonPress"
 require "src/entities/HitZone"
 require "src/entities/PlayerDance"
@@ -1121,7 +1186,7 @@ function DanceScene.new()
     self.enemyEvolving       = false
     self.numberOfButtons     = 4
     self.balancePosition     = 0
-    self.balanceMaxOffset    = 50  -- tied to enemyHP
+    self.balanceMaxOffset    = self.enemyHP  -- mirrors original: self.balanceMaxOffset = self.enemyHP
     self.correctButtonPresses = {
         aButton=0, bButton=0,
         leftButton=0, rightButton=0, upButton=0, downButton=0,
@@ -1163,14 +1228,16 @@ function DanceScene:enter()
     self.bpm             = c.bpm
     self.numberOfButtons = c.buttons
 
-    -- Create ButtonPress instances
+    -- Create ButtonPress instances — two-phase: create all at startPoint, then stagger delays.
+    -- Mirrors original DanceScene: buttons created in enter(), delays set in start().
     local startPoint = 400
     local profile    = EnemyPatterns[self.enemyType] or EnemyPatterns.basic
     local function keyProvider() return getPatternKey(profile) end
 
     self.buttons = {}
     for i = 1, self.numberOfButtons do
-        local btn = ButtonPress.new(self.bpm, (i-1) * 300, keyProvider)
+        local btn = ButtonPress.new(self.bpm, startPoint, keyProvider)
+        btn:movementDelay((i - 1) * 300)  -- stagger: 0ms, 300ms, 600ms, ...
         self.buttons[i] = btn
     end
 
@@ -1187,7 +1254,9 @@ function DanceScene:enter()
     self.resultsScreen   = ResultsScreen.new()
 end
 
-function DanceScene:exit() end
+function DanceScene:exit()
+    PlayerData.healthPoints = 2  -- mirrors Playdate DanceScene:exit() side effect
+end
 
 -- ─────────────────────────────────────────────
 -- Update (core game loop — mirrors original update())
@@ -1210,24 +1279,22 @@ function DanceScene:update(dt)
 
     if #collisions > 0 then
         if self.ButtonPressed == nil then
-            -- No input: accuracy penalty after 5-frame grace
+            -- No input: accuracy penalty after grace frames
             self.accuracy = self.accuracy + 1
-            if self.accuracy > 5 then
-                self.balancePosition = self.balancePosition - 0.3
-            end
+            self.balancePosition = Balance.applyMissPenalty(self.balancePosition, self.accuracy)
             self.enemyDance:changeAnimation(collisions[1].buttonKey)
 
         elseif collisions[1].buttonKey == self.ButtonPressed then
             -- Correct press
             if self.ButtonPressed == "aButton" or self.ButtonPressed == "bButton" then
                 self.enemyDance:attackAnimation(self.ButtonPressed)
-                self.enemyHP          = self.enemyHP - 10
-                self.balancePosition  = self.balancePosition + 5
+                self.enemyHP         = self.enemyHP - 10
+                self.balancePosition = Balance.applyABHit(self.balancePosition)
             else
                 -- Arrow: accuracy-based balance gain
-                self.balancePosition  = self.balancePosition + self.accuracy
-                self.totalAccuracy    = self.totalAccuracy + self.accuracy
-                self.evadePower       = self.totalAccuracy
+                self.balancePosition = Balance.applyArrowHit(self.balancePosition, self.accuracy)
+                self.totalAccuracy   = self.totalAccuracy + self.accuracy
+                self.evadePower      = self.totalAccuracy
             end
             self.playerDance:changeAnimation(self.ButtonPressed)
             collisions[1]:hit()
@@ -1235,7 +1302,7 @@ function DanceScene:update(dt)
         else
             -- Wrong press
             collisions[1]:hit()
-            self.balancePosition = self.balancePosition - 5
+            self.balancePosition = Balance.applyWrongPress(self.balancePosition)
         end
         self.ButtonPressed = nil
     else
@@ -1243,16 +1310,15 @@ function DanceScene:update(dt)
     end
 
     -- Clamp balance
-    self.balancePosition = math.max(-self.balanceMaxOffset,
-                           math.min( self.balanceMaxOffset, self.balancePosition))
+    self.balancePosition = Balance.clamp(self.balancePosition, self.balanceMaxOffset)
 
     -- Win / lose threshold check
-    if self.balancePosition >= self.balanceMaxOffset then
+    if Balance.isWin(self.balancePosition, self.balanceMaxOffset) then
         self.resultsScreen:win()
         PlayerData.isDancing = false
         self.condition = "win"
     end
-    if self.balancePosition <= -self.balanceMaxOffset then
+    if Balance.isLose(self.balancePosition, self.balanceMaxOffset) then
         self.resultsScreen:lose()
         PlayerData.isDancing = false
         self.condition = "lose"
@@ -1330,7 +1396,11 @@ function DanceScene:keypressed(key)
     local mapped = keyMap[key]
     if mapped then
         self:danceStep(mapped)
-        self:checkDanceResults()
+        -- Only A-button (return/space) can trigger scene transition.
+        -- Mirrors original: only AButtonDown calls checkDanceResults().
+        if key == "return" or key == "space" then
+            self:checkDanceResults()
+        end
     end
 end
 
