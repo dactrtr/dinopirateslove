@@ -28,20 +28,23 @@ function ResultsScreen:draw(scale)
     scale = scale or 2
     if self.state == "playing" then return end
 
+    local W = 400 * scale
+    local H = 240 * scale
+
     -- Semi-transparent overlay
     love.graphics.setColor(0, 0, 0, 0.7)
-    love.graphics.rectangle("fill", 0, 0, 800, 480)
+    love.graphics.rectangle("fill", 0, 0, W, H)
     love.graphics.setColor(1, 1, 1)
 
     if self.state == "loading" then
-        love.graphics.printf("Press A to START BATTLE", 0, 200, 800, "center")
+        love.graphics.printf("Press A to START BATTLE", 0, H * 0.42, W, "center")
     elseif self.state == "win" then
         love.graphics.setColor(0.2, 1, 0.2)
-        love.graphics.printf("YOU WIN!\nPress A to continue", 0, 180, 800, "center")
+        love.graphics.printf("YOU WIN!\nPress A to continue", 0, H * 0.375, W, "center")
         love.graphics.setColor(1, 1, 1)
     elseif self.state == "lose" then
         love.graphics.setColor(1, 0.2, 0.2)
-        love.graphics.printf("YOU LOSE!\nPress A to continue", 0, 180, 800, "center")
+        love.graphics.printf("YOU LOSE!\nPress A to continue", 0, H * 0.375, W, "center")
         love.graphics.setColor(1, 1, 1)
     end
 end
