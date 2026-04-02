@@ -5,15 +5,15 @@ This document explores the `PlayerData` structure and how its values influence t
 ---
 
 ## 🔋 Core Resource: Battery
-
 The Battery system is the primary driver of exploration and danger.
 
 - **Consumption**:
-    - Drains **0.5 units per `Player:move()` call** when `PlayerData.isInDarkness == true` (in `movement.lua`).
-    - Additional drain via `drainBattery(amount)` from specific item interactions (e.g., walking over holes with boots).
+    - Drains at **0.5 units per move** when `isInDarkness` is true.
+    - Draining occurs in `Player:move` (in `movement.lua`) or via explicit `drainBattery(amount)` calls.
 - **Impacts**:
-    - **Sanity**: Sanity drains faster when `battery < 20 AND isInDarkness` (see Sanity section below).
-    - **Darkness/Light**: The FXshadow system scales battery internally by ×2 to determine light cone size and opacity.
+    - **Speed**: If battery < 20 and in darkness, player speed is reduced by 20% (multiplier `0.8` from `Config.Player.speedLowBattery`).
+    - **Sanity**: Sanity drains at 2 points per tick if `battery < 20` (`batteryThresholdLow`), and at 1 point per tick if `battery < 40` (`batteryThresholdMid`).
+    - **Movement**: If the player is in darkness and has no lamp or battery, they are significantly slowed.
 - **Charging**:
     - The player can charge the battery using the crank (via `chargeBattery(amount)`).
     - Charging sets `isActive = true`, allowing enemies to move while the player stays in place.
@@ -21,18 +21,15 @@ The Battery system is the primary driver of exploration and danger.
 ---
 
 ## 🧠 Survival: Sanity & Calories
-
 Sanity and Nutrition represent the player's mental and physical health.
 
-- **Sanity** (timer-based, fires every 2 seconds via `playdate.timer.keyRepeatTimerWithDelay`):
-    - **Drain (fast)**: −2×`sanityLoss` when `battery < 20 AND isInDarkness == true`.
-    - **Drain (slow)**: −1×`sanityLoss` when `battery < 40 AND isInDarkness == true`.
-    - **Regen**: +2×`sanityLoss` when `battery > 50` OR `isInDarkness == false`.
-    - **Sanity Counter**: Every time sanity hits 0, `sanityCounter` increments. This increases the global **Enemy Power Level**, making encounters more difficult.
+- **Sanity**:
+    - **Drain**: Occurs when in darkness with low battery.
+    - **Regen**: Recharges if battery > 50 or the player is in light.
+    - **Sanity Counter**: Every time sanity hits 0, the `sanityCounter` increments. This increases the global **Enemy Power Level**, making encounters more difficult.
 - **Health**:
-    - **Representation**: Stored as `healthPoints` (default 10).
-    - **HUD**: Represented by 5 hearts, where each heart is 2 points (total 10 hp).
-    - **Dance Threshold**: When hit by an enemy and `healthPoints < danceThresholdHP` (default: 1), the game transitions to `DanceScene` instead of applying invincibility.
+    - **Representation**: Stored as `healthPoints` (default **3**).
+    - **HUD**: Represented as filled squares — one square per health point. The `xPositions` array supports up to 10 HP. With the default of 3 HP, only 3 squares are filled.
     - **Sync**: Updated in real-time in the HUD via the `HealthIndicator` class.
 - **Calories & Steps**:
     - The `pedometer()` tracks steps. 200 steps = 10 calories burned.
@@ -41,184 +38,147 @@ Sanity and Nutrition represent the player's mental and physical health.
 ---
 
 ## 🏎️ State & Synchronization: `isActive`
-
 The `isActive` flag is a critical internal value.
 
 - **Turn-based Sync**: `isActive` is set to `true` whenever the player moves or charges.
-- **NPC Movement**: Enemies and CrewMembers only process AI movement when they have movement budget (`movementFrames > 0`).
-- **Movement Distribution** (two mechanisms):
-    - `distributeMovementFrames(3)` — called per `Player:move()` call (each step gives all enemy sprites 3 raw frames of movement budget).
-    - `distributeMovementTokens(5)` — called on **B button press** in `MazeScene.lua`. 1 token = 30 frames, so 5 tokens = 150 frames of enemy movement budget.
-
-> [!NOTE]
-> The difference: `distributeMovementFrames` distributes **raw frames** (small, per-step amounts). `distributeMovementTokens` distributes **tokens** (each worth ~30 frames), used for events like the B press that grant a larger burst of enemy action.
-
----
-
-## 🌑 Darkness & Lighting: FXshadow
-
-The `FXshadow` system controls the visibility mask in dark rooms.
-
-### Internal Battery Scaling
-Battery is scaled ×2 internally before lighting calculations:
-```lua
-local battery = PlayerData.battery * 2  -- Range 0–200 (from 0–100)
-```
-
-### Lighting Tiers (with Lamp)
-When `PlayerData.items.hasLamp == true`, 5 tiers apply based on `battery * 2`:
-
-| battery×2 range | lightAmount | Notes |
-|---|---|---|
-| > 160 | default | Near-full brightness |
-| 120–160 | 0.2 | Light dimming begins |
-| 80–120 | 0.5 | Moderate darkness |
-| 40–80 | 0.7 | Heavy darkness |
-| 0–40 | 0.9 | Nearly dark |
-| ≤ 0 | 1.0 | Maximum darkness |
-
-### Without Lamp
-```lua
-maskSize = 50       -- Very small circle of visibility
-lightAmount = 1     -- Near-total darkness
-```
-
-### Light Cone Polygon
-When `PlayerData.showLightCone == true` AND `hasLamp == true`, a **9-point polygon** is drawn in the player's facing direction (using `playdate.geometry.polygon.new(...)` with 9 vertex pairs). The cone is directional: left/right uses horizontal polygon, up/down uses vertical polygon.
-
-### Dirty Flag Optimization
-`FXshadow:refresh()` only redraws when any of these change:
-- `battery` (scaled value)
-- `direction`
-- Player X/Y position
-- `lightSizeMulti` (tiny mode = 0.5)
-- `globalLightAmount`
-- `showLightCone`
-
-### Love2D Porting
-```lua
--- Use a Canvas with multiply blend mode
-local shadowCanvas = love.graphics.newCanvas(400, 240)
-love.graphics.setBlendMode("multiply")
-
--- Draw the global dither background
-love.graphics.setCanvas(shadowCanvas)
-love.graphics.setColor(0, 0, 0, globalDither)
-love.graphics.rectangle("fill", 0, 0, 400, 240)
-
--- Draw the light polygon
-love.graphics.setColor(1, 1, 1, 1 - lightAmount)
-love.graphics.polygon("fill", lightVertices)  -- 9-point table {x1,y1, x2,y2, ...}
-
-love.graphics.setCanvas()
-love.graphics.setBlendMode("alpha")
-love.graphics.draw(shadowCanvas, 0, 0)
-```
+- **NPC Movement**: Enemies and CrewMembers only process their AI movement when the player is active. This ensures that the world "moves when you move," allowing for strategic planning during battery management.
+- **Tokens**: Moving distributes "Movement Frames" (3 per move) to all sprites, ensuring smooth following without unintended speed accumulation.
 
 ---
 
 ## 🤏 Transformation: Size & Collisions
-
 - **`isTiny`**:
-    - Toggled via the **Minifier** prop (crank-based interaction).
-    - Changes the player's collision rectangle to a smaller **14×14** size.
-    - Enables access to "Hole" props and changes enemy behavior (smaller sight radius).
-    - Changes animation states to `tiny` variants (`tinyLeft`, `tinyRight`, etc.).
-    - Changes HUD Y-offset from −36 to −22.
-- **`isBig`**: Managed via the transformation cycle, though less used in primary maze logic.
+    - Toggled via the **Minifier** prop.
+    - Changes the player's collision rectangle to a smaller **10×10** size (`Config.Player.collideRectTiny = {x=19, y=32, w=10, h=10}`).
+    - Enables access to **tube** props (`PropItem.isTube == true`) via `riseAbove()`.
+    - Changing size triggers specific `tiny` animation states for all directions.
+- **`isBig`**: Managed via the transformation cycle, though currently less used than the tiny state in the primary maze logic.
 
 ---
 
 ## ↕️ Level Transitions: Falling & Climbing
-
 Vertical transitions allow the player to move between floors through holes, tubes, or ladders.
 
 ### `fallBelow()`
-1. Gets current floor from `PlayerData.floor`.
-2. Validates "Lower" connection in `DoorsConnection`.
-3. Searches `neighbourLevels` for direction `<`.
-4. Calculates target room number.
+- **Mechanism**:
+    1.  Gets current floor from `PlayerData.floor`.
+    2.  Validates "Lower" connection in `DoorsConnection`.
+    3.  Searches `neighbourLevels` for direction `<`.
+    4.  Calculates target room number.
 - **Positioning**: Preserves `x` and `y` coordinates for seamless verticality.
-- **Visuals**: Uses `transitionFall` imagetable for a falling effect.
+- **Visuals**: Uses two imagetables for the fall effect: `transitionFallEnter` and `transitionFallOut` (passed as `imagetableEnter`/`imagetableExit` to `Noble.Transition.Imagetable`).
 
 ### `riseAbove()`
-- Similar to `fallBelow()` but checks for "Upper" connection and direction `>`.
-- Trigger: collision with tubes or ladders.
+- **Mechanism**: Similar to `fallBelow()` but checks for "Upper" connection and direction `>`.
+- **Trigger**: Can be triggered by collision with tubes or ladders.
 
 ---
 
 ## 🎒 Inventory & Skills
+Items and skills can be granted either by picking up a fixed item type or dynamically via a `grants` field in level data (common for `itemgift` and `notes`).
 
-- **Items**:
-    - `hasLamp`: Enables vision and sanity regeneration. Grants **Lightburst** skill (`canFlash`).
-    - `hasBoots`: Provides "Hole" safety; player drains battery to walk over holes. Grants **Dash** skill (`canDash`).
-    - `hasPlunger`: Provides "Slime" safety; player walks over slime tiles (IDs 89–97) without sliding. Grants **Plungerang** skill (`canPlungerang`).
-    - `hasBag`: Required to capture CrewMembers.
-    - `hasDWatch`: Required for the HUD and In-Game Menu to be visible/functional.
-    - `hasRadio` / `hasNotes`: Story-relevant items enabling specific dialogs/video feeds.
+- **Items** (fields in `PlayerData.items`):
+    - `hasLamp`: Enables vision and sanity regeneration. Grants **Lightburst** skill.
+    - `hasBoots`: Provides hole safety; player drains battery to walk over holes instead of falling. Grants **Dash** skill.
+    - `hasPlunger`: Provides slime immunity; player walks over slime tiles (IntGrid value `2`) without sliding. Grants **Plungerang** skill. See [PROPS_AND_ITEMS.md](PROPS_AND_ITEMS.md) for sliding mechanics.
+    - `hasDWatch`: Required to open the in-game equipment menu. Without it, the menu does not open.
+    - `hasRadio` / `hasNotes`: Story-relevant items that enable specific dialogs/video feeds.
+    - `hasBag`: Not in `DefaultPlayerData` — granted dynamically via `grabBag()`. Required to capture CrewMembers.
+    - `hasTools`: Not in `DefaultPlayerData` — granted dynamically via `grabTools()`. Story-relevant item.
 - **Skills**:
-    - `canFlash` (Lightburst): Costs **10 battery**. Blinds enemies in a radius. Also distributes `distributeMovementTokens(1)` on activation.
-    - `canDash`: Costs **10 battery**. Travels **56 pixels** at **speed 6** (pixels/frame). On collision, bounces back **16 pixels**. Granted by `hasBoots`.
-    - `canPlungerang`: Boomerang skill. No battery cost. Requires **both** `hasPlunger` AND `canPlungerang`. Movement is **always** locked (`isPlunging = true`) while the projectile is in flight. See [PLUNGERANG.md](PLUNGERANG.md).
+    - `canFlash` (Lightburst): Costs **10 battery**. Blinds entities within a **directional cone** (built as a `playdate.geometry.polygon`). Currently only affects `CrewMember` sprites through the cone filter; enemies are blinded via a separate call path. Granted by `hasLamp`.
+    - `canDash`: Costs **10 battery**. Enables a fast dash attack with a cooldown. Granted by `hasBoots`.
+    - `canPlungerang`: Boomerang skill that can stun enemies or interact with props at a distance. Does not consume battery. Granted by `hasPlunger`. **Movement is locked while the projectile is in flight.** See [PLUNGERANG.md](PLUNGERANG.md) for exhaustive details and Love2D porting.
 
 > [!TIP]
-> Always check `PlayerData.isInDarkness`. Most survival mechanics (Sanity drain, Battery drain) are gated by this boolean. Also check `hasDWatch` for HUD and menu availability.
+> Always check `PlayerData.isInDarkness`. Most survival mechanics (Sanity drain, Battery drain, Speed debuffs) are gated by this boolean.
 
 ---
 
 ## 🛠️ Love2D Porting Guide
 
+This section details critical implementation differences when porting the **Player** entity from Playdate SDK (Lua) to Love2D.
+
 ### 1. Movement & Collisions (`NobleSprite` vs. Bump.lua)
 The Playdate SDK handles collisions internally via `sprite:moveWithCollisions(x, y)`.
 - **Playdate**: returns `actualX, actualY, collisions, length`.
 - **Love2D Implementation**:
+    - **Library**: `bump.lua` is the standard for AABB collisions.
+    - **Logic**:
     ```lua
+    -- Instead of self:moveWithCollisions(goalX, goalY)
     local actualX, actualY, cols, len = world:move(self, goalX, goalY, self.collisionFilter)
     self.x, self.y = actualX, actualY
     ```
+    - **Filters**: The `self:setGroups()` and `self:setCollidesWithGroups()` logic must be converted to a `collisionFilter` function passed to `world:move`.
 
 ### 2. Input Handling
-- **Movement**: Map WASD or Arrow Keys to `Player:move(dir)`.
-- **A Button (Action)**: Space/Enter for skills and dialogs.
-- **B Button**: Distributes 5 movement tokens to all enemies (`distributeMovementTokens(5)`).
-- **Crank (Minifier)**: Remap to scroll wheel (mouse), Q/E keys, or gamepad triggers.
+Playdate input is polled via `playdate.buttonIsPressed()`.
+- **Love2D Implementation**:
+    - **Movement**: Map `WASD` or Arrow Keys to the directional logic in `Player:move(dir)`.
+    - **Action (A/B)**: Map `Space/Enter` (A) and `Shift/Esc` (B).
+    - **Crank (Minifier)**: The specific mechanic of rotating the crank to shrink/grow needs remapping.
+        - **Option A**: Scroll Wheel (Mouse).
+        - **Option B**: `Q` and `E` keys to rotate left/right.
+        - **Option C**: Gamepad Triggers (L2/R2).
 
 ### 3. Sprite System & Animation
-- Use `anim8` for animations based on the player spritesheet.
-- Z-Indexing: sort entities by Y position manually before drawing.
+- **NobleSprite**: This library abstracts sprite states and animations using `imagetables`.
+- **Love2D Implementation**:
+    - **Class**: Use a standard class library.
+    - **Assets**: Load the player spritesheet (`assets/images/player/player`) as a single `Image`.
+    - **Animation**: Use `anim8` to define grids and animations (e.g., `grid('1-4', 1)` for idle).
+    - **Z-Indexing**: Love2D does **not** auto-sort. You MUST implement a robust depth-sorting system in your main `love.draw` loop:
+    ```lua
+    table.sort(entities, function(a,b) return a.y < b.y end)
+    ```
 
 ### 4. Turn-Based "Active" State
-```lua
--- Per move: distribute 3 frames of budget
-function Player:move(dir)
-    PlayerData.isActive = true
-    -- ... movement logic ...
-    self:distributeMovementFrames(3)
-end
-
--- On B press: distribute 5 tokens (= 150 frames)
-function Player:onBPress()
-    self:distributeMovementTokens(5)
-end
-```
-Preserve this **exactly**. Do not switch enemies to continuous `dt`-based updates.
+The game uses a pseudo-turn-based system driven by `PlayerData.isActive`.
+- **Logic**:
+    1.  Player initiates move -> `isActive = true`.
+    2.  `distributeMovementFrames(3)` gives movement frames to enemies/NPCs (3 frames per player step).
+    3.  Enemies/NPCs only move/update AI if `isActive` was triggered.
+- **Note**: `distributeMovementTokens(amount)` is a different function — it is used specifically by the Lightburst skill (`canFlash`), not by standard movement.
+- **Porting Note**: This logic is platform-agnostic Lua. **Preserve it exactly**. It ensures the "Time Moves When You Move" mechanic works. Do not switch to a standard `dt` based continuous update for enemies.
 
 ### 5. Scene Transitions
-- Replace `Noble.transition` with a custom scene manager.
-- Fall/climb transitions use imagetable animations — replace with shaders or sprite sequences.
+    - **Visuals**: The `imagetableEnter/Exit` transitions (like the falling transition) will need to be reimplemented using shaders or simple overlay drawing in Love2D.
 
 ### 6. Skills & Abilities
-- **Lightburst**: Cone geometry uses `playdate.geometry.polygon`. In Love2D, use `love.graphics.polygon()` with a vertex table.
-- **Dash**: During dash, move at `dashSpeed = 6` pixels/frame for up to `dashTotalDistance = 56` pixels. On collision, bounce back `dashBounceDistance = 16` pixels.
-- **Plungerang**: Separate entity; use Bump.lua `cross` filter for player/items, `touch` for enemies/walls.
+Specific considerations for the three core skills:
 
-### 7. FXshadow (Darkness)
-See dedicated FXshadow section above. Key points:
-- Use `Canvas` with `love.graphics.setBlendMode('multiply')`.
-- Light polygon via `love.graphics.polygon('fill', ...)`.
-- Implement dirty-flag to avoid redrawing every frame.
+-   **Lightburst (`canFlash`)**:
+    -   **Cone Geometry**: uses `playdate.geometry.polygon`. In Love2D, simply use a table of vertices: `{x1, y1, x2, y2, ...}`.
+    -   **Hit Detection**: The Playdate SDK has `polygon:containsPoint(x, y)`. In Love2D, you must implement a "Point in Polygon" function (Ray Casting algorithm) to check if an entity is inside the light cone vertices.
 
-### 8. Performance
-- **Trigger Checks**: Only check overlapping if player moved significantly.
-- **Invincibility**: Flicker effect by toggling visibility on a timer.
-- **Sliding**: When `isSliding`, override directional input entirely.
+-   **Dash (`canDash`)**:
+    -   **Timers**: Playdate uses `playdate.getCurrentTimeMilliseconds()`. Love2D uses `love.timer.getTime()` (returns seconds). Ensure you convert correctly (e.g., `cooldown = love.timer.getTime() + 0.5`).
+    -   **Movement**: During the dash state, calls to `world:move` must happen manually in `update()` based on the dash vector.
+
+-   **Plungerang (`canPlungerang`)**:
+    -   **Entity**: The Projectile is a separate `NobleSprite`. In Love2D, it should be its own Class instance added to the scene's entity table.
+    -   **Vector Math**: The `dx/dy` approach for homing back to the player is standard Lua logic and works as-is.
+    -   **Collision Filter**: Important! The projectile needs a specific Bump filter: it must **cross** (pass through) the player and items, but **touch** (hit) enemies and walls.
+### 7. Vertical Transitions (Falling & Climbing)
+- **Playdate**: Uses `Noble.transition` with custom image tables.
+- **Love2D Implementation**:
+    - **Scene Management**: Replace `Noble.transition` with your own (e.g., `SceneManager:switchTo(nextScene, "fall", 1.5)`).
+    - **Transitions**: Use shaders (e.g., vertical blur) or simple sprite-based animations for the "fall" or "climb" effects.
+    - **Detection**: Use `bump.lua` or `HC` for collision detection with holes/tubes to trigger these transitions.
+    - **Optimization**: You can preload adjacent rooms for faster transitions.
+    ```lua
+    -- Example shader-based fall effect:
+    SceneManager:switchTo(nextScene, {
+      type = "fall",
+      duration = 1.5,
+      shader = fallShader,  -- Vertical blur shader
+      onComplete = function() self:spawn() end
+    })
+    ```
+
+### 8. Performance & Other Details
+- **Trigger Checks**: To optimize, only check overlapping sprites if the player moved significantly (e.g., > 5 pixels) or if already inside a trigger.
+- **Invincibility**: Implement a flicker effect by toggling visibility based on a timer and refresh rate.
+- **Speed in Darkness**: Always check `PlayerData.isInDarkness`. Reduce speed (e.g., to 50%) when battery is low (< 20) or when the player has no lamp.
+- **Sliding State**: When `isSliding` is active, ignore directional input and apply the sliding vector in the `update` loop.

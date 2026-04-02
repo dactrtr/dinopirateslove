@@ -271,4 +271,23 @@ function utilities.getTileUnderPlayer(tileData, tileSize, px, py, startX, startY
 	return nil
 end
 
+-- Ray-casting point-in-polygon test.
+-- pts: flat table of alternating x,y pairs {x1,y1,x2,y2,...}
+-- Returns true if (px,py) is inside the polygon.
+function utilities.pointInPolygon(pts, px, py)
+    local n = #pts / 2
+    local inside = false
+    local j = n
+    for i = 1, n do
+        local xi, yi = pts[i*2-1], pts[i*2]
+        local xj, yj = pts[j*2-1], pts[j*2]
+        if ((yi > py) ~= (yj > py)) and
+           (px < (xj - xi) * (py - yi) / (yj - yi) + xi) then
+            inside = not inside
+        end
+        j = i
+    end
+    return inside
+end
+
 return utilities

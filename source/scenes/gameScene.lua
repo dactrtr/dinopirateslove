@@ -130,6 +130,8 @@ end
 
 function gameScene.clearCurrentRoom()
 	printDebug("🧹 Clearing current room entities...")
+	gameScene.roomImage       = nil
+	gameScene.foregroundImage = nil
 	
 	-- Clear enemies
 	for _, enemy in ipairs(gameScene.enemies or {}) do
@@ -519,6 +521,23 @@ function gameScene.loadEnemies()
 	-- TODO: Add support for other enemy types (Bosscolli, etc.)
 
 	printDebug("✅ Loaded " .. #gameScene.enemies .. " enemies, " .. #gameScene.crewMembers .. " crewmembers")
+end
+
+-- Removes the enemy with the given id from the world and the enemies table.
+-- Called by DanceScene on win to clean up the defeated enemy.
+function gameScene.findAndKillEnemyById(id)
+	if not id then return end
+	for i, enemy in ipairs(gameScene.enemies) do
+		if enemy.id == id then
+			if gameScene.world and gameScene.world.hasItem and gameScene.world:hasItem(enemy) then
+				gameScene.world:remove(enemy)
+			end
+			table.remove(gameScene.enemies, i)
+			printDebug("⚔️ findAndKillEnemyById: killed enemy id=" .. tostring(id))
+			return
+		end
+	end
+	printDebug("⚠️ findAndKillEnemyById: enemy id=" .. tostring(id) .. " not found")
 end
 
 function gameScene.loadDoors()
@@ -926,96 +945,55 @@ end
 
 
 function gameScene.loadFloor()
-	-- Ensure we have a level loaded
 	if not gameScene.currentLevelData then
 		printDebug("❌ ERROR: No level data loaded. Call setFloor() first.")
 		return
 	end
-	
-	-- Load the tile spritesheet
-	gameScene.tilesImage = love.graphics.newImage('assets/images/tile/tile-table-16-16.png')
-	
-	-- Calculate how many tiles are in the spritesheet
-	local imageWidth = gameScene.tilesImage:getWidth()
-	local imageHeight = gameScene.tilesImage:getHeight()
-	local tilesPerRow = math.floor(imageWidth / gameScene.tileSize)
-	local tilesPerCol = math.floor(imageHeight / gameScene.tileSize)
-	
-	-- Create quads for each tile in the spritesheet
-	gameScene.tileQuads = {}
-	local tileIndex = 1
-	for row = 0, tilesPerCol - 1 do
-		for col = 0, tilesPerRow - 1 do
-			gameScene.tileQuads[tileIndex] = love.graphics.newQuad(
-				col * gameScene.tileSize,
-				row * gameScene.tileSize,
-				gameScene.tileSize,
-				gameScene.tileSize,
-				imageWidth,
-				imageHeight
-			)
-			tileIndex = tileIndex + 1
-		end
-	end
-	
-	-- Get tile index from current level's customFields
-	local tileIndex = gameScene.currentLevelData.customFields.tile or 1
-	printDebug("📍 Loading tilemap index: " .. tileIndex)
-	
-	-- Initialize tilemap data from the level's tile index
-	gameScene.tileMapData = tileMapData[tileIndex]
-	
-	-- Create the map using tilemap data
-	gameScene.renderTileMap(gameScene.tileMapData)
-end
 
--- Convert Playdate renderTileMap function to Love2D
-function gameScene.renderTileMap(tileData)
-	local height = #tileData
-	local width = #tileData[1]
-	
-	-- Update map dimensions based on tile data
-	gameScene.mapHeight = height
-	gameScene.mapWidth = width
-	
-	-- Initialize the map array
-	gameScene.map = {}
-	
-	-- Populate map with tile data (Love2D uses 1-based indexing)
-	for y = 1, height do
-		gameScene.map[y] = {}
-		for x = 1, width do
-			-- Set tile from tileData (y,x because tileData is row-major)
-			gameScene.map[y][x] = tileData[y][x]
-		end
+	local cf       = gameScene.currentLevelData.customFields
+	local tileIdx  = cf.tile  or 1
+	local level    = cf.level or 4
+	local floorDir = 'assets/images/rooms/floor' .. level .. '/'
+
+	printDebug("📍 Loading tilemap index: " .. tileIdx)
+
+	-- Background PNG (drawn behind everything)
+	local bgPath = floorDir .. 'room_' .. tileIdx .. '.png'
+	local ok, img = pcall(love.graphics.newImage, bgPath)
+	gameScene.roomImage = ok and img or nil
+	if not ok then printDebug("⚠️ Room image not found: " .. bgPath) end
+
+	-- Foreground PNG (drawn above entities, below HUD) — only when the room needs it
+	gameScene.foregroundImage = nil
+	if cf.hasForeground then
+		local fgPath = floorDir .. 'foreground_' .. tileIdx .. '.png'
+		local fok, fimg = pcall(love.graphics.newImage, fgPath)
+		gameScene.foregroundImage = fok and fimg or nil
+		if not fok then printDebug("⚠️ Foreground image not found: " .. fgPath) end
+	end
+
+	-- Tile matrix → collision only (passed to loadWalls via gameScene.tileMapData)
+	gameScene.tileMapData = tileMapData[tileIdx]
+	if gameScene.tileMapData then
+		gameScene.mapHeight = #gameScene.tileMapData
+		-- Tilemap rows have a trailing 0-padding element (26 wide instead of 25).
+		-- Using #tileData[1] = 26 would give startX = 200-(26*16)/2 = -8,
+		-- shifting all wall colliders 8px left of the room image.
+		gameScene.mapWidth  = 25
 	end
 end
 
 function gameScene.drawFloor()
-	if not gameScene.tilesImage or not gameScene.tileQuads then
-		return
+	if gameScene.roomImage then
+		love.graphics.setColor(1, 1, 1)
+		love.graphics.draw(gameScene.roomImage, 0, 0)
 	end
-	
-	-- Calculate the starting position to center the map around (200, 120)
-	local startX = VIRTUAL_WIDTH / 2 - (gameScene.mapWidth * gameScene.tileSize) / 2
-	local startY = VIRTUAL_HEIGHT / 2 - (gameScene.mapHeight * gameScene.tileSize) / 2
-	
-	-- Draw each tile in the map
-	for y = 1, gameScene.mapHeight do
-		for x = 1, gameScene.mapWidth do
-			local tileId = gameScene.map[y][x]
-			if tileId and gameScene.tileQuads[tileId] then
-				local drawX = startX + (x - 1) * gameScene.tileSize
-				local drawY = startY + (y - 1) * gameScene.tileSize
-				
-				love.graphics.draw(
-					gameScene.tilesImage,
-					gameScene.tileQuads[tileId],
-					drawX,
-					drawY
-				)
-			end
-		end
+end
+
+function gameScene.drawForeground()
+	if gameScene.foregroundImage then
+		love.graphics.setColor(1, 1, 1)
+		love.graphics.draw(gameScene.foregroundImage, 0, 0)
 	end
 end
 
@@ -1208,6 +1186,9 @@ function gameScene.draw()
 		drawable.obj:draw(gameScene.debugMode)
 	end
 	
+	-- Foreground PNG — occludes entities, drawn above the player
+	gameScene.drawForeground()
+
 	-- Darkness overlay (after all entities, before HUD/dialog)
 	if PlayerData.isInDarkness and gameScene.player then
 		FXshadow.draw(gameScene.player, gameScene.globalLightAmount or 0)
@@ -1363,6 +1344,10 @@ function gameScene.keypressed(key)
 		if gameScene.player and PlayerData.skills.canDash then
 			local dir = (PlayerData.direction ~= "idle") and PlayerData.direction or "right"
 			gameScene.player:startDash(dir)
+		end
+	elseif Input.is(key, "flash") then
+		if gameScene.player then
+			gameScene.player:lightBurst()
 		end
 	end
 end

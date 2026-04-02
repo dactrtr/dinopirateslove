@@ -9,145 +9,115 @@ This document explains the enemy AI system and the rhythm-based "Dance Scene" co
 Enemies (like the `Brocorat`) inherit from the base `Enemy` class and are influenced by global stats stored in `PlayerData`.
 
 ### 1. Global Enemy Data (`PlayerData.EnemiesData`)
-Located in `source/assets/data/PlayerDataTables.lua`:
-- **`powerLevel`**: (1–20) Increases enemy detection range and determines difficulty profiles in the Dance Scene.
-- **`sightRadius`**: Base detection distance. Each enemy's effective radius = `sightRadius + powerLevel × 3`.
-- **`isEvolved`**: Boolean flag indicating if enemies have reached a more dangerous state.
+Located in `source/assets/data/PlayerDataTables.lua`, these values scale the difficulty of the game:
+- **`powerLevel`**: (1-20) Increases enemy detection range and determines difficulty profiles in the Dance Scene.
+- **`sightRadius`**: The base detection radius, sourced from `PlayerData.EnemiesData.sightRadius`. Each enemy's effective radius is `PlayerData.EnemiesData.sightRadius + self.powerLevel * 3`. There is no hardcoded base value — it is set in `PlayerDataTables.lua`.
+- **`isEvolved`**: This field **does not exist**. Enemy evolution state is computed dynamically each encounter inside `DanceScene:determineEnemyType()`, not stored as a persistent flag.
 
 ### 2. Detection & Movement
-- **`search(player)`**: Checks if the player is within the enemy's calculated `sightRadius`. If detected, triggers `blindSearch`.
+- **`search(player)`**: Implemented in `Brocorat` (and `CrewMember`) as subclass overrides — **not** in the base `Enemy` class. Checks if the player is within `sightRadius`. If detected, triggers `blindSearch`.
 - **`blindSearch(player)`**: Moves the enemy directly toward the player's current X/Y.
-- **`linealSearch(player)`**: Alternative AI — enemy only moves if player is aligned on the same X or Y axis within `viewRange`.
-- **Sight radius formula** (set in `Brocorat:init`):
-    ```lua
-    self.sightRadius = PlayerData.EnemiesData.sightRadius + self.powerLevel * 3
-    ```
-    where `self.powerLevel = PlayerData.EnemiesData.powerLevel + PlayerData.sanityCounter`.
-- **Speed Scaling**: `updateMoveSpeed()` adjusts enemy speed based on player battery and darkness.
-- **Group Separation**: Enemies (group `enemy`) are distinct from Crew Members (`crewMember`).
+- **`linealSearch(player)`**: An alternative AI where enemies only move if the player is aligned on the same X or Y axis.
+- **Speed Scaling**: `updateMoveSpeed()` adjusts enemy speed based on the player's battery and darkness. They slow down significantly when the player is in darkness with low battery.
+- **Group Separation**: Enemies (group `enemy`) are distinct from Crew Members (group `crewMember`). This separation prevents the player from unintentionally triggering combat-specific logic (like the Dance Scene) when interacting with crew members.
+- **Movement Tokens**: Like CrewMembers, enemies use `movementFrames` to throttle their updates for performance.
 
-### 3. AI Throttling (Performance)
-Brocorat (and likely other enemy subclasses) **only execute AI every 3 frames**:
-```lua
-function Brocorat:update()
-    self.updateFrameCounter = (self.updateFrameCounter + 1) % 3
-    if self.movementFrames > 0 then
-        self.movementFrames = self.movementFrames - 1
-        if self.updateFrameCounter == 0 then
-            self:search(self.player)  -- AI runs only 1 in 3 frames
-        end
-    end
-end
-```
-Random initial offset (0–2) staggers enemies so they don't all update the same frame.
-
-> [!IMPORTANT]
-> When porting, preserve this 3-frame throttle. Running enemy AI every frame is a significant performance hit on constrained hardware.
-
-### 4. Movement Token System
-Enemies consume `movementFrames` each update. Two mechanisms feed these frames:
-- **Per player step**: `distributeMovementFrames(3)` — adds 3 raw frames per player move.
-- **On B press**: `distributeMovementTokens(5)` — adds 5 tokens × 30 frames/token = 150 frames.
-
-A cap of 90 frames (3 seconds at 30fps) prevents budget accumulation.
-
-### 5. Special Behaviors
-- **Sonar**: `sonar()` makes enemies briefly "shine" when player is focused and in darkness.
-- **Projectile Hit**: If hit by Plungerang, `blind(60)` stops movement for 60 frames.
-- **Blinding (Lightburst)**: `blind(frames)` temporarily stops movement.
-- **Edible Props**: Some enemies can "eat" certain `PropItem` objects if power is high enough, destroying the prop and gaining power.
+### 3. Special Behaviors
+- **Sonar**: `sonar()` makes enemies "shine" when the player is **more than 60 pixels away** on the X axis (`(PlayerData.x - 60) > self.x OR (PlayerData.x + 60) < self.x`), while also focused and in darkness. This provides visual feedback of off-screen enemies.
+- **Projectile (Plungerang)**: Hit detection logic in `projectile.lua` includes `CollideGroups.enemy`. If hit, `hitEntity(other)` is called, which typically blinds/stuns the enemy for 60 frames.
+- **Blinding**: `blind(frames)` temporarily stops enemy movement when hit by a light flash or projectile.
+- **Edible Props**: Some enemies can "eat" certain `PropItem` objects if their `powerLevel > 25`.
 
 ---
 
 ## 💃 Dance Scene (Combat System)
 
-The `DanceScene` is a rhythm mini-game triggered when the player's health drops critically low.
+When a player collides with an enemy, the game transitions to the `DanceScene`.
 
-### 1. Trigger Condition
-In `collisions.lua`, when an `Enemy` hits the player:
-1. HP is reduced by `other.damage` (default: 1).
-2. **If `healthPoints < danceThresholdHP`** (default: 1), `self:fight()` is called.
-3. `fight()` increments `PlayerData.amountDances`, stores enemy info in `PlayerData.lastEnemyTouched`, and transitions to `DanceScene`.
-4. If HP is still above the threshold, `startInvincibility(1000)` fires instead (1-second cooldown).
-
-> [!NOTE]
-> `danceThresholdHP` defaults to 1 in `PlayerDataTables.lua`. The Dance Scene activates when `HP < 1` (i.e., at 0 or below after taking damage), not on the first collision.
+### 1. The Transition
+In `collisions.lua`, hitting an `Enemy` calls `self:fight()`, which:
+- Increments `PlayerData.amountDances`.
+- Stores info about the encounter in `PlayerData.lastEnemyTouched` (ID, Type, Position).
+- Transitions the scene to `DanceScene`.
 
 ### 2. Difficulty Profiles
-`scene:determineEnemyType()` picks a profile based on `PlayerData.EnemiesData.powerLevel`:
+The `DanceScene` selects a pattern profile based on `PlayerData.EnemiesData.powerLevel`. However, the selection is **probabilistic** — `determineDifficultyUpgrade()` does a weighted random roll first using `PlayerData.sanityCounter` (normalized against 100), calories, and power. If the roll fails, the encounter defaults to `"basic"` regardless of power level.
 
-| Type | Power Level | BPM | Buttons |
-|---|---|---|---|
-| `basic` | 1–5 | 16 | 4 |
-| `evolve` | 6–12 | 24 | 6 |
-| `badass` | 13–19 | 28 | 8 |
-| `boss` | 20 | 32 | 12 |
+- **Basic** (1-5): Slow BPM (16), 4 buttons, mostly arrows.
+- **Evolve** (6-12): Faster BPM (24), 6 buttons, mixed input.
+- **Badass** (13-19): Very fast BPM (28), 8 buttons, tough patterns.
+- **Boss** (20): Max speed BPM (32), 12 buttons, high button spam.
 
-`scene:determineDifficultyUpgrade()` uses weighted sanity, power, and calories to calculate a probability of upgrading from `basic`. If a random roll succeeds, the type is upgraded; otherwise it stays `basic`.
+### 3. Pre-Battle "Ready" Screen
+Before the rhythm phase starts, `DanceScene` shows a `ResultsScreen` in a `'ready'` state with `PlayerData.isDancing = false`. The player must press **A** to trigger `startBattle()` and begin the button pattern. This pre-battle moment is separate from the rhythm mechanics.
 
-### 3. Rhythm Mechanics
-- **ButtonPress**: Sprites move right-to-left across the screen.
-- **HitZone**: Area on the left where the correct button must be pressed.
-- **Balance Bar**: Tug-of-war indicator between Win (right) and Lose (left).
-    - **Correct A/B press**: Deals 10 damage to enemy HP, shifts balance right (+5).
-    - **Correct Arrow press**: Increases evade power/accuracy, shifts balance by `+accuracy`.
-    - **Wrong/Miss**: Shifts balance left (−5), or passively drifts left (+accuracy per missed tick).
+### 4. Rhythm Mechanics
+- **ButtonPress**: Sprites move from right to left across the screen.
+- **HitZone**: The area on the left where the player must press the corresponding button.
+- **Balance Bar**: A "tug-of-war" indicator.
+    - **Correct Press**: Moves balance toward the **Win** side. `A/B` buttons deal damage to enemy HP; **Arrows** increase evade power/accuracy.
+    - **Wrong Press/Miss**: Moves balance toward the **Lose** side.
+- **Animations**: `EnemyRatDance` plays attack animations on A/B button presses. `PlayerDance:changeAnimation()` only responds to the **four directional arrow buttons** — A/B do not change the player sprite animation.
 
-### 4. Outcomes
-- **Win** (`balancePosition >= balanceMaxOffset`): Enemy is removed via `findAndKillEnemyById`. Player gains 60 calories and heals by `PlayerData.healedHP`. Transitions back to the room via `Noble.transition(returnRoom, ...)`.
-- **Lose** (`balancePosition <= -balanceMaxOffset`): Transitions to **`TitleScene`** (Game Over), not `DeadScene`.
+### 5. Outcomes
+- **Win**: The enemy is removed from the world via `findAndKillEnemyById`, the player gains 60 calories **and** recovers `PlayerData.healedHP` health points, then transitions back to the maze.
+- **Lose**: Transitions to the `TitleScene` (Game Over).
 
 > [!IMPORTANT]
-> `DanceScene:exit()` always calls `SaveSystem.save()`, whether the player wins or loses.
-
-> [!NOTE]
-> The `determineDifficultyUpgrade()` function uses a weighted calculation of `sanityCounter`, `EnemiesData.powerLevel`, and `calories` to decide if an encounter should be harder than the base `basic` level.
+> The `determineDifficultyUpgrade()` function in `DanceScene` uses a weighted probability roll based on `PlayerData.sanityCounter` (not the raw `sanity` value), power level, and calories. The result is probabilistic — a high power level increases the *chance* of a hard profile, but a failed roll always defaults to `"basic"`.
 
 ---
 
 ## 🛠️ Love2D Porting Guide: Rhythm Combat
 
+This section details implementation of the **DanceScene** mechanics in Love2D.
+
 ### 1. Input Handling (`Noble.Input` vs. `love.keypressed`)
-```lua
-function DanceScene:keypressed(key)
-    if key == "return" or key == "space" then
-        self:danceStep("aButton")
-    elseif key == "escape" or key == "shift" then
-        self:danceStep("bButton")
-    elseif key == "left" then self:danceStep("leftButton")
-    elseif key == "right" then self:danceStep("rightButton")
-    elseif key == "up" then self:danceStep("upButton")
-    elseif key == "down" then self:danceStep("downButton")
-    end
-end
-```
-The `scene:danceStep(key)` logic is platform-agnostic and can be reused directly.
+Playdate uses a table-based `inputHandler` with callbacks like `AButtonDown`.
+- **Love2D Implementation**:
+    - Use the standard `love.keypressed(key)` callback in your Scene state.
+    - **Mapping**:
+        ```lua
+        function DanceScene:keypressed(key)
+            if key == "return" or key == "space" then
+                self:input("aButton")
+            elseif key == "escape" or key == "shift" then
+                self:input("bButton")
+            elseif key == "left" then self:input("leftButton")
+            elseif key == "right" then self:input("rightButton")
+            elseif key == "up" then self:input("upButton")
+            elseif key == "down" then self:input("downButton")
+            end
+        end
+        ```
+    - The `DanceScene.lua` logic for `scene:danceStep(key)` can be reused almost exactly once the input is routed.
 
 ### 2. Visual Primitives & Drawing
-- **Primitives**: `love.graphics.rectangle('line', ...)` and `love.graphics.line(...)`.
-- **Centered Images**: `love.graphics.draw(img, x - img:getWidth()/2, y - img:getHeight()/2)`.
+The scene relies on `Graphics.drawRect`, `drawLine`, and `drawCentered` (Playdate SDK).
+- **Love2D Implementation**:
+    - **Primitives**: Use `love.graphics.rectangle('line', ...)` and `love.graphics.line(...)`.
+    - **Images**: Playdate images have methods like `drawCentered(x, y)`. In Love2D, `love.graphics.draw(img, x, y)` draws from the top-left.
+        - **Correction**: To draw centered: `love.graphics.draw(img, x - img:getWidth()/2, y - img:getHeight()/2)`.
 
 ### 3. Scene Lifecycle
-Use a library like **Hump Gamestate** — `enter`, `update`, `draw`, `leave` map closely to Noble's lifecycle.
+The game uses `NobleScene` for management (`init`, `enter`, `update`, `exit`).
+- **Love2D Implementation**:
+    - Use a library like **Hump Gamestate**. The method names `enter`, `update`, `draw`, `leave` map very closely to Noble's lifecycle.
+    - **Transitions**: Complex transitions (like `MetroNexus`) are specific to Noble. You will need to implement custom screen wipes (e.g., a simple fade-to-black or sliding rectangle) in Love2D.
 
 ### 4. Randomness (RNG)
-- Replace `playdate.getCurrentTimeMilliseconds()` seed with `math.randomseed(os.time())` in `love.load()`.
+The scene seeds RNG using `playdate.getCurrentTimeMilliseconds()` to ensure unique difficulty rolls.
+- **Love2D Implementation**:
+    - Use `math.randomseed(os.time())` in `love.load()`.
+    - Lua's `math.random` works consistently across both platforms.
 
 ### 5. Hit Detection
-`HitZone` uses `overlappingSprites()`. In Love2D, use AABB intersection:
-```lua
-function checkOverlap(a, b)
-    return a.x < b.x + b.w and a.x + a.w > b.x and
-           a.y < b.y + b.h and a.y + a.h > b.y
-end
-```
-
-### 6. AI Throttling (Porting Note)
-`playdate.timer` is not available in Love2D. For the 3-frame throttle, use a frame counter:
-```lua
--- Replace playdate.timer usage with a simple counter
-self.frameCounter = (self.frameCounter + 1) % 3
-if self.frameCounter == 0 then
-    self:search(player)
-end
-```
+The `HitZone` checks for overlapping sprites (`overlappingSprites()`).
+- **Love2D Implementation**:
+    - Since `ButtonPress` objects are simple moving entities (not full physics bodies), you can use simple AABB (Rectangle) intersection checks in `update()`:
+    ```lua
+    function checkOverlap(a, b)
+        return a.x < b.x + b.w and a.x + a.w > b.x and
+               a.y < b.y + b.h and a.y + a.h > b.y
+    end
+    ```

@@ -414,7 +414,14 @@ function collisions.startInvincibility(player, durationMs)
 end
 
 function collisions.fight(player)
-	printDebug("⚔️ Player:fight() triggered!")
+	local sceneManager = require 'sceneManager'
+	PlayerData.amountDances = (PlayerData.amountDances or 0) + 1
+	-- Save player exit position for return after battle
+	PlayerData.playerExit = PlayerData.playerExit or {}
+	PlayerData.playerExit.x = PlayerData.x
+	PlayerData.playerExit.y = PlayerData.y
+	printDebug("⚔️ fight() → transitioning to DanceScene")
+	sceneManager.startTransition("game", "dance", "slide")
 end
 
 function collisions.startSliding(player, direction)

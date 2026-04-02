@@ -2,10 +2,6 @@
 
 The HUD (Heads-Up Display) provides real-time information about the player's status, including battery life, health, and sanity. It is anchored to the player and drawn on top of the game world.
 
-> [!IMPORTANT]
-> **The entire HUD is invisible until `PlayerData.items.hasDWatch == true`.**
-> When `hasDWatch` is `false`, the main sprite, battery indicator, and health indicator are all hidden via `setVisible(false)`. The HUD only becomes active once the player collects the DWatch item. This is the primary visibility gate — check `hasDWatch` before rendering any HUD component in a port.
-
 ---
 
 ## 🖥️ Main Component: `playerHud`
@@ -13,30 +9,24 @@ Path: `entities/UI/playerHud.lua`
 
 The `playerHud` is a `NobleSprite` that follows the player and coordinates several sub-indicators.
 
-- **Positioning**: Moves to the player position each frame with a Y offset:
-    - Normal mode: `player.y - 36`
-    - Tiny mode (`PlayerData.isTiny == true`): `player.y - 22`
-- **Sanity States**: The HUD background image changes based on `PlayerData.sanity` using named animation states:
-
-| Animation State | Condition |
-|---|---|
-| `sanity100` | `sanity > 80` |
-| `sanity80` | `sanity > 60` |
-| `sanity60` | `sanity > 40` |
-| `sanity40` | `sanity > 20` |
-| `sanity20` | `sanity > 0` |
-| `sanity0` | `sanity == 0` |
-
-The animation states are set via `self.animation:setState('sanity100')` etc. — they are **named strings**, not frame indices.
+- **Positioning**: Moves to `(player.x, player.y - 36)` normally, or `(player.x, player.y - 22)` when `PlayerData.isTiny == true`.
+- **Visibility**: The entire HUD (background, battery, health) is only visible when `PlayerData.items.hasDWatch` is true. The HUD is hidden without the D-Watch regardless of lamp or boot ownership.
+- **Sanity States**: The HUD background image changes based on `PlayerData.sanity`.
+    - `sanity100`: > 80 (States 1,1)
+    - `sanity80`: > 60 (States 3,4)
+    - `sanity60`: > 40 (States 5,6)
+    - `sanity40`: > 20 (States 7,9)
+    - `sanity20`: > 0 (States 10,11)
+    - `sanity0`: 0 (States 12,13)
 
 ---
 
 ## ❤️ Health Representation: `HealthIndicator`
 Path: `entities/UI/healthIndicator.lua`
 
-The Health Indicator represents the player's `healthPoints` (default 10) using 5 hearts in the HUD.
+The Health Indicator represents the player's `healthPoints` (default **3**).
 
-- **Logic**: Each heart represents 2 health points. A full heart is filled with two black squares.
+- **Logic**: Draws one filled black square per health point. The `xPositions` array supports up to 10 HP positions. With the default of 3, only 3 squares fill.
 - **Coordinates**: The squares are drawn at specific pixel offsets to align with the `UIHud` image:
     - `xPositions = {4, 5, 10, 11, 16, 17, 22, 23, 28, 29}`
     - `yPos = 8`
@@ -49,32 +39,21 @@ Path: `entities/UI/battery.lua`
 
 The Battery Indicator shows the charge level in the canister.
 
-- **Visibility**: Only visible if `hasDWatch == true` (controlled by `playerHud:update()`).
+- **Visibility**: The battery image updates only when `hasLamp or hasBoots` is true. Overall HUD visibility is controlled by `playerHud` (requires `hasDWatch`).
 - **Logic**: Draws a black bar where the width is calculated as `(battery * 27) / 100`.
 - **Position**: Offset slightly from the main HUD `(tx, ty - 3)`.
 
 ---
 
-## 🗝️ Key Indicator: `keyHud` (Legacy)
+## 🗝️ Key Indicator: `keyHud`
 Path: `entities/UI/keyHud.lua`
 
-> [!WARNING]
-> **Legacy component.** `keyHud` uses `PlayerData.hasKey` (a flat boolean) to show/hide a key icon. However, the actual key system uses `PlayerData.keys[keyNum]` (an indexed table where each key slot can be `true`/`false`). When porting, use the `PlayerData.keys` table — do not rely on `PlayerData.hasKey`.
+`keyHud` is a standalone sprite class. **It is imported by `playerHud.lua` but never instantiated there.** It exists as an independent component and is not wired into the `playerHud` hierarchy.
 
-```lua
--- Legacy keyHud logic (uses flat boolean — deprecated)
-function keyHud:update()
-    if PlayerData.hasKey == false then
-        self:setImage(nil)
-    else
-        self:setImage(keyIndicator)
-    end
-end
+## 🧠 Sanity HUD: `sanityHud`
+Path: `entities/UI/sanityHud.lua`
 
--- Correct real key system:
--- PlayerData.keys[1] = true  (player has key #1)
--- PlayerData.keys[2] = false (player does not have key #2)
-```
+Similarly, `sanityHud` is imported by `playerHud.lua` but **not instantiated** — only `batteryIndicator` and `healthIndicator` are created by `playerHud`. Sanity is reflected via the background image state changes in `playerHud` itself (the `sanity100`, `sanity80`, etc. states).
 
 ---
 
@@ -89,65 +68,60 @@ The HUD and its children use a layered Z-Index to ensure correct rendering order
 
 ---
 
-## 🎒 In-Game Menu Overlay
-Path: `entities/UI/inGameMenu.lua`
+## 🎮 Love2D Porting Notes
 
-The in-game menu is a separate UI component that overlays the screen to display equipment (Lamp, Boots, Plungerang), a map, and collected crew member hats.
-For deep details on how the menu operates and examples for implementing it in Love2D, refer to the [In-Game Menu Documentation](INGAME_MENU.md).
-
----
-
-## 🛠️ Love2D Porting Guide
-
-### 1. hasDWatch Gate
-The most critical difference: **check `PlayerData.items.hasDWatch` before drawing any HUD element**. If false, skip all HUD rendering.
-
+### 1. HUD as a Canvas Layer
+In Love2D, draw the HUD last in `love.draw` using a fixed screen-space canvas:
 ```lua
-function HUD:draw()
-    if not PlayerData.items.hasDWatch then return end
-    -- Draw battery, health, sanity...
+function love.draw()
+    -- Draw world
+    drawWorld()
+    -- Draw HUD on top (screen-space, no camera transform)
+    love.graphics.origin()
+    if PlayerData.items.hasDWatch then
+        HUD:draw(player.x, player.y)
+    end
 end
 ```
 
-### 2. Sanity Animation States
-Use `anim8` or a state machine to map sanity value to the correct frame range. The states map to these frame ranges in the spritesheet (from `playerHud.lua`):
-
-| State | Frames |
-|---|---|
-| `sanity100` | 1–1 |
-| `sanity80` | 3–4 |
-| `sanity60` | 5–6 |
-| `sanity40` | 7–9 |
-| `sanity20` | 10–11 |
-| `sanity0` | 12–13 |
-
+### 2. Follow Player Position
 ```lua
-function HUD:getSanityState(sanity)
+function HUD:draw(playerX, playerY)
+    local yOffset = PlayerData.isTiny and -22 or -36
+    local hudX, hudY = playerX, playerY + yOffset
+    love.graphics.draw(self.bgImage, hudX, hudY)
+    self.battery:draw(hudX, hudY)
+    self.health:draw(hudX, hudY)
+end
+```
+
+### 3. Sanity Background States
+Map `PlayerData.sanity` thresholds to image variants:
+```lua
+local function getSanityState(sanity)
     if sanity > 80 then return "sanity100"
     elseif sanity > 60 then return "sanity80"
     elseif sanity > 40 then return "sanity60"
     elseif sanity > 20 then return "sanity40"
     elseif sanity > 0  then return "sanity20"
-    else return "sanity0"
-    end
+    else return "sanity0" end
 end
 ```
 
-### 3. Y Offset (Tiny Mode)
-Track the player's `isTiny` state and switch the Y offset:
+### 4. Health Bar
+Draw one square per HP point using `love.graphics.rectangle`:
 ```lua
-local yOffset = PlayerData.isTiny and -22 or -36
-self.hudY = player.y + yOffset
-```
-
-### 4. Sub-Sprite Tracking
-Playdate's sprite system automatically manages child sprites. In Love2D, you must manually track and update `Battery` and `HealthIndicator` positions each frame alongside `playerHud`.
-
-### 5. Key System (Legacy vs. Real)
-Do **not** port `keyHud`'s `PlayerData.hasKey` logic. Port to `PlayerData.keys[keyNum]`:
-```lua
--- Love2D: check if player has a specific key
-function hasKey(keyNum)
-    return PlayerData.keys and PlayerData.keys[keyNum] == true
+local xPositions = {4,5,10,11,16,17,22,23,28,29}
+for i = 1, PlayerData.healthPoints do
+    love.graphics.setColor(0, 0, 0)
+    love.graphics.rectangle("fill", hudX + xPositions[i], hudY + 8, 1, 3)
 end
 ```
+
+---
+
+## 🎒 In-Game Menu Overlay
+Path: `entities/UI/inGameMenu.lua`
+
+The in-game menu is a separate UI component that overlays the screen to display equipment (Lamp, Boots, Plungerang), a map, and collected crew member hats. 
+For deep details on how the menu operates and examples for implementing it in Love2D, refer to the [In-Game Menu Documentation](file:///Users/dactrtr-mini/Documents/GitHub/Dinopirates/source/DOCS/INGAME_MENU.md).

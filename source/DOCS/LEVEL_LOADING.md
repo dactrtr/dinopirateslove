@@ -5,215 +5,542 @@ This document explains the technical flow of how rooms are loaded from data and 
 ---
 
 ## 🗺️ Data Source: `levels.lua`
-The game uses a large table called `levelsLDTK` (exported from LDtk) as its world database. Each entry contains:
+The game uses a large table called `levelsLDTK` (exported from LDtk) as its world database. Each entry in this table contains:
 - **`identifier`**: The room name (e.g., "Room_8").
-- **`customFields`**: Critical metadata: `level`, `roomNumber`, `shadow`, `tile`, `visited`, `DoorsConnection`, etc.
-- **`entities`**: All objects to spawn (Doors, Props, Enemies, etc.) with coordinates and custom fields.
-- **`neighbourLevels`**: Structural data for creating doors and vertical connections.
+- **`customFields`**: Critical metadata like `level`, `roomNumber`, `shadow` (darkness), and `tile` (tilemap ID).
+- **`entities`**: A list of all objects to spawn (Doors, Props, Enemies, etc.) with their coordinates and custom fields.
+- **`neighbourLevels`**: Structural data used to create doors and walls.
 
 ---
 
 ## 🔢 Room Numbering & Translation
 
-**`RoomNumber = (Level × 100) + InternalRoomID`**
-
-*Example: Level 4, Room 8 → `408`.*
-
-Total rooms: **80** (`TOTAL_ROOMS = 80` in `MapDrawer.calculateMapPercent()`).
+The game uses a "Full Room Number" system to identify unique locations:
+**`RoomNumber = (Level * 100) + InternalRoomID`**
+*Example: Level 4, Room 8 becomes Room 408.*
 
 ### `RoomTranslate(roomNumber)`
-Located in `utilities/Utilities.lua`:
+Located in `utilities/Utilities.lua`, this function is the "bridge" between numeric IDs and the scene classes defined in the game:
 ```lua
 function RoomTranslate(roomNumber)
     local floorClass = "Floor" .. roomNumber
     return _G[floorClass]
 end
 ```
-Looks up `"Floor408"` in the global Lua table `_G` and returns the class, which `Noble.transition` uses.
+It looks up the string `"Floor408"` in the global Lua table `_G` and returns the class, which is then used by `Noble.transition`.
 
 ---
 
 ## 🏗️ The `MazeScene` Loading Flow
 
+When a transition occurs, `MazeScene` goes through a specific lifecycle to build the room:
+
 ### 1. Finding the Room (`setFloor`)
-Searches `levelsLDTK` for the entry matching the desired `level` and `roomNumber`.
+Before Entering, the game searches `levelsLDTK` for the entry matching the desired `level` and `roomNumber` to get its index in the table.
 
 ### 2. Room Setup (`enter`)
-- Sets `PlayerData.isInDarkness` and `PlayerData.actualTilemap`.
-- Renders the tilemap and creates `FXshadow` if the room is dark.
-- Calls `CreateTileColliders` (walls) and `CreateDoorsFromLDTK`.
+- **Metadata**: Sets `PlayerData.isInDarkness` and `PlayerData.actualTilemap` based on room fields.
+- **Environment**: Renders the `tilemap` and creates the `FXshadow` if the room is dark.
+- **Walls & Doors**: Calls `CreateTileColliders` (for walls) and `CreateDoorsFromLDTK`. Walls are automatically generated from non-walkable tiles in the tilemap.
 
 ### 3. Entity Spawning
-Iterates room `entities` to spawn Props, Items, Enemies, and CrewMembers based on their state flags (`dead`, `destroyed`, `isTaken`, `collected`).
+The scene iterates through the room's `entities` table:
+- **Props**: Spawns `PropItem` instances, checking if they were previously `destroyed`.
+- **Items**: Spawns `Items` (pickups) only if the player doesn't already have them. For `itemgift` and `notes`, it checks the `grants` field to see if the player owns the specific items or skills listed.
+- **Enemies**: Spawns `Brocorat`, `Bosscolli`, or `CrewMember` based on their `dead` or `isTaken` status.
+- **Triggers**: Spawns `Trigger` entities from the `Triggers` entity list, which drive dialogs, cutscenes, counters, and interactive events.
+
+### 4. Foreground & Cutscenes
+- **Foreground**: If the room has a `hasForeground` custom field, a foreground sprite is overlaid at `ZIndex.foreground` to create depth occlusion above the player.
+- **Cutscenes (Panels)**: If `levelsLDTK[room].customFields.comic_wasPlayed` is false and the room has a comic sequence, the Panels library is triggered to play the intro cutscene before gameplay begins.
 
 ---
 
 ## 🔄 Persistence
-- `MazeScene:finish()` calls `SaveSystem.save()` (two call sites) to persist changes on room exit.
-- `DanceScene:exit()` also calls `SaveSystem.save()`.
-- State is stored in-memory in `levelsLDTK` until saved.
+State changes are saved back into the `levelsLDTK` table (or mirrored in `PlayerData`):
+- When an enemy is killed or a prop is broken, the `customFields` in the active `levelsLDTK` entry are updated.
+- `MazeScene:finish()` and `MazeScene:pause()` both call `SaveSystem.save()`, ensuring changes persist when exiting a room or pausing (e.g., opening the system menu).
 
----
-
-## 🗺️ Minimap: `MapDrawer`
-Path: `utilities/MapDrawer.lua`
-
-### floorConfig — Important: Inverted Index Order
-
-> [!IMPORTANT]
-> `floorConfig` in `MapDrawer.drawMap` uses **inverted array indices**: `floorConfig[1]` describes Level 4 rooms, and `floorConfig[4]` describes Level 1 rooms. The lookup uses `floorConfig[cf.level]` directly, so the index must match the room's `cf.level` field from LDtk.
-
-```lua
-local floorConfig = {
-    [1] = { cols=5, rows=3, posX=142, posY=73,  startRoom=66 },  -- Level 4: rooms 66–80
-    [2] = { cols=7, rows=5, posX=131, posY=18,  startRoom=31 },  -- Level 3: rooms 31–65
-    [3] = { cols=5, rows=3, posX=32,  posY=65,  startRoom=16 },  -- Level 2: rooms 16–30
-    [4] = { cols=5, rows=3, posX=32,  posY=29,  startRoom=1  },  -- Level 1: rooms 1–15
-}
-```
-
-**startRoom values**: L4=66, L3=31, L2=16, L1=1.
-
-### Grid Dimensions
-- Room cell: **7×7 pixels** (`roomSize = 7`)
-- Cell spacing: **6 pixels** (`spacing = 6`)
-- Room index on floor: `roomNumber - config.startRoom` (0-based)
-
-### Rendering States
-- **Current room** (`PlayerData.actualLevel == level AND actualRoom == roomNumber`): White outer square (5×5), black inner square (3×3).
-- **Visited rooms**: White filled square (5×5) at `posX+1, posY+1`.
-- **Unvisited rooms**: Dithered background grid only.
-
-### DoorsConnection Case Sensitivity
-`DoorsConnection` values in LDtk use **Title Case** (`"Lower"`, `"Upper"`, `"Top"`, `"Down"`, `"Left"`, `"Right"`). The `CanMoveVertically()` function normalizes with `:lower()` before comparing:
-```lua
-if allowed:lower() == requiredConnection:lower() then
-```
-Porters must handle this normalization when checking `DoorsConnection`.
+> [!TIP]
+> The dynamic wall system in `Utilities.lua` is what allows rooms to feel connected; it hides the 12px wall sprites only where a neighbor is detected in LDtk.
 
 ---
 
 ## 🪜 Vertical Level Navigation System
 
+The game supports vertical navigation between floors using a **neighbor-based connection system**. This allows the player to fall down holes or climb up tubes to different levels.
+
 ### Level Connection Architecture
 
-Each room contains two critical fields:
+Each room in `levelsLDTK` contains two critical fields for vertical navigation:
 
-#### `neighbourLevels` Array
-Defines adjacent rooms. Each entry:
-- `levelIid`: unique identifier of the neighboring room
-- `dir`: direction — `"<"` (lower floor), `">"` (upper floor), `"n"`, `"s"`, `"e"`, `"w"` (cardinal)
+#### 1. `neighbourLevels` Array
+This array defines which rooms are adjacent to the current room. Each neighbor entry contains:
+- **`levelIid`**: The unique identifier (`uniqueIdentifer`) of the neighboring room
+- **`dir`**: The direction of the neighbor using LDtk notation:
+  - `"<"` = Lower floor (fall down)
+  - `">"` = Upper floor (climb up)
+  - `"n"`, `"s"`, `"e"`, `"w"` = Cardinal directions (north, south, east, west)
+  - `"nw"`, `"ne"`, `"sw"`, `"se"` = Diagonal directions
 
-#### `customFields.DoorsConnection` Array
-Permission system for connections (Title Case strings): `"Upper"`, `"Lower"`, `"Top"`, `"Down"`, `"Left"`, `"Right"`.
+**Example from Room_8:**
+```lua
+neighbourLevels = {
+  {
+    levelIid = "3d752854-ac70-11f0-998c-5dddbfac239d",
+    dir = "<"  -- Lower floor connection
+  },
+  {
+    levelIid = "bf654080-ac70-11f0-997a-e578ba2da2ac",
+    dir = "n"  -- North door
+  },
+  -- ... more neighbors
+}
+```
+
+#### 2. `customFields.DoorsConnection` Array
+This array acts as a **permission system** that determines which types of connections are allowed in this room. It contains string values like:
+- `"Upper"` - Allows climbing to upper floor
+- `"Lower"` - Allows falling to lower floor
+- `"Top"`, `"Down"`, `"Left"`, `"Right"` - Allows cardinal direction doors
+
+**Example from Room_8:**
+```lua
+customFields = {
+  level = 4,
+  roomNumber = 8,
+  DoorsConnection = {
+    "Top",    -- Can use north doors
+    "Down",   -- Can use south doors
+    "Lower"   -- Can fall to lower floor
+  }
+}
+```
 
 > [!IMPORTANT]
-> A room can have a neighbor without the corresponding permission in `DoorsConnection`. No permission = player cannot use that connection.
+> A room can have a neighbor in the `neighbourLevels` array, but if the corresponding direction is NOT in `DoorsConnection`, the player **cannot** use that connection. This allows level designers to create one-way passages or locked vertical connections.
 
-### How `fallBelow()` / `riseAbove()` Work
+### How `fallBelow()` Works
+
+Located in [`entities/player/state.lua`](../entities/player/state.lua#L1-L32), this function handles falling to a lower floor:
 
 ```lua
 function Player:fallBelow()
-    local lowerRoomNumber, _ = GetLowerRoom(PlayerData.floor)
-    if not lowerRoomNumber then return end
-    PlayerData.playerSpawn.x = self.x
-    PlayerData.playerSpawn.y = self.y
-    Noble.transition(RoomTranslate(lowerRoomNumber), 1.5, Noble.Transition.Imagetable, {
-        imagetableEnter = Graphics.imagetable.new('assets/images/screens/transitions/transitionFallEnter'),
-        imagetableExit  = Graphics.imagetable.new('assets/images/screens/transitions/transitionFallOut'),
-    })
+  -- 1. Get current room index from PlayerData
+  local currentRoomIndex = PlayerData.floor
+  
+  -- 2. Search for lower room using GetLowerRoom()
+  local lowerRoomNumber, lowerRoomData = GetLowerRoom(currentRoomIndex)
+  
+  -- 3. Validate that a lower room exists
+  if not lowerRoomNumber then
+    return  -- Cannot fall from this room
+  end
+  
+  -- 4. Translate room number to scene class
+  local nextScene = RoomTranslate(lowerRoomNumber)
+  
+  -- 5. Preserve player position (X and Y)
+  PlayerData.playerSpawn.x = self.x
+  PlayerData.playerSpawn.y = self.y
+  
+  -- 6. Transition to the lower room with fall animation
+  Noble.transition(nextScene, 1.5, Noble.Transition.Imagetable, {
+    imagetableEnter = Graphics.imagetable.new('assets/images/screens/transitions/transitionFallEnter'),
+    imagetableExit = Graphics.imagetable.new('assets/images/screens/transitions/transitionFallOut'),
+  })
 end
 ```
 
+**Key Steps:**
+1. **Get Current Room**: Retrieves the current room index from `PlayerData.floor`
+2. **Find Lower Room**: Calls `GetLowerRoom()` which performs validation
+3. **Validate Connection**: Returns `nil` if no valid lower room exists
+4. **Translate to Scene**: Converts room number (e.g., `308`) to scene class (`Floor308`)
+5. **Preserve Position**: Keeps player X/Y coordinates for seamless transition
+6. **Transition**: Uses Noble framework with custom fall animations
+
+### How `riseAbove()` Works
+
+Located in [`entities/player/state.lua`](../entities/player/state.lua#L34-L59), this function handles climbing to an upper floor:
+
+```lua
+function Player:riseAbove()
+  -- 1. Get current room index
+  local currentRoomIndex = PlayerData.floor
+  
+  -- 2. Search for upper room using GetUpperRoom()
+  local upperRoomNumber, upperRoomData = GetUpperRoom(currentRoomIndex)
+  
+  -- 3. Validate that an upper room exists
+  if not upperRoomNumber then
+    return  -- Cannot climb from this room
+  end
+  
+  -- 4. Translate room number to scene class
+  local nextScene = RoomTranslate(upperRoomNumber)
+  
+  -- 5. Preserve player position
+  PlayerData.playerSpawn.x = self.x
+  PlayerData.playerSpawn.y = self.y
+  
+  -- 6. Transition to the upper room
+  Noble.transition(nextScene, 1.5, Noble.Transition.Default)
+end
+```
+
+The logic is identical to `fallBelow()` but uses `GetUpperRoom()` instead.
+
+### The `GetLowerRoom()` Function
+
+Located in [`utilities/Utilities.lua`](../utilities/Utilities.lua#L213-L261), this function performs the actual neighbor search and validation:
+
+```lua
+function GetLowerRoom(currentRoomIndex)
+  -- 1. Get current room data from levelsLDTK
+  local currentRoom = levelsLDTK[currentRoomIndex]
+  
+  -- 2. Validate permission using CanMoveVertically()
+  if not CanMoveVertically(currentRoom, "<") then
+    return nil  -- Room doesn't have "Lower" in DoorsConnection
+  end
+  
+  -- 3. Find neighbor with direction "<" (lower)
+  local lowerNeighbor = FindNeighborByDirection(currentRoom, "<")
+  if not lowerNeighbor then
+    return nil  -- No lower neighbor defined
+  end
+  
+  -- 4. Find the actual room data using the neighbor's iid
+  local lowerRoom = FindRoomByIid(lowerNeighbor.levelIid)
+  
+  -- 5. Calculate full room number (level * 100 + roomNumber)
+  if lowerRoom then
+    local level = lowerRoom.customFields.level
+    local roomNum = lowerRoom.customFields.roomNumber
+    local roomNumber = level * 100 + roomNum
+    return roomNumber, lowerRoom
+  else
+    -- Fallback: calculate expected room number
+    local currentLevel = currentRoom.customFields.level
+    local currentRoomNum = currentRoom.customFields.roomNumber
+    local expectedRoom = (currentLevel - 1) * 100 + currentRoomNum
+    return expectedRoom, nil
+  end
+end
+```
+
+**Validation Flow:**
+1. **Permission Check**: `CanMoveVertically()` checks if `"Lower"` exists in `DoorsConnection`
+2. **Neighbor Search**: `FindNeighborByDirection()` looks for a neighbor with `dir = "<"`
+3. **Room Lookup**: `FindRoomByIid()` finds the actual room data using the `levelIid`
+4. **Room Number Calculation**: Combines `level * 100 + roomNumber` to get full room ID
+
+### The `GetUpperRoom()` Function
+
+Located in [`utilities/Utilities.lua`](../utilities/Utilities.lua#L266-L314), this function is identical to `GetLowerRoom()` but:
+- Uses `CanMoveVertically(currentRoom, ">")` to check for `"Upper"` permission
+- Searches for neighbor with `dir = ">"`
+- Calculates upper room as `(currentLevel + 1) * 100 + currentRoomNum`
+
 ### Helper Functions
 
-#### `GetLowerRoom(currentRoomIndex)`
-1. Validates `"Lower"` in `DoorsConnection` via `CanMoveVertically(currentRoom, "<")`.
-2. Finds neighbor with `dir = "<"`.
-3. Looks up room via `FindRoomByIid(neighbor.levelIid)`.
-4. Returns `level * 100 + roomNumber`.
-
 #### `CanMoveVertically(currentRoom, direction)`
+Validates if vertical movement is allowed by checking `DoorsConnection`:
 ```lua
-local directionMap = { ["<"] = "lower", [">"] = "upper" }
--- Compares with :lower() for case-insensitive match
+function CanMoveVertically(currentRoom, direction)
+  local doorsConnection = currentRoom.customFields.DoorsConnection or {}
+  
+  local directionMap = {
+    ["<"] = "lower",  -- Fall downwards
+    [">"] = "upper"   -- Climb upwards
+  }
+  
+  local requiredConnection = directionMap[direction]
+  
+  for _, allowed in ipairs(doorsConnection) do
+    if allowed:lower() == requiredConnection:lower() then
+      return true
+    end
+  end
+  
+  return false
+end
+```
+
+#### `FindNeighborByDirection(currentRoom, direction)`
+Searches the `neighbourLevels` array for a specific direction:
+```lua
+function FindNeighborByDirection(currentRoom, direction)
+  if not currentRoom.neighbourLevels then
+    return nil
+  end
+  
+  for _, neighbor in ipairs(currentRoom.neighbourLevels) do
+    if neighbor.dir == direction then
+      return neighbor
+    end
+  end
+  
+  return nil
+end
 ```
 
 #### `FindRoomByIid(iid)`
-Uses `roomsByIid` hash for O(1) lookup (built in `main.lua`). Linear search fallback.
+Finds a room by its unique identifier. Uses a hash index (`roomsByIid`) for O(1) lookup, with linear search fallback.
+
+> [!NOTE]
+> `FindRoomByIid` is defined in **`entities/props/door.lua`**, not in `utilities/Utilities.lua`. It is a local helper used by the door loading system to resolve neighbor rooms from LDtk `levelIid` references.
+
+```lua
+-- entities/props/door.lua
+function FindRoomByIid(iid)
+  -- Fast hash lookup
+  if roomsByIid and roomsByIid[iid] then
+    return roomsByIid[iid]
+  end
+
+  -- Fallback: linear search
+  for i, room in ipairs(levelsLDTK) do
+    if room and room.uniqueIdentifer == iid then
+      return room
+    end
+  end
+
+  return nil
+end
+```
 
 ---
 
-## 💡 Love2D Porting Guide
+## 💡 Love2D Porting Guide: Vertical Navigation
 
-### 1. Data Structure
-`levelsLDTK` is pure Lua/JSON — works identically in Love2D:
+When porting this system to Love2D, consider the following implementation approach:
+
+### 1. Data Structure (No Changes Needed)
+The `levelsLDTK` table structure works perfectly in Love2D. You can use the same JSON export from LDtk.
+
 ```lua
-local json = require("json")
+-- Love2D: Load level data
+local json = require("json")  -- or use a JSON library like dkjson
 local file = love.filesystem.read("assets/data/levels.json")
 levelsLDTK = json.decode(file)
 ```
 
-### 2. Build Hash Indices
+### 2. Room Index Optimization
+**Playdate Implementation**: Uses `PlayerData.floor` as a numeric index into the `levelsLDTK` array.
+
+**Love2D Recommendation**: Create a hash table for faster lookups:
 ```lua
+-- Build hash indices on game start
 roomsByIid = {}
 roomsByNumber = {}
+
 for i, room in ipairs(levelsLDTK) do
-    roomsByIid[room.uniqueIdentifer] = room
-    local n = room.customFields.level * 100 + room.customFields.roomNumber
-    roomsByNumber[n] = room
+  -- Index by unique ID
+  roomsByIid[room.uniqueIdentifer] = room
+  
+  -- Index by room number
+  local level = room.customFields.level
+  local roomNum = room.customFields.roomNumber
+  local fullNumber = level * 100 + roomNum
+  roomsByNumber[fullNumber] = room
 end
 ```
 
-### 3. RoomTranslate Without _G
+### 3. Scene Transition System
+**Playdate Implementation**: Uses Noble framework's `Noble.transition()` with custom animations.
+
+**Love2D Implementation**: You'll need to implement your own scene manager:
 ```lua
-local SceneRegistry = {}
--- Register each scene:
-SceneRegistry[101] = Floor101
--- ...
-function RoomTranslate(roomNumber)
-    return SceneRegistry[roomNumber]
+-- Love2D: Simple scene manager
+SceneManager = {
+  current = nil,
+  next = nil,
+  transition = {
+    active = false,
+    duration = 1.5,
+    timer = 0,
+    type = "fade"  -- or "fall", "slide", etc.
+  }
+}
+
+function SceneManager:switchTo(sceneName, transitionType, duration)
+  self.next = sceneName
+  self.transition.active = true
+  self.transition.type = transitionType or "fade"
+  self.transition.duration = duration or 1.5
+  self.transition.timer = 0
 end
-```
 
-### 4. Scene Transition
-Replace `Noble.transition` with a scene manager that supports transition types (`"fade"`, `"fall"`, `"slide"`).
-
-### 5. Minimap Canvas
-Draw the minimap to a `love.graphics.Canvas` instead of a `Graphics.image`:
-```lua
-local minimapCanvas = love.graphics.newCanvas(400, 240)
-love.graphics.setCanvas(minimapCanvas)
--- ... draw room cells ...
-love.graphics.setCanvas()
--- In draw: love.graphics.draw(minimapCanvas, 0, 0)
-```
-
-### 6. Vertical Transition Animation
-Replace imagetable transitions with shaders or sprite sequences:
-```lua
-local fallShader = love.graphics.newShader([[
-    extern number progress;
-    vec4 effect(vec4 color, Image texture, vec2 tc, vec2 pc) {
-        vec4 sum = vec4(0.0);
-        float blur = progress * 0.05;
-        for(float i = -4.0; i <= 4.0; i++) {
-            sum += Texel(texture, vec2(tc.x, tc.y + i * blur));
-        }
-        return sum / 9.0 * color;
-    }
-]])
-```
-
-### 7. Collision Detection for Holes/Tubes
-```lua
-function Player:checkVerticalTriggers()
-    local items, len = world:queryRect(self.x, self.y, self.width, self.height)
-    for i = 1, len do
-        local item = items[i]
-        if item.type == "hole" then self:fallBelow()
-        elseif item.type == "tube" then self:riseAbove()
-        end
+function SceneManager:update(dt)
+  if self.transition.active then
+    self.transition.timer = self.transition.timer + dt
+    
+    if self.transition.timer >= self.transition.duration then
+      -- Complete transition
+      self.current = self.next
+      self.next = nil
+      self.transition.active = false
+      
+      -- Initialize new scene
+      if self.current.enter then
+        self.current:enter()
+      end
     end
+  elseif self.current and self.current.update then
+    self.current:update(dt)
+  end
 end
 ```
+
+### 4. Player Position Preservation
+**Playdate Implementation**: Stores position in `PlayerData.playerSpawn.x/y`.
+
+**Love2D Implementation**: Same approach works perfectly:
+```lua
+-- Love2D: Preserve position during vertical transition
+function Player:fallBelow()
+  local currentRoomIndex = PlayerData.floor
+  local lowerRoomNumber, lowerRoomData = GetLowerRoom(currentRoomIndex)
+  
+  if not lowerRoomNumber then
+    return
+  end
+  
+  -- Preserve position (same as Playdate)
+  PlayerData.playerSpawn.x = self.x
+  PlayerData.playerSpawn.y = self.y
+  
+  -- Transition to new scene
+  local nextScene = RoomTranslate(lowerRoomNumber)
+  SceneManager:switchTo(nextScene, "fall", 1.5)
+end
+```
+
+### 5. Transition Animations
+**Playdate Implementation**: Uses imagetable animations for fall transitions.
+
+**Love2D Implementation**: Use shaders or sprite-based animations:
+```lua
+-- Love2D: Fall transition shader
+local fallShader = love.graphics.newShader([[
+  extern number progress;  // 0.0 to 1.0
+  
+  vec4 effect(vec4 color, Image texture, vec2 tc, vec2 pc) {
+    // Vertical blur effect
+    vec4 sum = vec4(0.0);
+    float blur = progress * 0.05;
+    
+    for(float i = -4.0; i <= 4.0; i++) {
+      sum += Texel(texture, vec2(tc.x, tc.y + i * blur));
+    }
+    
+    return sum / 9.0 * color;
+  }
+]])
+
+-- In transition update:
+function TransitionManager:drawFall(progress)
+  fallShader:send("progress", progress)
+  love.graphics.setShader(fallShader)
+  -- Draw current scene
+  love.graphics.setShader()
+end
+```
+
+### 6. Collision Detection for Holes/Tubes
+**Playdate Implementation**: Uses sprite overlap detection with collision groups.
+
+**Love2D Implementation**: Use a physics library like bump.lua or HC (HardonCollider):
+```lua
+-- Love2D with bump.lua
+function Player:checkVerticalTriggers()
+  local items, len = world:queryRect(self.x, self.y, self.width, self.height)
+  
+  for i = 1, len do
+    local item = items[i]
+    
+    if item.type == "hole" then
+      -- Trigger fall
+      self:fallBelow()
+    elseif item.type == "tube" then
+      -- Trigger climb
+      self:riseAbove()
+    end
+  end
+end
+```
+
+### 7. Performance Considerations
+
+**Playdate Constraints**: 
+- Limited memory (16MB)
+- Single-threaded
+- Uses array indices for fast access
+
+**Love2D Advantages**:
+- More memory available
+- Can use hash tables without performance penalty
+- Can preload multiple rooms for faster transitions
+
+**Recommended Love2D Optimization**:
+```lua
+-- Preload adjacent rooms for instant transitions
+function RoomManager:preloadAdjacentRooms(currentRoomIndex)
+  local currentRoom = levelsLDTK[currentRoomIndex]
+  
+  for _, neighbor in ipairs(currentRoom.neighbourLevels) do
+    local neighborRoom = FindRoomByIid(neighbor.levelIid)
+    
+    if neighborRoom and not neighborRoom.loaded then
+      -- Load tilemap, entities, etc.
+      self:loadRoomAssets(neighborRoom)
+      neighborRoom.loaded = true
+    end
+  end
+end
+```
+
+### 8. Debug Visualization
+**Love2D Advantage**: Easy to visualize connections for debugging:
+```lua
+-- Love2D: Draw neighbor connections (debug mode)
+function DebugDraw:drawRoomConnections(room)
+  love.graphics.setColor(1, 1, 0, 0.5)  -- Yellow
+  
+  for _, neighbor in ipairs(room.neighbourLevels) do
+    local neighborRoom = FindRoomByIid(neighbor.levelIid)
+    
+    if neighborRoom then
+      -- Draw arrow from current room to neighbor
+      local dx = neighborRoom.x - room.x
+      local dy = neighborRoom.y - room.y
+      
+      love.graphics.line(
+        room.x + room.width/2,
+        room.y + room.height/2,
+        neighborRoom.x + neighborRoom.width/2,
+        neighborRoom.y + neighborRoom.height/2
+      )
+      
+      -- Draw direction label
+      love.graphics.print(neighbor.dir, 
+        room.x + room.width/2 + dx/2,
+        room.y + room.height/2 + dy/2
+      )
+    end
+  end
+end
+```
+
+---
+
+## 🎮 Triggering Vertical Navigation
+
+The player triggers `fallBelow()` and `riseAbove()` through collision with special entities:
+
+- **Holes**: Entities with `type = "hole*"` trigger `fallBelow()`
+- **Tubes/Ladders**: Entities with `type = "tube"` or `type = "pneumaticTube"` trigger `riseAbove()`
+
+These are typically detected in the player's collision response or overlap detection system.

@@ -6,132 +6,92 @@ This document explains how the `CrewMember` entity works and how to show custom 
 
 ## 🏴‍☠️ CrewMember Logic
 
-The `CrewMember` is a specialized enemy entity with complex behavior for escaping the player and hiding when trapped. The implementation spans ~492 lines in `entities/enemies/crewmember.lua`.
+The `CrewMember` is a specialized enemy entity with complex behavior for escaping the player and hiding when trapped.
 
 ### 1. Movement & AI
-
 - **Escape Mode**: In its `update` loop, if not hiding or blinded, the `CrewMember` calculates a path away from the player.
-- **Movement Budget System** (two distinct functions):
-    - **`addMovementTokens(amount)`** (per-entity method, inherited from `Enemy`): Adds `amount × 30` frames of movement budget. 1 token ≈ 1 second of movement at 30fps.
-    - **`addMovementFrames(frames)`** (per-entity method, inherited from `Enemy`): Adds raw frames directly (capped at 90 frames to prevent accumulation).
-    - **`Player:distributeMovementFrames(frames)`**: Called by the player after each step — distributes raw frames to **all** `Enemy`/`CrewMember` sprites (3 frames per player move).
-    - **`Player:distributeMovementTokens(amount)`**: Called on B press — distributes tokens to **all** `Enemy`/`CrewMember` sprites (5 tokens = 150 frames, on B press in `MazeScene.lua`).
-    - The `update` loop only processes AI if `movementFrames > 0`.
+- **Movement Tokens**: Movement is throttled by a token system.
+    - `addMovementTokens(amount)`: Adds frames of movement based on tokens (1 token ≈ 30 frames).
+    - `addMovementFrames(frames)`: Adds raw frames of movement (capped at 90).
+    - The `update` loop only processes AI search/movement if `movementFrames > 0`.
 
-> [!NOTE]
-> `addMovementFrames` and `addMovementTokens` are per-entity methods (add budget to one entity). `distributeMovementFrames` and `distributeMovementTokens` are Player methods (broadcast to all entities).
-
-### 2. Collision & Bouncing
-
-The `CrewMember` uses the dedicated `CollideGroups.crewMember` group:
-- **Walls (`Box`)**: `'slide'`
-- **Enemies (`Enemy`)**: `'slide'` — blocks movement and triggers bounce logic.
-- **Physical Props**: `'slide'` (chairs, tables, etc.)
-- **Minifier**: `'overlap'` — passes through freely.
-- **Items & Triggers**: `'overlap'`
-
-**Bounce Mechanic**: If blocked by a physical obstacle, `recentBounceCount` increments. The entity enters a "bounce" state for 20 frames, choosing a perpendicular direction.
+### 2. Collision & Bouncing [UPDATED]
+The `CrewMember` has refined collisions to balance navigation and obstacle avoidance.
+- **Collision Mask**: It uses the dedicated `CollideGroups.crewMember` group. It checks for collisions with `CollideGroups.props`, `CollideGroups.wall`, and `CollideGroups.enemy`.
+- **Response Logic (`collisionResponse`)**:
+    - **Walls (`Box`)**: Set to `'slide'`.
+    - **Enemies (`Enemy`)**: Set to `'slide'`. This blocks movement and triggers the bounce logic, allowing crew members to avoid each other and other enemies.
+    - **Physical Props**: Set to `'slide'` (chairs, tables, etc.).
+    - **Minifier**: Set to `'overlap'`. Crew members pass through the pod freely without triggering interactions.
+    - **Items & Triggers**: Set to `'overlap'`.
+- **Bounce Mechanic**: If blocked by a physical obstacle (including enemies), it increments `recentBounceCount`.
+- **Direction Redirect**: If blocked, it enters a "bounce" state for 20 frames, choosing a perpendicular direction.
 
 ### 3. Hiding State
-
-If `CrewMember` bounces `bouncesRequiredToHide` (3) times quickly:
-- **Invisibility**: Sprite state set to `'hide'`.
-- **Non-collidable**: `setCollideRect(0, 0, 0, 0)`, collision groups cleared.
+If the `CrewMember` bounces **2** times in quick succession (`bouncesRequiredToHide = 2`), it enters the **Hiding State**:
+- **Invisibility**: Sprite sets its state to `'hide'`.
+- **Non-collidable**: `setCollideRect(0, 0, 0, 0)` and groups are cleared.
 - **Exit Conditions**:
     1. Player must be outside `hidingVisionRange` (80 pixels).
-    2. `hidingMovementTokensRequired` (3) tokens must be accumulated.
+    2. Enough movement tokens must be accumulated (`hidingMovementTokensRequired = 3`).
 
 ### 4. Special Interactions
+- **Blinding**: `blind(frames)` stops the entity for a duration.
+- **Projectile (Plungerang)**: The `Projectile` entity is configured to hit the `crewMember` group. When hit, it calls `stunInfinite()` on the crew member.
+- **Taking**: `taken()` marks the crew member as captured in `PlayerData`, updates the UI count, removes the sprite, and also restores the player's projectile (`self.player.hasProjectile = true`) — returning the plungerang if it was lost.
 
-- **Blinding (`blind(frames)`)**: Stops the entity for a set number of frames (timed stun).
-- **Infinite Stun (`stunInfinite()`)**: **Indefinite immobilization** — the CrewMember is frozen permanently until the game state changes. This is a **precondition for capture**, typically triggered by the Plungerang hitting the CrewMember.
-
-> [!IMPORTANT]
-> `stunInfinite()` is not a timed effect. It permanently immobilizes the CrewMember until explicitly released. After `stunInfinite()`, the player can capture them with `other:taken()`.
-
-- **Plungerang**: When the Projectile hits a `crewMember` group entity, it calls `other:stunInfinite()` **and** sets `self.player.hasProjectile = false` (losing the boomerang).
-- **Taking (`taken()`)**: Marks the CrewMember as captured in `PlayerData`, updates UI count, removes the sprite.
-
-### 5. Tiny Mode Interactions
-
-If `PlayerData.isTiny == true`:
-- **No Escape**: `search()` defaults to `idle` — CrewMember does not run away.
-- **Trigger Behavior**: Collision sets `player.currentTrigger = crewMember` (`'overlap'` response).
-- **Dialogs**: Player can press A to open dialog using `tinyScript`, falling back to `<crewId>_tiny` or `default_tiny`.
+### 5. Tiny Mode Interactions [NEW]
+If the player is in Tiny Mode (`PlayerData.isTiny == true`):
+- **No Escape**: The crewmember will not run away (the `search` function defaults to `idle`).
+- **Trigger Behavior**: Instead of being captured immediately, colliding with the crewmember sets them as the player's `currentTrigger` (`'overlap'` response instead of capture).
+- **Dialogs**: This allows the player to press 'A' to interact, opening a dialog exactly like a standard `Trigger` entity. It uses the `tinyScript` from LDtk, falling back to `<crewId>_tiny` or `default_tiny` in `script.lua`.
 
 ---
 
 ## 📺 Custom Screens in Collisions
 
-### 1. The Collision Hook
+Screens (dialogs/UI overlays) are managed via `PlayerData` and the `dialogUI` component.
 
-In `source/entities/player/collisions.lua`, `Player:collisionResponse(other)` handles interactions.
+### 1. The Collision Hook [UPDATED]
+In `source/entities/player/collisions.lua`, the `Player:collisionResponse(other)` function handles interactions.
 
-**Note**: Colliding with a `CrewMember` does **not** trigger damage or invincibility.
+**Note**: Colliding with a `CrewMember` does **NOT** trigger damage, blinking, or invincibility. It only initiates the capture logic.
 
+To show a custom screen when hitting a specific `CrewMember`:
 ```lua
 elseif other:isa(CrewMember) then
-    if PlayerData.isTiny then
-        self.currentTrigger = other
-        return 'overlap'
+    -- Example logic: Show a unique screen for a specific Crew ID
+    if other.crewId == 'CM001' then
+        self.dialogUI:addScreen("unique_intro_screen")
     end
+    
+    -- Generic screen for capture
     if PlayerData.CrewMemberData.amountTaken == 0 then
         self.dialogUI:addScreen("gotcha", other.sourceFeed)
     end
+    
     other:taken()
+end
 ```
 
 ### 2. How `addScreen` Works
+The `dialogUI` (instance of `dialogScreen.lua`) uses `addScreen(scriptName)`:
+- It searches the `script` table (loaded globally from `assets/data/script.lua`) for an entry with a matching `name`.
+- It sets `PlayerData.isTalking = true`, which pauses normal gameplay logic.
+- It displays the associated text, video feed, or images defined in the script.
 
-`dialogUI:addScreen(scriptName)`:
-- Searches global `script` table for `name == scriptName`.
-- Sets `PlayerData.isTalking = true`.
-- Displays associated text, video feed, or images.
-
-### 3. Adding Custom Screens
-
-1. **Define the Script** in `assets/data/script.lua`:
+### 3. Customizing the Screen
+To add a new screen:
+1.  **Define the Script**: Add an entry to your scripts data file.
     ```lua
     {
         name = "my_custom_screen",
         dialog = {
-            { text = "my-localization-key", video = "playerSurprise" }
+            { text = "LEVEL_UP_TEXT", video = "celebration", screen = someImage }
         }
     }
     ```
-    Note: `text` is a localization key, not a literal string.
-2. **Call it** in `collisions.lua`:
-    ```lua
-    self.dialogUI:addScreen("my_custom_screen")
-    ```
+2.  **Call it in `collisions.lua`**: Use `self.dialogUI:addScreen("my_custom_screen")`.
 
 > [!TIP]
-> Use `other.sourceFeed` as a second argument to pass a specific video feed index to the dialog system.
-
----
-
-## 🛠️ Love2D Porting Guide
-
-### Key Porting Notes for CrewMember (~492 lines)
-
-1. **Movement Token System**: Port both `addMovementFrames` and `addMovementTokens` as separate methods. The cap of 90 frames for raw frames must be preserved.
-
-2. **stunInfinite vs blind**: These are **different mechanisms**:
-    - `blind(frames)`: timed — decrement counter each frame until zero.
-    - `stunInfinite()`: permanent — set a flag, no timer. Only clearable by explicit reset.
-
-3. **Hiding State**: The collision group clearing (`setCollideRect(0,0,0,0)` and group removal) must be replicated — in bump.lua, `world:remove(self)` and `world:add(self, 0, 0, 0, 0)` or simply skip collision processing when hiding.
-
-4. **Tiny Mode Branch**: Two different collision paths in `Player:collisionResponse` based on `PlayerData.isTiny`. Both must be ported.
-
-5. **playdate.timer for stun**: If `blind()` uses `playdate.timer`, replace with a frame counter:
-    ```lua
-    function CrewMember:update(dt)
-        if self.isBlinded then
-            self.blindFrames = self.blindFrames - 1
-            if self.blindFrames <= 0 then self.isBlinded = false end
-            return
-        end
-        -- normal AI...
-    end
-    ```
+> Use `other.sourceFeed` as the second argument if you want to pass a specific video feed index to the dialog system.

@@ -39,10 +39,16 @@ end
 
 -- Move player with BUMP collision detection
 function movements.move(player, dx, dy, filter)
-	-- Clear slideHitWall when player voluntarily moves
-	if dx ~= 0 or dy ~= 0 then
-		player.slideHitWall = false
+	-- No movement: skip world:move entirely (matches Playdate's button-driven model
+	-- where player:move() is only called on explicit input, never when stationary).
+	-- Calling world:move with dx=0,dy=0 causes Bump to detect static overlaps and
+	-- emit collisions (bump.lua:149-174), causing wall bouncing and door loops on spawn.
+	if dx == 0 and dy == 0 then
+		return {}, 0
 	end
+
+	-- Clear slideHitWall when player voluntarily moves
+	player.slideHitWall = false
 
 	-- BUMP collision - move collision box and get sprite position back
 	local newCollisionX = player.x + player.collisionOffsetX + dx

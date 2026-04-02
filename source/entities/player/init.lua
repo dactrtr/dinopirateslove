@@ -73,23 +73,21 @@ function Player:initialize(x, y, world)
 end
 
 function Player:syncDimensions(skipBumpUpdate)
+	-- Config rects are relative to sprite top-left (Playdate convention).
+	-- In LÖVE, player.x/y is sprite center (48x48 sprite, so half = 24px).
+	-- Convert: offsetX = config.x - 24, offsetY = config.y - 24
 	if PlayerData.isTiny then
-		-- Tiny Box: 14x14
-		self.width = 14
-		self.height = 14
-		-- Center horizontally: -7 offset
-		-- Align to character (character is centered 48px sprite, bottom is at y+24)
-		-- offsetY = 10 puts the 14px collider at [10, 24] relative to center, aligned to bottom
-		self.collisionOffsetX = -(self.width / 2)
-		self.collisionOffsetY = 10
+		local cfg = Config.Player.collideRectTiny
+		self.width  = cfg.w
+		self.height = cfg.h
+		self.collisionOffsetX = cfg.x - 24
+		self.collisionOffsetY = cfg.y - 24
 	else
-		-- Normal Box: 30x24
-		self.width = 30
-		self.height = 24
-		
-		-- Collision box offset from sprite position
-		self.collisionOffsetX = -(self.width / 2)  -- Center the collision box horizontally
-		self.collisionOffsetY = 0                 -- Align to bottom
+		local cfg = Config.Player.collideRect
+		self.width  = cfg.w
+		self.height = cfg.h
+		self.collisionOffsetX = cfg.x - 24
+		self.collisionOffsetY = cfg.y - 24
 	end
 	
 	printDebug(string.format("📐 Syncing Player Dimensions (isTiny: %s): %dx%d, offset: %d, %d", 
@@ -194,8 +192,11 @@ function Player:update(dt)
 				-- Use centralized physics resolution for side effects
 				playerCollisions.resolve(self, other)
 
-				-- Specialized Door collision
-				if other.class and other.class.name == "Door" then
+				-- Specialized Door collision: only fire when player newly enters the door
+				-- (col.overlaps = false means player crossed from outside to inside this frame).
+				-- col.overlaps = true means player was already inside the door's rect at move
+				-- start (spawn case) — don't fire to avoid immediate room loop.
+				if other.class and other.class.name == "Door" and not col.overlaps then
 					local DoorHandler = require 'DoorHandler'
 					DoorHandler.handleDoorCollision(other, self)
 				end
@@ -436,6 +437,54 @@ function Player:endSliding(hitWall)
 	end
 
 	printDebug("🛑 Player:endSliding(hitWall=" .. tostring(hitWall) .. ")")
+end
+
+local LIGHTBURST_COST     = 10      -- battery units
+local LIGHTBURST_COOLDOWN = 1.0     -- seconds
+local LIGHTBURST_DURATION = 1.0     -- seconds showLightCone stays true
+local lightburstCooldownEnd = 0
+
+function Player:lightBurst()
+    -- Guards
+    if not PlayerData.skills.canFlash        then return end
+    if PlayerData.activeItem ~= 1            then return end  -- lamp must be selected
+    if PlayerData.battery < LIGHTBURST_COST  then return end
+    if love.timer.getTime() < lightburstCooldownEnd then return end
+
+    -- Activate
+    PlayerData.battery = PlayerData.battery - LIGHTBURST_COST
+    PlayerData.showLightCone = true
+    lightburstCooldownEnd = love.timer.getTime() + LIGHTBURST_COOLDOWN
+
+    -- Schedule cone off
+    local Timer = require 'libraries/hump/timer'
+    Timer.after(LIGHTBURST_DURATION, function()
+        PlayerData.showLightCone = false
+    end)
+
+    -- Blind entities inside the cone
+    local FXshadow = require 'entities.UI.FXshadow'
+    local dir = PlayerData.direction
+    if dir and dir ~= "idle" and dir ~= "" then
+        local pts = FXshadow.buildConeVertices(PlayerData.x, PlayerData.y, dir, 200, 12)
+        if pts then
+            local gameScene = require 'scenes.gameScene'
+            -- Blind enemies
+            for _, enemy in ipairs(gameScene.enemies or {}) do
+                if utilities.pointInPolygon(pts, enemy.x, enemy.y) then
+                    if enemy.blind then enemy:blind(60) end
+                end
+            end
+            -- Blind crewMembers
+            for _, cm in ipairs(gameScene.crewMembers or {}) do
+                if utilities.pointInPolygon(pts, cm.x, cm.y) then
+                    if cm.blind then cm:blind(60) end
+                end
+            end
+        end
+    end
+
+    printDebug("⚡ Lightburst activated! dir=" .. tostring(PlayerData.direction))
 end
 
 function Player:idle()

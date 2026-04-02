@@ -13,6 +13,7 @@ require 'assets/data/PlayerDataTables'
 local sceneManager = require "sceneManager"
 local titleScene = require "scenes/titleScene"
 local gameScene = require "scenes/gameScene"
+local danceScene = require "scenes/DanceScene"
 local tileMapData = require 'assets/data/tilemap'
 
 -- Initialize Graphics compatibility layer BEFORE script data
@@ -43,6 +44,7 @@ Input = {
 	-- In-game one-shot actions  (checked in keypressed)
 	confirm = {"z", "return", "space"},   -- advance dialog / interact
 	action  = {"x"},                      -- throw Plungerang
+	flash   = {"z"},                      -- Lightburst (lamp skill)
 	dash    = {"lshift", "rshift"},       -- dash
 	resize  = {"e"},                      -- minifier / size toggle
 
@@ -167,6 +169,7 @@ function love.load()
 	sceneManager.init()
 	sceneManager.registerScene("title", titleScene)
 	sceneManager.registerScene("game", gameScene)
+	sceneManager.registerScene("dance", danceScene)
 	sceneManager.setCurrentScene("title")
 	
 	-- Initialize gamepad support

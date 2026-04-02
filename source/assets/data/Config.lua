@@ -2,15 +2,16 @@ Config = {}
 
 -- Rendering layers
 Config.ZIndex = {
-    player = 4,
-    enemy  = 3,
-    props  = 2,
-    items  = 4,
-    fx     = 1999,
-    ui     = 2000,
-    hud    = 2000,
-    menu   = 2100,
-    alert  = 2200,
+    player     = 4,
+    enemy      = 3,
+    props      = 2,
+    items      = 4,
+    foreground = 300,
+    fx         = 1999,
+    ui         = 2000,
+    hud        = 2000,
+    menu       = 2100,
+    alert      = 2200,
 }
 
 -- Collision groups
@@ -26,9 +27,15 @@ Config.CollideGroups = {
 
 -- Tilemap
 Config.Tiles = {
-    size     = 16,
-    walkable = {1,2,3,5,6,50,66,67,68,69,72,73,74,75,77,79,80,81,82,89,90,91,92,93,94,95,96,97,98},
-    slime    = {89,90,91,92,93,94,95,96,97,98},
+    size    = 16,
+    walkable = {0, 2, 3, 4, 5},  -- IntGrid IDs that are NOT solid walls (empty, slime, hole, floor, outer border)
+    slime    = {2},               -- IntGrid ID for slime tiles (triggers sliding)
+    IntGrid = {
+        wall  = 1,
+        slime = 2,
+        hole  = 3,
+        floor = 4,
+    }
 }
 
 -- Player movement
@@ -38,6 +45,7 @@ Config.Player = {
     speedLowBattery  = 0.8,   -- multiplier when battery < batteryThresholdLow with lamp
     collideRect      = {x=8,  y=24, w=30, h=24},
     collideRectTiny  = {x=19, y=32, w=10, h=10},
+    collideRectHead  = {x=8,  y=8, w=16, h=16},
     uiOffsetX        = 30,
     uiOffsetY        = 30,
     hudOffsetY       = -40,
