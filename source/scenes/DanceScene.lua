@@ -3,6 +3,7 @@
 -- Registered as "dance" in sceneManager. Reads enemy info from PlayerData.lastEnemyTouched.
 
 local sceneManager = require 'sceneManager'
+local Input = require 'assets.data.InputBindings'
 
 require 'entities.UI.battle.ButtonPress'
 require 'entities.UI.battle.HitZone'
@@ -260,14 +261,8 @@ function danceScene.keypressed(key)
         return
     end
 
-    -- Mid-battle: map key → button name
-    local keyMap = {
-        ["return"] = "aButton",  ["space"]  = "aButton",
-        ["lshift"] = "bButton",  ["rshift"] = "bButton",
-        ["left"]   = "leftButton", ["right"] = "rightButton",
-        ["up"]     = "upButton",   ["down"]  = "downButton",
-    }
-    local mapped = keyMap[key]
+    -- Mid-battle: map key → button name (configurado en InputBindings.lua)
+    local mapped = Input.danceKeys[key]
     if mapped then
         state.ButtonPressed = mapped
     end
