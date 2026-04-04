@@ -31,56 +31,8 @@ VIRTUAL_HEIGHT = 240
 -- UI constants
 UI_OVERLAY_OPACITY = 0.8 -- Opacity for menu overlays and backgrounds
 
--- ─────────────────────────────────────────────────────────────
--- INPUT BINDINGS  (edit here to remap controls globally)
--- ─────────────────────────────────────────────────────────────
-Input = {
-	-- Player movement  (checked every frame with Input.isDown)
-	up    = {"w", "up"},
-	down  = {"s", "down"},
-	left  = {"a", "left"},
-	right = {"d", "right"},
-
-	-- In-game one-shot actions  (checked in keypressed)
-	confirm = {"z", "return", "space"},   -- advance dialog / interact
-	action  = {"x"},                      -- throw Plungerang
-	flash   = {"z"},                      -- Lightburst (lamp skill)
-	dash    = {"lshift", "rshift"},       -- dash
-	resize  = {"e"},                      -- minifier / size toggle
-
-	-- Menu keys
-	menu    = {"tab"},                    -- open equipment menu
-	pause   = {"escape"},                 -- open pause / close menus
-
-	-- Title-screen / UI navigation
-	menuConfirm = {"return", "kpenter", "z", "a"},
-	menuBack    = {"escape", "x", "b"},
-
-	-- Dev / window controls
-	toggleCRT  = {"q"},
-	fullscreen = {"f"},
-	res1 = {"1"}, res2 = {"2"}, res3 = {"3"},
-}
-
---- Returns true if `key` matches any binding in Input[action].
-function Input.is(key, action)
-	local binds = Input[action]
-	if not binds then return false end
-	for _, k in ipairs(binds) do
-		if key == k then return true end
-	end
-	return false
-end
-
---- Returns true if any key bound to Input[action] is currently held.
-function Input.isDown(action)
-	local binds = Input[action]
-	if not binds then return false end
-	for _, k in ipairs(binds) do
-		if love.keyboard.isDown(k) then return true end
-	end
-	return false
-end
+-- Todos los bindings están en assets/data/InputBindings.lua
+Input = require 'assets.data.InputBindings'
 
 -- Global variables
 crt_effect = nil -- Made global for settings menu access
@@ -104,6 +56,10 @@ moonshinSettings = {
 	chromasep = {
 		radius = 2.0,
 		angle = 0
+	},
+	glow = {
+		strength = 5,
+		min_luma = 0.7
 	},
 	playerOutline = {
 		thickness = 0,
@@ -135,6 +91,9 @@ function applyCRTSettings()
 	
 	crt_effect.chromasep.radius = moonshinSettings.chromasep.radius
 	crt_effect.chromasep.angle = moonshinSettings.chromasep.angle
+
+	crt_effect.glow.strength = moonshinSettings.glow.strength
+	crt_effect.glow.min_luma = moonshinSettings.glow.min_luma
 end
 
 function love.load()
@@ -151,14 +110,11 @@ function love.load()
 	-- Configure CRT effect with moonshine (let moonshine handle scaling)
 	crt_effect = moonshine(moonshine.effects.scanlines)
 		.chain(moonshine.effects.crt)
-		.chain(moonshine.effects.chromasep)  -- Add chromatic aberration
-		-- .chain(moonshine.effects.glow)
-	
+		.chain(moonshine.effects.chromasep)
+		.chain(moonshine.effects.glow)
+
 	-- Set CRT parameters from settings table
 	applyCRTSettings()
-	
-	-- crt_effect.glow.strength = 1.0
-	-- crt_effect.glow.min_luma = 0.7  -- Fixed: was 1, now only bright colors glow
 	
 	-- Load all scenes first
 	titleScene.load()
