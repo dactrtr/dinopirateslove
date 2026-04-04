@@ -1291,20 +1291,20 @@ function gameScene.keypressed(key)
 		return
 	end
 
-	-- If talking, any 'confirm' key advances dialog
+	-- Si está hablando, AButton avanza el diálogo
 	if PlayerData.isTalking then
-		if Input.is(key, "confirm") then
+		if Input.is(key, "AButton") then
 			gameScene.player:displayDialog()
 			return
 		end
 	else
-		-- Check for interaction on confirm keys
-		if Input.is(key, "confirm") then
+		-- AButton interactúa con triggers
+		if Input.is(key, "AButton") then
 			gameScene.checkTriggerInteraction()
 		end
 
-		-- Action button for Plungerang
-		if Input.is(key, "action") then
+		-- BButton activa el item equipado (plungerang, dash, flash, etc.)
+		if Input.is(key, "BButton") then
 			if gameScene.player and gameScene.player.handleActionButton then
 				gameScene.player:handleActionButton()
 			end
@@ -1320,15 +1320,15 @@ function gameScene.keypressed(key)
 
 	-- Game input (when menu is not shown)
 	if PlayerData.isEquiping then
-		-- Handle In-Game Menu inputs
-		if Input.is(key, "menu") or Input.is(key, "pause") then
+		-- BButton o pause cierra el menú de equipo
+		if Input.is(key, "BButton") or Input.is(key, "pause") then
 			PlayerData.isGaming = true
 			PlayerData.isEquiping = false
 		else
 			InGameMenu:keypressed(key)
 		end
-	elseif Input.is(key, "menu") and PlayerData.isGaming and PlayerData.items.hasDWatch then
-		-- Open In-Game Menu for equipment (requires D-Watch, only while gaming)
+	elseif Input.is(key, "menuOpen") and PlayerData.isGaming and PlayerData.items.hasDWatch then
+		-- Abre menú de equipo (evento sintético del hold timer de AButton)
 		PlayerData.isGaming = false
 		PlayerData.isEquiping = true
 		if PlayerData.activeItem == 0 or PlayerData.activeItem == nil then
@@ -1340,15 +1340,6 @@ function gameScene.keypressed(key)
 		PlayerData.battery = 100
 		FXshadow.markDirty()
 		printDebug("🔋 DEBUG: Battery charged to 100")
-	elseif Input.is(key, "dash") then
-		if gameScene.player and PlayerData.skills.canDash then
-			local dir = (PlayerData.direction ~= "idle") and PlayerData.direction or "right"
-			gameScene.player:startDash(dir)
-		end
-	elseif Input.is(key, "flash") then
-		if gameScene.player then
-			gameScene.player:lightBurst()
-		end
 	end
 end
 
