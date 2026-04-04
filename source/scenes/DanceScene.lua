@@ -245,17 +245,17 @@ end
 
 -- ── Input ─────────────────────────────────────────────────────────────────────
 function danceScene.keypressed(key)
-    -- Pre-battle: wait for space/return to start
+    -- Pre-battle: wait for AButton to start
     if not PlayerData.isDancing and state.condition == nil then
-        if key == "space" or key == "return" then
+        if Input.is(key, "AButton") then
             danceScene.startBattle()
         end
         return
     end
 
-    -- Post-result: press space/return to transition
+    -- Post-result: press AButton to transition
     if state.condition ~= nil then
-        if key == "space" or key == "return" then
+        if Input.is(key, "AButton") then
             danceScene.checkDanceResults()
         end
         return

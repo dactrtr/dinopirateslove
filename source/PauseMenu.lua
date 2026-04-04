@@ -111,7 +111,7 @@ function PauseMenu:keypressed(key)
 		return true
 	elseif Input.is(key, "AButton") then
 		return self:selectButton()
-	elseif Input.is(key, "pause") then
+	elseif Input.is(key, "BButton") or Input.is(key, "pause") then
 		self:hide()
 		return true
 	end
