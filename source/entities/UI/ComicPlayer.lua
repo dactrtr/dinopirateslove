@@ -286,7 +286,7 @@ function ComicPlayer.keypressed(key)
 	if not active then return end
 	local seq = currentSeq()
 	-- advanceControl is a Panels.Input.* constant, which we've mapped to Input keys
-	local advBtn = (seq and seq.advanceControl) or "menuConfirm"
+	local advBtn = (seq and seq.advanceControl) or "AButton"
 	if Input.is(key, advBtn) or Input.is(key, "BButton") or Input.is(key, "AButton") then
 		advance()
 	end
