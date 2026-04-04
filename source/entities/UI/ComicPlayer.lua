@@ -269,9 +269,8 @@ function ComicPlayer.draw()
 	-- ── Advance hint ───────────────────────────────────────────────────────────
 	local advBtn = seq and seq.advanceControl
 	-- advanceControl is a Panels.Input.* value which we map to our Input action name
-	-- Default: "menuConfirm" → shows the first key bound to it
-	local actionName = (advBtn == "menuConfirm" or advBtn == nil) and "menuConfirm"
-	               or advBtn
+	-- Default: "AButton" → shows the first key bound to it
+	local actionName = (advBtn == nil) and "AButton" or advBtn
 	local hint = (Input and Input[actionName] and Input[actionName][1]) or "Z"
 	love.graphics.setColor(0.196, 0.184, 0.161, 0.55)
 	love.graphics.printf("[" .. hint:upper() .. "]",
