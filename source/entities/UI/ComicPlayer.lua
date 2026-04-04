@@ -287,7 +287,7 @@ function ComicPlayer.keypressed(key)
 	local seq = currentSeq()
 	-- advanceControl is a Panels.Input.* constant, which we've mapped to Input keys
 	local advBtn = (seq and seq.advanceControl) or "menuConfirm"
-	if Input.is(key, advBtn) or Input.is(key, "menuBack") or Input.is(key, "menuConfirm") then
+	if Input.is(key, advBtn) or Input.is(key, "BButton") or Input.is(key, "AButton") then
 		advance()
 	end
 end

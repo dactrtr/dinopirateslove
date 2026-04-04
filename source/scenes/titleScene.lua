@@ -301,14 +301,14 @@ function titleScene.keypressed(key)
 				moonshinSettings[option.setting[1]][option.setting[2]] = current
 				applyCRTSettings()
 			end
-		elseif Input.is(key, "menuConfirm") then
+		elseif Input.is(key, "AButton") then
 			local option = titleScene.settingsOptions[titleScene.settingsOption]
 			if option.type == "action" and option.name == "Back" then
 				titleScene.inSettings = false
 			elseif option.type == "toggle" then
 				_G[option.setting] = not _G[option.setting]
 			end
-		elseif Input.is(key, "menuBack") then
+		elseif Input.is(key, "BButton") then
 			titleScene.inSettings = false
 		end
 	else
@@ -320,7 +320,7 @@ function titleScene.keypressed(key)
 			titleScene.currentOption = titleScene.currentOption + 1
 			if titleScene.currentOption > #titleScene.menuItems then titleScene.currentOption = 1 end
 			titleScene.updateSelection()
-		elseif Input.is(key, "menuConfirm") then
+		elseif Input.is(key, "AButton") then
 			local item = titleScene.menuItems[titleScene.currentOption]
 			if item and item.action then
 				item.action()
