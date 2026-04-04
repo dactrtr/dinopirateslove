@@ -39,6 +39,8 @@ crt_effect = nil -- Made global for settings menu access
 local font
 local canvas -- offscreen render target for virtual resolution
 crtEnabled = true -- Made global for settings menu access
+local aButtonHoldTimer = 0
+local MENU_HOLD_THRESHOLD = 0.5  -- segundos para abrir menú
 
 -- Settings table for moonshine effects
 moonshinSettings = {
@@ -172,7 +174,18 @@ end
 
 function love.update(dt)
 	sceneManager.update(dt)
-	
+
+	-- Hold AButton → abrir menú de equipo
+	if Input.isDown("AButton") then
+		aButtonHoldTimer = aButtonHoldTimer + dt
+		if aButtonHoldTimer >= MENU_HOLD_THRESHOLD then
+			aButtonHoldTimer = 0
+			sceneManager.keypressed("__menuOpen__")
+		end
+	else
+		aButtonHoldTimer = 0
+	end
+
 	if activeJoystick then
 		handleGamepadInput(dt)
 	end
