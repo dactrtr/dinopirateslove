@@ -2,6 +2,10 @@
 
 This system allows Triggers to execute different scripts depending on the player's state and interaction type.
 
+> **See also:** [CUTSCENE_SYSTEM.md](CUTSCENE_SYSTEM.md) for the full Cutscene trigger
+> code path and Panels integration. [PLAYERDATA_REFERENCE.md](PLAYERDATA_REFERENCE.md)
+> for `isCutscene` and `isGaming` flag semantics.
+
 > [!NOTE]
 > `Trigger` extends `Graphics.sprite` directly (the base Playdate sprite class), **not** `NobleSprite`. Constructor signature: `Trigger(x, y, width, height, script, iid, room, type)`. The trigger positions to `(x - width/2, y - height/2)` since the LDtk `x`/`y` is the center point.
 
@@ -16,13 +20,50 @@ Add the following **Custom Fields** to your `Triggers` entity in LDtk:
 *   **Identifier**: `script`
     *   **Type**: `String` (Used as a fallback or for simple triggers)
 
+### Trigger constructor (Lua)
+
+```lua
+-- trigger.lua
+-- Note: extends Graphics.sprite (base Playdate sprite), NOT NobleSprite
+function Trigger:init(x, y, width, height, script, iid, room, type)
+    self.script = script   -- comics key (Cutscene) or dialog script name (Story/Search/Call)
+    self.iid    = iid      -- LDtk instance unique ID (used for save/restore matching)
+    self.room   = room     -- index into levelsLDTK (NOT the room number)
+    self.type   = type     -- "Cutscene"|"Story"|"Search"|"Call"|"Counter"|nil
+
+    -- Position offset: LDtk x/y is center; sprite origin is top-left
+    self:moveTo(x - width/2, y - height/2)
+    self:setCollideRect(0, 0, width, height)
+    self:setZIndex(3)
+    self:setGroups(3)
+    self:add()
+end
+```
+
 ## 2. Trigger Types and Behaviors
 
 The `type` field determines how the trigger is activated and how the player interacts with it.
 
 ### A. Automatic Triggers
 *   **`Story`**: Activated automatically upon collision. Calls `dialogUI:addScreen(scriptName, other.sourceFeed)` — note the `sourceFeed` second argument passes the video feed index.
-*   **`Cutscene`**: Activated automatically upon collision. Sets `PlayerData.isGaming = false` and `PlayerData.isCutscene = true`, calls `other:returnScript()`, removes the trigger, and calls `Utilities.grantAchievementIfNeeded`. **Does not directly start Panels playback** — the `isCutscene` flag is detected by existing `MazeScene` comic logic which triggers the Panels sequence.
+*   **`Cutscene`**: Activated automatically upon collision. Full code path:
+
+    ```lua
+    -- player/collisions.lua — what actually happens:
+    PlayerData.isGaming = false
+    PlayerData.isCutscene = true      -- MazeScene:update() sees this and calls Panels.update()
+    other:returnScript()              -- marks usedTrigger=true in levelsLDTK (persisted on save)
+    other:remove()                    -- sprite removed; won't collide again
+    Utilities.grantAchievementIfNeeded(other.script)
+    ```
+
+    **Important:** `collisionResponse` does NOT call `Panels.startCutscene()`. It only
+    sets flags. The Panels sequence must be started separately — either extend
+    `collisionResponse` to call `Panels.startCutscene(comics[other.script], callback)`,
+    or rely on a room-entry cutscene playing automatically. See [CUTSCENE_SYSTEM.md](CUTSCENE_SYSTEM.md) for full details.
+
+    The `script` field on the trigger is a key into the `comics` table registry.
+    `returnScript()` returns it, but the return value is **discarded** by `collisionResponse`.
 *   **`Counter`**: Activated automatically upon collision. It increments the global `PlayerData.storyCounter` and removes itself immediately.
 
 ### B. Manual Triggers (Interactable)

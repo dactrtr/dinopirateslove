@@ -187,6 +187,18 @@ function collisions.resolve(player, other)
 			local sceneManager = require 'sceneManager'
 			local gs = sceneManager.getScene("game")
 			if gs and gs.removeTrigger then gs.removeTrigger(trigger) end
+			local comicData = comics and comics[trigger.script]
+			if comicData then
+				local ComicPlayer = require 'entities.UI.ComicPlayer'
+				ComicPlayer.start(comicData, function()
+					PlayerData.isGaming   = true
+					PlayerData.isCutscene = false
+				end)
+			else
+				printDebug("⚠️ Cutscene trigger: comic not found for key '" .. tostring(trigger.script) .. "'")
+				PlayerData.isGaming   = true
+				PlayerData.isCutscene = false
+			end
 		elseif trigger.type == "Search" or trigger.type == "Call" or trigger.type == nil then
 			player.currentTrigger = trigger
 		elseif trigger.type == "Story" then
