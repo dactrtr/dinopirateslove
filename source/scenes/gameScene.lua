@@ -347,6 +347,11 @@ function gameScene.load()
 end
 
 function gameScene.enter()
+	-- Garantizar estado limpio de diálogo al entrar (safety net para transiciones abruptas)
+	if gameScene.player and gameScene.player.dialogUI then
+		gameScene.player.dialogUI:reset()
+	end
+	PlayerData.isTalking = false
 	-- Set PlayerData gaming status
 	PlayerData.isGaming = true
 	gameScene.hasActed = false  -- reset so first room load won't auto-save
@@ -378,6 +383,11 @@ end
 
 function gameScene.exit()
 	printDebug("🚪 gameScene: Exited")
+	-- Forzar cierre del diálogo antes de salir para que no persista entre sesiones
+	if gameScene.player and gameScene.player.dialogUI then
+		gameScene.player.dialogUI:reset()
+	end
+	PlayerData.isTalking = false
 	-- Capture exit position for possible return from DanceScene
 	if gameScene.player then
 		PlayerData.playerExit.x = gameScene.player.x
@@ -1334,7 +1344,7 @@ function gameScene.keypressed(key)
 		if PlayerData.activeItem == 0 or PlayerData.activeItem == nil then
 			InGameMenu:nextItem()
 		end
-	elseif Input.is(key, "pause") then
+	elseif Input.is(key, "pause") and not PlayerData.isTalking then
 		gameScene.pauseMenu:show()
 	elseif Input.is(key, "resize") then
 		PlayerData.battery = 100

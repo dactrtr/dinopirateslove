@@ -100,15 +100,21 @@ function DialogScreen:nextDialog()
 end
 
 function DialogScreen:removeAll()
-    self.active = false
-    self.currentScript = nil
-    self.currentIndex = 0
-    self.imageScreen:clear()
+    self:reset()
     PlayerData.isTalking = false
-    -- Set PlayerData.isGaming if it exists
     if PlayerData.isGaming ~= nil then
         PlayerData.isGaming = true
     end
+end
+
+-- Limpia solo el estado interno del objeto sin tocar PlayerData.
+-- Usar en transiciones de escena para evitar que el diálogo persista.
+function DialogScreen:reset()
+    self.active = false
+    self.currentScript = nil
+    self.currentIndex = 0
+    self.currentText = ""
+    self.imageScreen:clear()
 end
 
 function DialogScreen:update(dt)
