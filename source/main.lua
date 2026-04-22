@@ -1,4 +1,5 @@
 local moonshine = require "libraries/moonshine"
+local CRTDebugMenu = require 'entities.UI.CRTDebugMenu'
 DEBUG = true -- Set to false to disable debug prints
 function printDebug(...)
 	if DEBUG then
@@ -118,7 +119,8 @@ function love.load()
 
 	-- Set CRT parameters from settings table
 	applyCRTSettings()
-	
+	CRTDebugMenu.loadFromDisk()
+
 	-- Load all scenes first
 	titleScene.load()
 	gameScene.load()
@@ -248,9 +250,12 @@ function love.draw()
 		love.graphics.draw(canvas, 0, 0)
 		love.graphics.pop()
 	end
+
+	CRTDebugMenu.draw()
 end
 
 function love.keypressed(key)
+	if CRTDebugMenu.keypressed(key) then return end
 	if Input.is(key, "toggleCRT") then
 		crtEnabled = not crtEnabled
 	elseif Input.is(key, "fullscreen") then
