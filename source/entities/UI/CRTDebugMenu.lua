@@ -171,8 +171,43 @@ end
 function CRTDebugMenu.keypressed(key)
     if key == "n" then visible = not visible; return true end
     if not visible then return false end
-    -- keypressed completo se agrega en Task 3
-    if key == "escape" then visible = false end
+
+    local shift = love.keyboard.isDown("lshift") or love.keyboard.isDown("rshift")
+
+    if key == "escape" then
+        visible = false
+    elseif key == "up" then
+        cursor = cursor - 1
+        if cursor < 1 then cursor = #nav end
+    elseif key == "down" then
+        cursor = cursor + 1
+        if cursor > #nav then cursor = 1 end
+    elseif key == "left" or key == "right" then
+        local item = nav[cursor]
+        if item.type ~= "toggle" then
+            local delta = (key == "right" and 1 or -1) * (shift and item.big or item.step)
+            local val = roundTo(
+                math.max(item.min, math.min(item.max, getValue(item) + delta)),
+                item.step
+            )
+            setValue(item, val)
+        end
+    elseif key == "return" then
+        local item = nav[cursor]
+        if item.type == "toggle" then setValue(item, not getValue(item)) end
+    elseif key == "r" then
+        crtEnabled = DEFAULTS.crtEnabled
+        for group, params in pairs(DEFAULTS) do
+            if type(params) == "table" and moonshinSettings[group] then
+                for k, v in pairs(params) do
+                    moonshinSettings[group][k] = v
+                end
+            end
+        end
+        applyCRTSettings()
+    elseif key == "s" then
+        CRTDebugMenu.saveToDisk()
+    end
     return true
 end
 
