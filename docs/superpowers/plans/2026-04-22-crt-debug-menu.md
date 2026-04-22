@@ -1,6 +1,114 @@
--- entities/UI/CRTDebugMenu.lua
--- In-game CRT parameter debug overlay (N key). Draws to real framebuffer.
+# CRT Debug Menu Implementation Plan
 
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Agregar un overlay de debug en-juego (tecla `N`) que permita ajustar todos los parámetros moonshine CRT en tiempo real y guardarlos a disco.
+
+**Architecture:** Módulo standalone `CRTDebugMenu.lua` sin dependencias de escenas. Se integra en `main.lua` (draw sobre pantalla real, keypressed antes del scene routing). Lee/escribe directamente los globals `moonshinSettings` y `crtEnabled` y llama `applyCRTSettings()` en cada cambio.
+
+**Tech Stack:** LÖVE 11.5 / LuaJIT, moonshine post-processing (ya integrado), `love.filesystem` para persistencia.
+
+---
+
+## File Map
+
+| Acción | Archivo | Responsabilidad |
+|---|---|---|
+| CREATE | `source/entities/UI/CRTDebugMenu.lua` | Módulo completo: estado, draw, input, save/load |
+| MODIFY | `source/main.lua` | require + 3 call sites (draw, keypressed, loadFromDisk) |
+
+---
+
+## Task 1: Skeleton + hooks en main.lua
+
+**Files:**
+- Create: `source/entities/UI/CRTDebugMenu.lua`
+- Modify: `source/main.lua`
+
+- [ ] **Step 1: Crear el archivo skeleton**
+
+Crear `source/entities/UI/CRTDebugMenu.lua` con este contenido:
+
+```lua
+local CRTDebugMenu = {}
+
+local visible = false
+
+function CRTDebugMenu.draw()
+    if not visible then return end
+    love.graphics.setColor(1, 1, 0, 1)
+    love.graphics.print("CRT DEBUG [N cerrar]", love.graphics.getWidth() - 200, 10)
+    love.graphics.setColor(1, 1, 1, 1)
+end
+
+function CRTDebugMenu.keypressed(key)
+    if key == "n" then visible = not visible; return true end
+    if not visible then return false end
+    if key == "escape" then visible = false end
+    return true
+end
+
+function CRTDebugMenu.loadFromDisk() end
+
+return CRTDebugMenu
+```
+
+- [ ] **Step 2: Hookear en main.lua — require**
+
+En `source/main.lua`, en la línea 1 (después de `local moonshine = require "libraries/moonshine"`), agregar:
+
+```lua
+local CRTDebugMenu = require 'entities.UI.CRTDebugMenu'
+```
+
+- [ ] **Step 3: Hookear en main.lua — loadFromDisk en love.load**
+
+En `love.load()`, inmediatamente después de la llamada a `applyCRTSettings()` (línea ~120), agregar:
+
+```lua
+CRTDebugMenu.loadFromDisk()
+```
+
+- [ ] **Step 4: Hookear en main.lua — draw al final de love.draw**
+
+En `love.draw()`, al final del cuerpo de la función (después del bloque `if crtEnabled then ... end`), antes del cierre de `end`, agregar:
+
+```lua
+CRTDebugMenu.draw()
+```
+
+- [ ] **Step 5: Hookear en main.lua — keypressed al inicio de love.keypressed**
+
+En `love.keypressed(key)`, como primera línea del cuerpo, agregar:
+
+```lua
+if CRTDebugMenu.keypressed(key) then return end
+```
+
+- [ ] **Step 6: Smoke test — tecla N**
+
+Ejecutar el juego:
+```bash
+./run_game.sh
+```
+Esperado:
+- Presionar `N` → aparece texto amarillo "CRT DEBUG [N cerrar]" en la esquina superior derecha de la pantalla
+- Presionar `N` de nuevo → desaparece
+- Presionar `Escape` mientras está abierto → desaparece
+- El juego sigue corriendo normalmente debajo
+
+---
+
+## Task 2: ITEMS table, estado de navegación y draw() completo
+
+**Files:**
+- Modify: `source/entities/UI/CRTDebugMenu.lua` (reemplazar contenido completo)
+
+- [ ] **Step 1: Reemplazar CRTDebugMenu.lua con implementación completa de datos + draw**
+
+Reemplazar **todo** el contenido de `source/entities/UI/CRTDebugMenu.lua` con:
+
+```lua
 local CRTDebugMenu = {}
 
 local visible = false
@@ -81,8 +189,6 @@ local function getFont()
     return CRTDebugMenu._font
 end
 
--- Draws to the real framebuffer (not the 400x240 virtual canvas) — called
--- from love.draw() after the canvas blit so CRT effects are visible beneath.
 function CRTDebugMenu.draw()
     if not visible then return end
 
@@ -171,6 +277,55 @@ end
 function CRTDebugMenu.keypressed(key)
     if key == "n" then visible = not visible; return true end
     if not visible then return false end
+    -- stub — keypressed completo en Task 3
+    if key == "escape" then visible = false end
+    return true
+end
+
+function CRTDebugMenu.loadFromDisk() end
+
+return CRTDebugMenu
+```
+
+- [ ] **Step 2: Test visual del panel**
+
+Ejecutar el juego, presionar `N`.
+Esperado:
+- Panel azul oscuro en el borde derecho de la pantalla
+- Header "CRT DEBUG" en azul claro, "[N] cerrar" en gris
+- Sección toggle "CRT Enabled: ON" en verde
+- 4 secciones: SCANLINES, CRT, CHROMASEP, GLOW con sus parámetros
+- Cada parámetro muestra nombre, barra de 10 bloques y valor numérico
+- La fila seleccionada tiene highlight amarillo y cursor `>`
+- Barra de footer: "[←/→] ajustar  [Shift] paso grande" y "[S] Guardar  [R] Reset"
+
+---
+
+## Task 3: keypressed() completo — navegación, ajuste y reset
+
+**Files:**
+- Modify: `source/entities/UI/CRTDebugMenu.lua`
+
+- [ ] **Step 1: Reemplazar la función keypressed stub**
+
+Localizar en `CRTDebugMenu.lua` el bloque:
+
+```lua
+function CRTDebugMenu.keypressed(key)
+    if key == "n" then visible = not visible; return true end
+    if not visible then return false end
+    -- stub — keypressed completo en Task 3
+    if key == "escape" then visible = false end
+    return true
+end
+```
+
+Reemplazarlo con:
+
+```lua
+function CRTDebugMenu.keypressed(key)
+    if key == "n" then visible = not visible; return true end
+    if not visible then return false end
 
     local shift = love.keyboard.isDown("lshift") or love.keyboard.isDown("rshift")
 
@@ -210,7 +365,39 @@ function CRTDebugMenu.keypressed(key)
     end
     return true
 end
+```
 
+- [ ] **Step 2: Test de navegación y ajuste**
+
+Ejecutar el juego, presionar `N`.
+Esperado:
+- `↑`/`↓` mueve el cursor entre filas (el highlight amarillo se desplaza)
+- En cualquier slider, `→` sube el valor un step, `←` lo baja
+- `Shift+→` sube el valor un big step
+- Los cambios se ven en el juego en tiempo real (barra actualiza, efecto CRT cambia)
+- En "CRT Enabled", `Enter` alterna entre ON (verde) y OFF (rojo) y el efecto CRT se activa/desactiva
+- `R` restaura todos los valores a los defaults del código
+- `S` imprime en consola la ruta del archivo guardado (aún no hay saveToDisk implementado, se agregará en Task 4)
+- `Escape` cierra el panel
+
+---
+
+## Task 4: saveToDisk + loadFromDisk + commit final
+
+**Files:**
+- Modify: `source/entities/UI/CRTDebugMenu.lua`
+
+- [ ] **Step 1: Reemplazar el stub loadFromDisk y agregar saveToDisk**
+
+Localizar en `CRTDebugMenu.lua` la línea:
+
+```lua
+function CRTDebugMenu.loadFromDisk() end
+```
+
+Reemplazarla con:
+
+```lua
 function CRTDebugMenu.saveToDisk()
     local s = moonshinSettings
     local lines = {
@@ -265,5 +452,56 @@ function CRTDebugMenu.loadFromDisk()
     applyCRTSettings()
     printDebug("CRT settings cargado desde disco")
 end
+```
 
-return CRTDebugMenu
+- [ ] **Step 2: Test save → restart → load**
+
+1. Ejecutar el juego, presionar `N`
+2. Ajustar algunos valores (ej. subir Opacity de Scanlines a 0.80)
+3. Presionar `S` → en la consola debe aparecer:
+   ```
+   CRT settings guardado en: /Users/<user>/Library/Application Support/LOVE/<game>/crt_settings.lua
+   ```
+4. Cerrar el juego y volver a ejecutar
+5. Esperado: los valores ajustados persisten (el efecto CRT se ve igual que al cerrar)
+6. Presionar `N` para verificar que los sliders muestran los valores guardados
+
+- [ ] **Step 3: Test reset después de cargar desde disco**
+
+Con el juego corriendo y valores guardados, presionar `N` y luego `R`.
+Esperado: todos los sliders vuelven a los defaults del código (opacity=0.40, thickness=0.50, etc.), el efecto CRT cambia visualmente a los defaults. Los valores en disco no se tocan — solo se restaura la sesión actual en memoria.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add source/entities/UI/CRTDebugMenu.lua source/main.lua docs/superpowers/specs/2026-04-21-crt-debug-menu-design.md docs/superpowers/plans/2026-04-22-crt-debug-menu.md
+git commit -m "feat: add in-game CRT debug overlay (N key) with save/load"
+```
+
+---
+
+## Self-Review
+
+### Spec coverage
+
+| Req | Task |
+|---|---|
+| Overlay in-game tecla N | Task 1 |
+| Parámetros agrupados por efecto | Task 2 ITEMS table |
+| Barra visual + número | Task 2 draw() makeBar + fmtVal |
+| Ajuste left/right, Shift paso grande | Task 3 keypressed |
+| Toggle CRT Enabled con Enter | Task 3 keypressed |
+| Reset con R | Task 3 keypressed |
+| Guardar a disco con S | Task 4 saveToDisk |
+| Cargar desde disco al arrancar | Task 4 loadFromDisk + love.load hook |
+| Cerrar con Escape | Task 1 skeleton + Task 3 |
+
+Todos los requisitos del spec están cubiertos. ✓
+
+### Verificaciones adicionales
+- `unpack` es global en LuaJIT (LÖVE 11.5) ✓
+- `moonshinSettings` y `crtEnabled` son globals definidos en `main.lua` antes de que cualquier escena corra ✓
+- `applyCRTSettings()` es global en `main.lua` ✓
+- Tecla `n` no está mapeada en `InputBindings.lua` — sin conflictos ✓
+- Tecla `s` está mapeada a `Input.down` pero CRTDebugMenu.keypressed retorna `true` cuando visible, consumiendo el evento antes de que llegue a la escena ✓
+- loadFromDisk se llama después de `applyCRTSettings()` en love.load, garantizando que `crt_effect` ya existe ✓
