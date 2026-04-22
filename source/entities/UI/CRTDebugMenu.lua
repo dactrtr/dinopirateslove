@@ -90,9 +90,8 @@ function CRTDebugMenu.draw()
     local px  = sw - PANEL_W - 6
     local py  = 6
 
-    local rowCount = 3  -- title row + separator + footer rows (2 lines)
-    for _ in ipairs(ITEMS) do rowCount = rowCount + 1 end
-    local panelH = rowCount * LINE_H + PAD * 2
+    -- title(LINE_H) + sep(6) + items(#ITEMS * LINE_H) + footer_gap(4) + footer_sep_pad(5) + footer_lines(2*LINE_H)
+    local panelH = PAD * 2 + LINE_H + 6 + #ITEMS * LINE_H + 4 + 5 + LINE_H * 2
 
     love.graphics.setFont(getFont())
 
