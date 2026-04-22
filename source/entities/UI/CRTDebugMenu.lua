@@ -239,8 +239,12 @@ function CRTDebugMenu.saveToDisk()
         "    }",
         "}"
     }
-    love.filesystem.write("crt_settings.lua", table.concat(lines, "\n"))
-    printDebug("CRT settings guardado en: " .. love.filesystem.getSaveDirectory() .. "/crt_settings.lua")
+    local ok, werr = love.filesystem.write("crt_settings.lua", table.concat(lines, "\n"))
+    if ok then
+        printDebug("CRT settings guardado en: " .. love.filesystem.getSaveDirectory() .. "/crt_settings.lua")
+    else
+        printDebug("CRTDebugMenu save error: " .. tostring(werr))
+    end
 end
 
 function CRTDebugMenu.loadFromDisk()
@@ -251,7 +255,8 @@ function CRTDebugMenu.loadFromDisk()
         return
     end
     local ok, data = pcall(chunk)
-    if not ok or type(data) ~= "table" then return end
+    if not ok then printDebug("CRTDebugMenu pcall error: " .. tostring(data)); return end
+    if type(data) ~= "table" then return end
     if data.crtEnabled ~= nil then crtEnabled = data.crtEnabled end
     for group, params in pairs(data) do
         if type(params) == "table" and moonshinSettings[group] then
