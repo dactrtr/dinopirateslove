@@ -458,7 +458,19 @@ script = {
         video = 'player',
         text = "smallspacestiny-01",
     }
-    
+
+        }
+    },
+    {
+        name = "npc_test_has_lamp",
+        dialog = {
+            { video = 'radioHand', text = "npc-test-auth" }
+        }
+    },
+    {
+        name = "npc_test_default",
+        dialog = {
+            { video = 'player', text = "npc-test-default" }
         }
     },
 }

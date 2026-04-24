@@ -87,7 +87,7 @@ local DefaultPlayerData = {
 	},
 	EnemiesData ={
 		powerLevel = 1, -- max 20
-		sightRadius = 150, -- min 50
+		sightRadius = Config.Enemy.sightRadiusBase,
 		isEvolved = false,
 	},
 	CrewMemberData ={

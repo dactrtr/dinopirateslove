@@ -17,15 +17,7 @@ local titleScene = {
 	-- Version number
 	version = "v1.0.0",
 	
-	-- Settings menu state (preserving this part from previous implementation if needed, 
-	-- but focusing on the Playdate port as requested)
-	inSettings = false,
-	settingsOption = 1,
-	settingsOptions = {
-		{name = "CRT Enabled", type = "toggle", setting = "crtEnabled"},
-		{name = "Scanlines Opacity", type = "slider", setting = {"scanlines", "opacity"}, min = 0, max = 1, step = 0.05},
-		{name = "Back", type = "action"}
-	}
+	inSettings = false
 }
 
 -- RoomTranslate helper as requested
@@ -67,26 +59,32 @@ function titleScene.load()
 	titleScene.menuImage = love.graphics.newImage("assets/images/screens/menuTitle-table-180-56.png")
 	titleScene.menuGrid = anim8.newGrid(180, 56, titleScene.menuImage:getWidth(), titleScene.menuImage:getHeight())
 	
-	-- Helper to get frame from index (assuming 3 columns for 540x168)
+	-- Helper to get frame from index (4 columns: sheet is 720x168, 4×3 frames)
 	local function getMenuFrame(idx)
-		local cols = 3
+		local cols = 4
 		local col = ((idx - 1) % cols) + 1
 		local row = math.floor((idx - 1) / cols) + 1
 		return titleScene.menuGrid(col, row)
 	end
 
 	-- Menu Item animations: Default and Selected states
+	-- Sheet layout (col, row):
+	-- Row 1: Continue plain(1), Continue styled(2), New Game plain(3), New Game styled(4)
+	-- Row 2: Delete save plain(5), Delete save styled(6), Achievements plain(7), Achievements styled(8)
+	-- Row 3: Credits plain(9), Credits styled(10), Playground plain(11), Playground styled(12)
 	titleScene.menuAnimations = {
-		defContinue = anim8.newAnimation(getMenuFrame(1), 1),
-		selContinue = anim8.newAnimation(getMenuFrame(2), 1),
-		defNewGame = anim8.newAnimation(getMenuFrame(3), 1),
-		selNewGame = anim8.newAnimation(getMenuFrame(4), 1),
-		defDeleteGame = anim8.newAnimation(getMenuFrame(5), 1),
-		selDeleteGame = anim8.newAnimation(getMenuFrame(6), 1),
-		defAchievements = anim8.newAnimation(getMenuFrame(7), 1),
-		selAchievements = anim8.newAnimation(getMenuFrame(8), 1),
-		defPlayground = anim8.newAnimation(getMenuFrame(9), 1),
-		selPlayground = anim8.newAnimation(getMenuFrame(9), 1) 
+		defContinue     = anim8.newAnimation(getMenuFrame(1),  1),
+		selContinue     = anim8.newAnimation(getMenuFrame(2),  1),
+		defNewGame      = anim8.newAnimation(getMenuFrame(3),  1),
+		selNewGame      = anim8.newAnimation(getMenuFrame(4),  1),
+		defDeleteGame   = anim8.newAnimation(getMenuFrame(5),  1),
+		selDeleteGame   = anim8.newAnimation(getMenuFrame(6),  1),
+		defAchievements = anim8.newAnimation(getMenuFrame(7),  1),
+		selAchievements = anim8.newAnimation(getMenuFrame(8),  1),
+		defCredits      = anim8.newAnimation(getMenuFrame(9),  1),
+		selCredits      = anim8.newAnimation(getMenuFrame(10), 1),
+		defPlayground   = anim8.newAnimation(getMenuFrame(11), 1),
+		selPlayground   = anim8.newAnimation(getMenuFrame(12), 1),
 	}
 
 	-- Initialize SaveSystem Backup
@@ -161,30 +159,15 @@ function titleScene.enter()
 	})
 	currentY = currentY + spacing
 
-	-- ACHIEVEMENTS
+	-- CREDITS
 	table.insert(titleScene.menuItems, {
-		name = "Achievements",
+		name = "Credits",
 		x = startX, y = currentY,
-		defaultAnim = titleScene.menuAnimations.defAchievements,
-		selectedAnim = titleScene.menuAnimations.selAchievements,
+		defaultAnim = titleScene.menuAnimations.defCredits,
+		selectedAnim = titleScene.menuAnimations.selCredits,
 		bgState = "achievements",
 		action = function()
-			-- Add achievements view logic here if implemented
-			printDebug("Viewing achievements...")
-		end
-	})
-	currentY = currentY + spacing
-
-	-- SETTINGS
-	table.insert(titleScene.menuItems, {
-		name = "Settings",
-		x = startX, y = currentY,
-		defaultAnim = titleScene.menuAnimations.defAchievements,
-		selectedAnim = titleScene.menuAnimations.selAchievements,
-		bgState = "achievements",
-		action = function()
-			titleScene.inSettings = true
-			titleScene.settingsOption = 1
+			printDebug("Viewing credits...")
 		end
 	})
 	currentY = currentY + spacing
@@ -230,101 +213,37 @@ function titleScene.draw()
 		titleScene.background.animation:draw(titleScene.background.image, 0, 0)
 	end
 
-	if titleScene.inSettings then
-		-- Draw Settings Menu
-		love.graphics.setColor(0.196, 0.184, 0.161, 0.8)
-		love.graphics.rectangle("fill", 50, 40, 300, 160)
-		love.graphics.setColor(1, 1, 1)
-		love.graphics.rectangle("line", 50, 40, 300, 160)
-		
-		love.graphics.printf("SETTINGS", 0, 50, VIRTUAL_WIDTH, "center")
-		
-		local startY = 80
-		for i, option in ipairs(titleScene.settingsOptions) do
-			local y = startY + (i-1) * 25
-			
-			if i == titleScene.settingsOption then
-				love.graphics.setColor(1, 1, 0)
-				love.graphics.print("> " .. option.name, 70, y)
-			else
-				love.graphics.setColor(1, 1, 1)
-				love.graphics.print("  " .. option.name, 70, y)
-			end
-			
-			-- Draw Value
-			if option.type == "toggle" then
-				local val = _G[option.setting]
-				local text = val and "ON" or "OFF"
-				love.graphics.print(text, 250, y)
-			elseif option.type == "slider" then
-				local val = moonshinSettings[option.setting[1]][option.setting[2]]
-				love.graphics.print(string.format("%.0f%%", val * 100), 250, y)
-			end
-		end
-	else
-		-- Draw menu items
-		if #titleScene.menuItems == 0 then
-			love.graphics.print("ERROR: No menu items found", 20, 20)
-		end
-
-		for i, item in ipairs(titleScene.menuItems) do
-			local anim = (i == titleScene.currentOption) and item.selectedAnim or item.defaultAnim
-			if anim then
-				-- Draw sprite at position
-				anim:draw(titleScene.menuImage, item.x, item.y)
-			end
-		end
-		
-		-- Draw version number
-		love.graphics.setColor(0.5, 0.5, 0.5)
-		love.graphics.printf(titleScene.version, 0, VIRTUAL_HEIGHT - 20, VIRTUAL_WIDTH - 10, "right")
-		love.graphics.setColor(1, 1, 1)
+	-- Draw menu items
+	if #titleScene.menuItems == 0 then
+		love.graphics.print("ERROR: No menu items found", 20, 20)
 	end
+
+	for i, item in ipairs(titleScene.menuItems) do
+		local anim = (i == titleScene.currentOption) and item.selectedAnim or item.defaultAnim
+		if anim then
+			anim:draw(titleScene.menuImage, item.x, item.y)
+		end
+	end
+
+	-- Draw version number
+	love.graphics.setColor(0.5, 0.5, 0.5)
+	love.graphics.printf(titleScene.version, 0, VIRTUAL_HEIGHT - 20, VIRTUAL_WIDTH - 10, "right")
+	love.graphics.setColor(1, 1, 1)
 end
 
 function titleScene.keypressed(key)
-	if titleScene.inSettings then
-		if Input.is(key, "up") then
-			titleScene.settingsOption = titleScene.settingsOption - 1
-			if titleScene.settingsOption < 1 then titleScene.settingsOption = #titleScene.settingsOptions end
-		elseif Input.is(key, "down") then
-			titleScene.settingsOption = titleScene.settingsOption + 1
-			if titleScene.settingsOption > #titleScene.settingsOptions then titleScene.settingsOption = 1 end
-		elseif Input.is(key, "left") or Input.is(key, "right") then
-			local option = titleScene.settingsOptions[titleScene.settingsOption]
-			if option.type == "slider" then
-				local current = moonshinSettings[option.setting[1]][option.setting[2]]
-				local change = (Input.is(key, "right") and 1 or -1) * option.step
-				current = current + change
-				if current > option.max then current = option.max end
-				if current < option.min then current = option.min end
-				moonshinSettings[option.setting[1]][option.setting[2]] = current
-				applyCRTSettings()
-			end
-		elseif Input.is(key, "AButton") then
-			local option = titleScene.settingsOptions[titleScene.settingsOption]
-			if option.type == "action" and option.name == "Back" then
-				titleScene.inSettings = false
-			elseif option.type == "toggle" then
-				_G[option.setting] = not _G[option.setting]
-			end
-		elseif Input.is(key, "BButton") then
-			titleScene.inSettings = false
-		end
-	else
-		if Input.is(key, "up") then
-			titleScene.currentOption = titleScene.currentOption - 1
-			if titleScene.currentOption < 1 then titleScene.currentOption = #titleScene.menuItems end
-			titleScene.updateSelection()
-		elseif Input.is(key, "down") then
-			titleScene.currentOption = titleScene.currentOption + 1
-			if titleScene.currentOption > #titleScene.menuItems then titleScene.currentOption = 1 end
-			titleScene.updateSelection()
-		elseif Input.is(key, "AButton") then
-			local item = titleScene.menuItems[titleScene.currentOption]
-			if item and item.action then
-				item.action()
-			end
+	if Input.is(key, "up") then
+		titleScene.currentOption = titleScene.currentOption - 1
+		if titleScene.currentOption < 1 then titleScene.currentOption = #titleScene.menuItems end
+		titleScene.updateSelection()
+	elseif Input.is(key, "down") then
+		titleScene.currentOption = titleScene.currentOption + 1
+		if titleScene.currentOption > #titleScene.menuItems then titleScene.currentOption = 1 end
+		titleScene.updateSelection()
+	elseif Input.is(key, "AButton") then
+		local item = titleScene.menuItems[titleScene.currentOption]
+		if item and item.action then
+			item.action()
 		end
 	end
 end

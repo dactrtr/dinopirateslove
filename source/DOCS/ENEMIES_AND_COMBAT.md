@@ -11,7 +11,7 @@ Enemies (like the `Brocorat`) inherit from the base `Enemy` class and are influe
 ### 1. Global Enemy Data (`PlayerData.EnemiesData`)
 Located in `source/assets/data/PlayerDataTables.lua`, these values scale the difficulty of the game:
 - **`powerLevel`**: (1-20) Increases enemy detection range and determines difficulty profiles in the Dance Scene.
-- **`sightRadius`**: The base detection radius, sourced from `PlayerData.EnemiesData.sightRadius`. Each enemy's effective radius is `PlayerData.EnemiesData.sightRadius + self.powerLevel * 3`. There is no hardcoded base value — it is set in `PlayerDataTables.lua`.
+- **`sightRadius`**: The base detection radius. Default value comes from `Config.Enemy.sightRadiusBase` (set in `Config.lua`), which `PlayerDataTables.lua` reads at startup. Each enemy's effective radius is `PlayerData.EnemiesData.sightRadius + self.powerLevel * 3` (see `brocorat.lua`).
 - **`isEvolved`**: This field **does not exist**. Enemy evolution state is computed dynamically each encounter inside `DanceScene:determineEnemyType()`, not stored as a persistent flag.
 
 ### 2. Detection & Movement

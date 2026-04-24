@@ -2,6 +2,157 @@
 
 This document explains the technical flow of how rooms are loaded from data and how the game transitions between them.
 
+> **Nota de port:** La sección "Playdate (MazeScene)" describe el sistema original y es la referencia canónica. La sección "LÖVE 2D (gameScene)" documenta el estado actual del port y sus diferencias conocidas.
+
+---
+
+## 🎮 Playdate — Sistema original (`MazeScene.lua`)
+
+### Flujo completo de carga
+
+#### 1. Identificar la habitación (`setFloor`)
+```lua
+function scene:setFloor(levelNumber, roomNumber)
+    for i, levelData in ipairs(levelsLDTK) do
+        if levelData.customFields.level == levelNumber
+        and levelData.customFields.roomNumber == roomNumber then
+            room = i   -- índice en levelsLDTK (usado en todo el resto)
+            return
+        end
+    end
+end
+```
+`room` es un índice entero en `levelsLDTK`. Toda la escena trabaja con `levelsLDTK[room]`.
+
+#### 2. Cargar activos visuales (`enter`)
+
+**Fondo** — PNG nombrado por el `identifier` del LDtk:
+```lua
+local roomBgPath = 'assets/images/rooms/floor' .. level .. '/' .. levelsLDTK[room].identifier
+-- ej. 'assets/images/rooms/floor4/Room_8'
+```
+
+**Frente** — PNG nombrado por `roomNumber` (entero):
+```lua
+local fgPath = 'assets/images/rooms/floor' .. level .. '/foreground_' .. roomNumber
+-- ej. 'assets/images/rooms/floor4/foreground_8'
+```
+Solo se carga si `customFields.hasForeground == true`.
+
+**Colisionadores de pared:**
+```lua
+tileColliders = CreateTileColliders(tileMapData[PlayerData.actualTilemap])
+-- actualTilemap = customFields.tile  (índice en tileMapData)
+```
+
+#### 3. Entidades — coordenadas directas del LDtk
+
+Todas las entidades (Props, Items, Enemies, CrewMembers, Triggers) usan `entity.x, entity.y` **sin ningún offset**. Las coordenadas de LDtk ya están en píxeles relativos al canvas 400×240.
+
+```lua
+-- Props
+PropItem(prop.x, prop.y, cf.type, ...)
+
+-- Enemies
+Brocorat(enemy.x, enemy.y, speed, ...)
+
+-- Triggers
+Trigger(triggerData.x, triggerData.y, triggerData.width, triggerData.height, ...)
+```
+
+#### 4. Orden de spawn en `enter()`
+
+1. PlayerData sync (level, room, tilemap, darkness, visited)
+2. Floor sprite (fondo PNG)
+3. Foreground sprite (si `hasForeground`)
+4. inGameMenu UI
+5. `CreateTileColliders` — paredes
+6. `CreateDoorsFromLDTK` — puertas
+7. Props
+8. Items (con lógica `shouldGenerate`)
+9. Player en `PlayerData.playerSpawn.x/y`
+10. FX shadow (si `shadow == true`)
+11. Cutscene (`Panels.startCutscene` si `play == "Enter"`)
+12. Enemies (Brocorat / Bosscolli)
+13. CrewMembers
+14. Triggers
+
+#### 5. Input — basado en eventos discretos
+
+El Playdate usa presiones de botón únicas (`ButtonDown`, `ButtonHold`). El movimiento del jugador se llama una vez por evento, no por frame:
+```lua
+leftButtonDown  = function() scene:movePlayer('left') end
+leftButtonHold  = function() scene:movePlayer('left') end  -- repetición al mantener
+```
+
+#### 6. Limpieza (`exit`)
+```lua
+uiScreen:removeAll()
+floor:remove()
+foregroundSprite:remove()
+shadow:removeAll()
+for _, c in ipairs(tileColliders) do c:remove() end
+Graphics.sprite.removeAll()
+PlayerData.playerExit.x = player.x
+PlayerData.playerExit.y = player.y
+```
+
+---
+
+## 🖥️ LÖVE 2D — Port actual (`gameScene.lua`)
+
+### Diferencias respecto al Playdate
+
+| Aspecto | Playdate (canónico) | LÖVE (actual) |
+|---|---|---|
+| **Nombre del PNG de fondo** | `floor{level}/{identifier}` (ej. `Room_8`) | `floor{level}/room_{tileIdx}.png` (ej. `room_8.png`) |
+| **Nombre del PNG de frente** | `foreground_{roomNumber}` | `foreground_{tileIdx}.png` |
+| **Coordenadas de entidades** | Directas del LDtk, sin offset | Items/Triggers aplican `startX/startY`; Props no (inconsistente) |
+| **Input de movimiento** | Eventos discretos por botón | `Input.isDown` cada frame × `dt` (continuo) |
+| **Sistema de escenas** | Noble framework (`NobleScene`) | `sceneManager.lua` propio |
+| **Transiciones de habitación** | `Noble.transition(FloorXXX, ...)` | `gameScene.performChangeLevel(iid, dir, px, py)` |
+
+### Coordenadas de entidades — problema conocido
+
+En el Playdate **todas** las entidades usan las coordenadas de LDtk directamente. En el port LÖVE, `loadItems()` y `loadTriggers()` aplican un offset `startX/startY`:
+
+```lua
+-- LÖVE actual (incorrecto para Items y Triggers)
+local startX = VIRTUAL_WIDTH / 2 - (gameScene.mapWidth * gameScene.tileSize) / 2
+local startY = VIRTUAL_HEIGHT / 2 - (gameScene.mapHeight * gameScene.tileSize) / 2
+local worldX = entity.x + startX  -- Para habitaciones 25×15: startX = 0, así que no rompe
+```
+
+Para rooms estándar de 25×15 tiles (400×240 px) `startX = 0` y `startY = 0`, por lo que el bug no es visible. Si alguna habitación tiene dimensiones distintas, los offsets serán incorrectos.
+
+**Corrección pendiente:** eliminar `startX/startY` de `loadItems()` y `loadTriggers()` y usar `entity.x, entity.y` directamente, igual que `loadProps()`.
+
+### Nombre de los PNGs de fondo — convención activa
+
+El port LÖVE usa `room_{tileIdx}.png` en lugar del `identifier` del LDtk. Los archivos deben seguir esa convención o bien `loadFloor()` debe cambiarse para usar `levelsLDTK[room].identifier` como el Playdate original.
+
+---
+
+## 🏗️ Floor Class Generation (`Floors.lua`)
+
+`Floors.lua` creates a scene class for every valid room number using **hardcoded ranges**, not by iterating `levelsLDTK`.
+
+```lua
+local floorRanges = {
+    { start = 166, stop = 180 },
+    { start = 231, stop = 274 },
+    { start = 316, stop = 330 },
+    { start = 401, stop = 415 }
+}
+```
+
+For each number `i` in those ranges, a class `FloorXXX` is created extending `MazeScene`. Its `init()`:
+- Derives `level = math.floor(i / 100)` and `room = i % 100`
+- Calls `self:setFloor(level, room)` to store the room index
+- Sets `PlayerData.saveLevel = i` (used by the save system)
+
+`RoomTranslate(i)` then retrieves the class via `_G["Floor" .. i]`.
+
 ---
 
 ## 🗺️ Data Source: `levels.lua`
@@ -39,20 +190,36 @@ When a transition occurs, `MazeScene` goes through a specific lifecycle to build
 Before Entering, the game searches `levelsLDTK` for the entry matching the desired `level` and `roomNumber` to get its index in the table.
 
 ### 2. Room Setup (`enter`)
-- **Metadata**: Sets `PlayerData.isInDarkness` and `PlayerData.actualTilemap` based on room fields.
-- **Environment**: Renders the `tilemap` and creates the `FXshadow` if the room is dark.
-- **Walls & Doors**: Calls `CreateTileColliders` (for walls) and `CreateDoorsFromLDTK`. Walls are automatically generated from non-walkable tiles in the tilemap.
+- **Metadata**: Sets `PlayerData.actualLevel`, `PlayerData.actualRoom`, `PlayerData.actualTilemap`, `PlayerData.isInDarkness` from the room's `customFields`. Also marks `levelsLDTK[room].customFields.visited = true`.
+- **Background**: Loads a static PNG from `assets/images/rooms/floor{level}/{identifier}` as the room background sprite (zIndex 1).
+- **Foreground**: If `hasForeground == true`, loads `assets/images/rooms/floor{level}/foreground_{roomNumber}` at `ZIndex.foreground`.
+- **Walls**: `CreateTileColliders(tileMapData[actualTilemap])` — generates wall collider sprites from the int-grid tile data.
+- **Doors**: `CreateDoorsFromLDTK(currentRoom)` — creates door sprites from `neighbourLevels` + `DoorsConnection`.
 
-### 3. Entity Spawning
-The scene iterates through the room's `entities` table:
-- **Props**: Spawns `PropItem` instances, checking if they were previously `destroyed`.
-- **Items**: Spawns `Items` (pickups) only if the player doesn't already have them. For `itemgift` and `notes`, it checks the `grants` field to see if the player owns the specific items or skills listed.
-- **Enemies**: Spawns `Brocorat`, `Bosscolli`, or `CrewMember` based on their `dead` or `isTaken` status.
-- **Triggers**: Spawns `Trigger` entities from the `Triggers` entity list, which drive dialogs, cutscenes, counters, and interactive events.
+### 3. Entity Spawning (in order)
+The scene iterates `levelsLDTK[room].entities` in this order:
 
-### 4. Foreground & Cutscenes
-- **Foreground**: If the room has a `hasForeground` custom field, a foreground sprite is overlaid at `ZIndex.foreground` to create depth occlusion above the player.
-- **Cutscenes (Panels)**: If `levelsLDTK[room].customFields.comic_wasPlayed` is false and the room has a comic sequence, the Panels library is triggered to play the intro cutscene before gameplay begins.
+1. **Props** — Spawns `PropItem`. If `destroyed == false` or nil → normal prop; if `destroyed == true` → spawns `"debris"` variant.
+2. **Items** — Spawns `Items` pickups only if the player doesn't already own them:
+   - `keycard`: checks `PlayerData.keys[keyNum]`
+   - entities with a `grants` field: parses `"key:value,key:value"` and checks `PlayerData.items[key]` / `PlayerData.skills[key]`
+   - other known items: checks the corresponding `PlayerData.items[fieldName]`
+3. **Player** — Spawned from `PlayerData.playerSpawn.x/y`. HUD (`playerHud`) and in-game menu created here.
+4. **FX** — `FXshadow` created if `customFields.shadow == true`, using `customFields.light` as light radius.
+5. **Cutscene** — If room has `comic_name` and `play == "Enter"` and `comic_wasPlayed == false`, Panels cutscene plays. Sets `PlayerData.isCutscene = true` until complete.
+6. **Enemies** — `Brocorat` or `Bosscolli` spawned if `dead == false`. Dead enemies leave a `"blood2"` PropItem.
+7. **CrewMembers** — `CrewMember` spawned if `isTaken == false`.
+8. **NPCs** — `NPC` entities spawned unconditionally.
+9. **Triggers** — `Trigger` entities spawned if `usedTrigger == false`. Drive dialogs, cutscenes, and counters.
+
+---
+
+### 4. Scene start / exit
+
+- **`start()`**: Calls `self:setDiagonalMovement(diagonalMovement)`, then sets `PlayerData.isGaming = true`.
+- **`exit()`**: Removes HUD, floor sprite, foreground, shadow, tile colliders, and all remaining sprites. Stores `PlayerData.playerExit.x/y = player.x/y`.
+- **`finish()`**: Sets `PlayerData.isGaming = false`, calls `SaveSystem.save()`.
+- **`pause()`**: Calls `SaveSystem.save()` (triggered when the system menu opens).
 
 ---
 
@@ -60,6 +227,7 @@ The scene iterates through the room's `entities` table:
 State changes are saved back into the `levelsLDTK` table (or mirrored in `PlayerData`):
 - When an enemy is killed or a prop is broken, the `customFields` in the active `levelsLDTK` entry are updated.
 - `MazeScene:finish()` and `MazeScene:pause()` both call `SaveSystem.save()`, ensuring changes persist when exiting a room or pausing (e.g., opening the system menu).
+- `PlayerData.playerExit` records the player's last position when leaving a room (separate from `playerSpawn`, which is set before transitioning in).
 
 > [!TIP]
 > The dynamic wall system in `Utilities.lua` is what allows rooms to feel connected; it hides the 12px wall sprites only where a neighbor is detected in LDtk.
