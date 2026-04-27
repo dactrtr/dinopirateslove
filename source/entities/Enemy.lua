@@ -187,18 +187,25 @@ function Enemy:filter(other)
 	end
 end
 
--- Sonar effect (commented out as requested)
--- function Enemy:sonar()
--- 	if (PlayerData.x - 60) > self.x or (PlayerData.x + 60) < self.x then
--- 		if PlayerData.isFocused == true and PlayerData.isInDarkness == true and PlayerData.sanity > 0 then
--- 			-- self.currentAnimation = self.animations.shine
--- 			-- self.currentAnimation.frameDuration = math.random(1, 16) / 60
--- 			-- Set Z-index equivalent (draw order)
--- 		else
--- 			-- self.currentAnimation = self.animations.idle
--- 		end
--- 	end
--- end
+-- Switches to shine animation when off-screen (> 60px X) while player is focused and in darkness.
+function Enemy:sonar()
+	local offScreenLeft  = (PlayerData.x - 60) > self.x
+	local offScreenRight = (PlayerData.x + 60) < self.x
+	if (offScreenLeft or offScreenRight)
+	   and PlayerData.isFocused
+	   and PlayerData.isInDarkness
+	   and (PlayerData.sanity or 0) > 0
+	then
+		if self.animations and self.animations.shine then
+			self.currentAnimation = self.animations.shine
+		end
+	else
+		if self.animations and self.animations.shine
+		   and self.currentAnimation == self.animations.shine then
+			self.currentAnimation = self.animations.idle
+		end
+	end
+end
 
 function Enemy:update(dt)
 	-- Update animation if it exists
