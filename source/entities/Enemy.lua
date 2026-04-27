@@ -70,6 +70,7 @@ end
 -- Blind search: enemy moves towards player regardless of obstacles
 function Enemy:blindSearch(player, dt)
 	-- Expects updateMoveSpeed() to have been called this tick.
+	-- "blind" here means no obstacle avoidance, unrelated to the blindFrames status effect.
 	self.player = player
 	dt = dt or 1/60 -- Default to 60fps if dt not provided
 	local movementX = self.player.x <= self.x and self.x - self.moveSpeed * dt or self.x + self.moveSpeed * dt

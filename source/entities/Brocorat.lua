@@ -91,7 +91,7 @@ function Brocorat:empty()
 end
 
 function Brocorat:onHitByProjectile()
-	printDebug("🎯 Brocorat blinded for 60 frames!")
+	printDebug("Brocorat blinded for 60 frames!")
 	self:blind(60)
 end
 
@@ -103,6 +103,7 @@ function Brocorat:update(dt)
 			self.currentAnimation = self.animations.idle
 		end
 		if self.currentAnimation then self.currentAnimation:update(dt) end
+		-- Early return also suppresses sonar() while blinded (intentional).
 		return
 	end
 
