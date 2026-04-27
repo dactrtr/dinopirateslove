@@ -61,6 +61,12 @@ function Enemy:updateMoveSpeed()
 	end
 end
 
+-- Prevents the enemy from moving for `frames` update ticks.
+-- Called on Plungerang hit or light flash.
+function Enemy:blind(frames)
+	self.blindFrames = frames or 60
+end
+
 -- Blind search: enemy moves towards player regardless of obstacles
 function Enemy:blindSearch(player, dt)
 	-- Expects updateMoveSpeed() to have been called this tick.

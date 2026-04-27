@@ -90,7 +90,22 @@ function Brocorat:empty()
 	self.currentAnimation = self.animations.empty
 end
 
+function Brocorat:onHitByProjectile()
+	printDebug("🎯 Brocorat blinded for 60 frames!")
+	self:blind(60)
+end
+
 function Brocorat:update(dt)
+	-- Blind/stun countdown
+	if self.blindFrames and self.blindFrames > 0 then
+		self.blindFrames = self.blindFrames - 1
+		if self.animations and self.currentAnimation ~= self.animations.idle then
+			self.currentAnimation = self.animations.idle
+		end
+		if self.currentAnimation then self.currentAnimation:update(dt) end
+		return
+	end
+
 	-- Store previous position to detect movement
 	local prevX, prevY = self.x, self.y
 	
