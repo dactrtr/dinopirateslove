@@ -26,7 +26,7 @@ When a player takes a hit but their HP is above `danceThresholdHP`, they become 
 **`player/init.lua` — initialization:**
 - Add `self.invincibilityTimer = 0` and `self.visible = true` to Player constructor
 
-**`player/state.lua` (or wherever `Player:update(dt)` lives) — update loop:**
+**`entities/player/init.lua` — `Player:update(dt)` (line 136) — add at the end of the update loop, before the animation update:**
 ```lua
 if self.isInvincible then
     self.invincibilityTimer = self.invincibilityTimer - dt * 1000
@@ -39,7 +39,7 @@ if self.isInvincible then
 end
 ```
 
-**`player/init.lua` — `Player:draw()`:**
+**`entities/player/init.lua` — `Player:draw()` (line 280) — add at the very top of the method:**
 ```lua
 if not self.visible then return end
 -- ... existing draw logic
@@ -133,8 +133,8 @@ The `frameDuration` set on anim8 animation objects controls how long each frame 
 
 | File | Change |
 |---|---|
-| `entities/player/collisions.lua` | `startInvincibility` — remove HUMP Timer, set countdown fields |
-| `entities/player/init.lua` | Add `invincibilityTimer`, `visible`; add blink logic to `update()`; gate `draw()` on `self.visible` |
+| `entities/player/collisions.lua` | `startInvincibility` — remove HUMP Timer, set `player.invincibilityTimer` and `player.isInvincible` |
+| `entities/player/init.lua` | Constructor: add `invincibilityTimer = 0`, `visible = true`; `update()` line 136: add blink countdown; `draw()` line 280: early return if `not self.visible` |
 | `entities/Brocorat.lua` | Add `movementFrames`, `maxMovementFrames`, `addMovementFrames()`; replace player-reactive AI check with token consumption |
 | `entities/Enemy.lua` | `sonar()` — add `frameDuration` randomization in shine branch |
 
