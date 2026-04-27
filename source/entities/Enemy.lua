@@ -49,8 +49,21 @@ function Enemy:initialize(x, y, world, enemyType)
 	-- self.currentAnimation = self.animations.idle
 end
 
+-- Adjusts moveSpeed based on PlayerData battery and darkness state.
+-- Call once per update tick, before any movement method.
+function Enemy:updateMoveSpeed()
+	if PlayerData.battery < 10 and PlayerData.isInDarkness then
+		self.moveSpeed = 0.5
+	elseif PlayerData.battery > 60 and PlayerData.isInDarkness then
+		self.moveSpeed = self.initialSpeed * 0.7
+	else
+		self.moveSpeed = self.initialSpeed
+	end
+end
+
 -- Blind search: enemy moves towards player regardless of obstacles
 function Enemy:blindSearch(player, dt)
+	-- Expects updateMoveSpeed() to have been called this tick.
 	self.player = player
 	dt = dt or 1/60 -- Default to 60fps if dt not provided
 	local movementX = self.player.x <= self.x and self.x - self.moveSpeed * dt or self.x + self.moveSpeed * dt
@@ -62,6 +75,7 @@ end
 
 -- Lineal search: enemy only moves when aligned with player (horizontal or vertical)
 function Enemy:linealSearch(player, dt)
+	-- Expects updateMoveSpeed() to have been called this tick.
 	dt = dt or 1/60 -- Default to 60fps if dt not provided
 
 	self.player = player
@@ -78,18 +92,6 @@ function Enemy:linealSearch(player, dt)
 	if math.abs(self.x - self.player.x) < self.viewRange then
 		movementY = self.player.y <= self.y and self.y - self.moveSpeed * dt or self.y + self.moveSpeed * dt
 		self:moveCollision(self.x, movementY, self.player)
-	end
-end
-
--- Adjusts moveSpeed based on PlayerData battery and darkness state.
--- Call once per update tick, before any movement method.
-function Enemy:updateMoveSpeed()
-	if PlayerData.battery < 10 and PlayerData.isInDarkness then
-		self.moveSpeed = 0.5
-	elseif PlayerData.battery > 60 and PlayerData.isInDarkness then
-		self.moveSpeed = self.initialSpeed * 0.7
-	else
-		self.moveSpeed = self.initialSpeed
 	end
 end
 
