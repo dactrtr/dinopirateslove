@@ -63,13 +63,7 @@ end
 -- Lineal search: enemy only moves when aligned with player (horizontal or vertical)
 function Enemy:linealSearch(player, dt)
 	dt = dt or 1/60 -- Default to 60fps if dt not provided
-	
-	if PlayerData.battery <= 10 then
-		self.moveSpeed = 0
-	elseif PlayerData.battery > 60 then
-		self.moveSpeed = self.initialSpeed
-	end
-	
+
 	self.player = player
 	local movementX = self.x
 	local movementY = self.y
@@ -87,14 +81,20 @@ function Enemy:linealSearch(player, dt)
 	end
 end
 
--- Move with collision detection and response
-function Enemy:moveCollision(movementX, movementY, player)
-	if PlayerData.battery < 10 and PlayerData.isInDarkness == true then
+-- Adjusts moveSpeed based on PlayerData battery and darkness state.
+-- Call once per update tick, before any movement method.
+function Enemy:updateMoveSpeed()
+	if PlayerData.battery < 10 and PlayerData.isInDarkness then
 		self.moveSpeed = 0.5
-	elseif PlayerData.battery > 60 and PlayerData.isInDarkness == true then
+	elseif PlayerData.battery > 60 and PlayerData.isInDarkness then
+		self.moveSpeed = self.initialSpeed * 0.7
+	else
 		self.moveSpeed = self.initialSpeed
 	end
-	
+end
+
+-- Move with collision detection and response
+function Enemy:moveCollision(movementX, movementY, player)
 	-- Calculate collision box position
 	local newCollisionX = movementX + self.collisionOffsetX
 	local newCollisionY = movementY + self.collisionOffsetY

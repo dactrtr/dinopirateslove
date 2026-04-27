@@ -96,6 +96,7 @@ function Brocorat:update(dt)
 	
 	-- Turn-based AI: move when player is moving OR has just moved
 	if self.player and (self.player.isMoving or self.player.hasMoved) then
+		self:updateMoveSpeed()
 		self:search(self.player, dt)
 	else
 		-- Player not moving, enemy should be idle
