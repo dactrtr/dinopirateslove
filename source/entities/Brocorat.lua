@@ -122,7 +122,7 @@ function Brocorat:update(dt)
 	-- Check if enemy actually moved
 	local didMove = (math.abs(self.x - prevX) > 0.1 or math.abs(self.y - prevY) > 0.1)
 
-	-- Update animation based on movement state (skip if sonar set shine)
+	-- If shine was set by sonar() on a previous frame, don't overwrite it with walk/idle.
 	local isShining = self.animations and self.currentAnimation == self.animations.shine
 	if not isShining then
 		if self.isMoving and didMove then
@@ -139,13 +139,12 @@ function Brocorat:update(dt)
 		end
 	end
 	
+	self:sonar()
+
 	-- Update animation AFTER setting the correct one
 	if self.currentAnimation then
 		self.currentAnimation:update(dt)
 	end
-	
-	-- Sonar effect
-	self:sonar()
 end
 
 function Brocorat:draw()
