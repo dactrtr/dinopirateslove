@@ -83,7 +83,6 @@ local function resetState()
     state.numberOfButtons = 4
     state.balancePosition = 0
     state.balanceMaxOffset = state.enemyHP
-    state.accuracyFrames  = 0
     state.correctButtonPresses = {
         aButton=0, bButton=0,
         leftButton=0, rightButton=0, upButton=0, downButton=0,
@@ -159,9 +158,11 @@ function danceScene.update(dt)
     state.playerDance:update(dt)
     state.enemyDance:update(dt)
 
-    -- Buttons scroll continuously (visible during ready screen)
-    for _, btn in ipairs(state.buttons) do
-        btn:update(dt)
+    -- Buttons only move once battle is active (matching Playdate behavior)
+    if PlayerData.isDancing then
+        for _, btn in ipairs(state.buttons) do
+            btn:update(dt)
+        end
     end
 
     -- Hit detection only runs during active battle
@@ -172,40 +173,41 @@ function danceScene.update(dt)
     local inZone = state.hitZone:overlapping(state.buttons)
 
     if #inZone > 0 then
-        state.accuracyFrames = 0
-        if state.ButtonPressed then
-            local collisions = {}
-            for _, btn in ipairs(inZone) do
-                if btn.buttonKey == state.ButtonPressed then
-                    collisions[#collisions+1] = btn
-                end
-            end
+        local btn = inZone[1]
 
-            if #collisions > 0 then
-                -- Correct press
-                collisions[1]:hit()
-                state.accuracy = state.accuracy + 1
-                state.totalAccuracy = state.totalAccuracy + 1
-                if state.ButtonPressed == "aButton" or state.ButtonPressed == "bButton" then
-                    state.balancePosition = Balance.applyABHit(state.balancePosition)
-                    state.enemyDance:attackAnimation(state.ButtonPressed)
-                else
-                    state.balancePosition = Balance.applyArrowHit(state.balancePosition, state.accuracy)
-                    state.playerDance:changeAnimation(state.ButtonPressed)
-                end
-            else
-                -- Wrong press
-                local wrongBtn = inZone[1]
-                wrongBtn:hit()
-                state.balancePosition = Balance.applyWrongPress(state.balancePosition)
+        if state.ButtonPressed == nil then
+            -- Button in zone, no key pressed: accuracy builds; drain slowly after 5 frames
+            state.accuracy = state.accuracy + 1
+            if state.accuracy > 5 then
+                state.balancePosition = state.balancePosition + Balance.MISS_DELTA
             end
-            state.ButtonPressed = nil
+            state.enemyDance:changeAnimation(btn.buttonKey)
+
+        elseif btn.buttonKey == state.ButtonPressed then
+            -- Correct press
+            if state.ButtonPressed == "aButton" or state.ButtonPressed == "bButton" then
+                state.enemyDance:attackAnimation(state.ButtonPressed)
+                state.balancePosition = Balance.applyABHit(state.balancePosition)
+            else
+                state.balancePosition = Balance.applyArrowHit(state.balancePosition, state.accuracy)
+                state.totalAccuracy = state.totalAccuracy + state.accuracy
+                state.evadePower = state.totalAccuracy
+            end
+            state.playerDance:changeAnimation(state.ButtonPressed)
+            state.correctButtonPresses[state.ButtonPressed] = (state.correctButtonPresses[state.ButtonPressed] or 0) + 1
+            btn:hit()
+
+        else
+            -- Wrong press
+            btn:hit()
+            state.balancePosition = Balance.applyWrongPress(state.balancePosition)
         end
+
+        state.ButtonPressed = nil  -- always clear after any collision frame
+
     else
-        state.accuracyFrames = state.accuracyFrames + 1
-        state.balancePosition = Balance.applyMissPenalty(state.balancePosition, state.accuracyFrames)
+        -- No buttons in zone: reset accuracy
         state.accuracy = 0
-        state.ButtonPressed = nil
     end
 
     state.balancePosition = Balance.clamp(state.balancePosition, state.balanceMaxOffset)
@@ -225,24 +227,24 @@ end
 -- ── Draw ──────────────────────────────────────────────────────────────────────
 function danceScene.draw()
     if not state.backgroundDance then return end
-    state.backgroundDance:draw(1)
+    state.backgroundDance:draw(1)  -- z=1
+    state.enemyDance:draw(1)        -- z=2
 
-    for _, btn in ipairs(state.buttons) do btn:draw(1) end
+    for _, btn in ipairs(state.buttons) do btn:draw(1) end  -- z=4
 
-    state.hitZone:draw(1)
-    state.buttonCover:draw(1)
+    state.hitZone:draw(1)           -- z=5
+    state.playerDance:draw(1)       -- z=6
+    state.buttonCover:draw(1)       -- z=9
 
-    -- Balance bar
+    -- Balance bar (z=9)
     local bx = SCREEN_CENTER_X + state.balancePosition - BAR_WIDTH/2
     love.graphics.setColor(1, 1, 0)
     love.graphics.rectangle("fill", bx, BAR_Y, BAR_WIDTH, BAR_HEIGHT)
     love.graphics.setColor(1, 1, 1)
 
-    state.winIndicator:draw(1)
-    state.loseIndicator:draw(1)
-    state.playerDance:draw(1)
-    state.enemyDance:draw(1)
-    state.resultsScreen:draw(1)
+    state.winIndicator:draw(1)      -- z=9
+    state.loseIndicator:draw(1)     -- z=9
+    state.resultsScreen:draw(1)     -- z=10
 
     -- Debug
     love.graphics.setColor(0.5, 0.5, 0.5)
@@ -298,6 +300,8 @@ function danceScene.checkDanceResults()
             (Config.Player and Config.Player.maxHealth) or 3)
         PlayerData.calories     = (PlayerData.calories or 0) + 60
         PlayerData.amountDances = (PlayerData.amountDances or 0) + 1
+        PlayerData.playerSpawn.x = PlayerData.playerExit.x
+        PlayerData.playerSpawn.y = PlayerData.playerExit.y
         sceneManager.startTransition("dance", "game", "slide")
 
     elseif state.condition == "lose" then

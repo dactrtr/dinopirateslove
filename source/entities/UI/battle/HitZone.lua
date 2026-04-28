@@ -37,5 +37,8 @@ end
 function HitZone:draw(scale)
     scale = scale or 1
     love.graphics.setColor(1, 1, 1)
-    self.anim:draw(self.image, self.x * scale, self.y * scale, 0, scale, scale)
+    self.anim:draw(self.image,
+        (self.x + self.w/2) * scale, (self.y + self.h/2) * scale,
+        0, scale, scale,
+        self.w/2, self.h/2)
 end

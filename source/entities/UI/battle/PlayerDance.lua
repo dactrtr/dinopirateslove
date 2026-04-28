@@ -4,8 +4,10 @@ local anim8 = require 'libraries/anim8'
 PlayerDance = {}
 PlayerDance.__index = PlayerDance
 
-local PLAYER_X = 0
-local PLAYER_Y = 26
+local PLAYER_X  = 0
+local PLAYER_Y  = 26
+local FRAME_W   = 246
+local FRAME_H   = 214
 
 function PlayerDance.new(bpm)
     local self = setmetatable({ bpm = bpm }, PlayerDance)
@@ -48,5 +50,8 @@ end
 function PlayerDance:draw(scale)
     scale = scale or 1
     love.graphics.setColor(1, 1, 1)
-    self.currentAnim:draw(self.image, PLAYER_X * scale, PLAYER_Y * scale, 0, scale, scale)
+    self.currentAnim:draw(self.image,
+        (PLAYER_X + FRAME_W/2) * scale, (PLAYER_Y + FRAME_H/2) * scale,
+        0, scale, scale,
+        FRAME_W/2, FRAME_H/2)
 end

@@ -7,6 +7,8 @@ EnemyRatDance.__index = EnemyRatDance
 local ENEMY_X = 158
 local ENEMY_Y = 26
 local COLS    = 6
+local FRAME_W = 211
+local FRAME_H = 214
 
 local function buildAnim(g, fromFrame, toFrame, fps)
     local quads = {}
@@ -30,9 +32,9 @@ function EnemyRatDance.new(bpm, enemyType, evolving)
     self.anims = {
         idle        = buildAnim(g, 1,  5,  fps),
         upAttack    = buildAnim(g, 6,  9,  fps),
-        downAttack  = buildAnim(g, 10, 13, fps),
-        leftAttack  = buildAnim(g, 14, 17, fps),
-        rightAttack = buildAnim(g, 18, 21, fps),
+        leftAttack  = buildAnim(g, 10, 13, fps),
+        rightAttack = buildAnim(g, 14, 17, fps),
+        downAttack  = buildAnim(g, 18, 21, fps),
         bButton     = buildAnim(g, 22, 25, fps),
         aButton     = buildAnim(g, 26, 29, fps),
         evolving    = buildAnim(g, 30, 33, fps),
@@ -88,5 +90,8 @@ end
 function EnemyRatDance:draw(scale)
     scale = scale or 1
     love.graphics.setColor(1, 1, 1)
-    self.currentAnim:draw(self.image, ENEMY_X * scale, ENEMY_Y * scale, 0, scale, scale)
+    self.currentAnim:draw(self.image,
+        (ENEMY_X + FRAME_W/2) * scale, (ENEMY_Y + FRAME_H/2) * scale,
+        0, scale, scale,
+        FRAME_W/2, FRAME_H/2)
 end

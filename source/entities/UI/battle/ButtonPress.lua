@@ -22,7 +22,7 @@ local BUTTON_FRAMES = {
 }
 local EMPTY_FRAME = 7
 
-local LEFT_BOUNDARY = 20
+local LEFT_BOUNDARY = 16  -- recycle when left edge < 16 (Playdate: center <= 32, right edge <= 48)
 local _image, _quads  -- module-level cache shared across all instances
 
 local function loadAssets()
@@ -52,7 +52,7 @@ function ButtonPress.new(bpm, startX, keyProvider)
     self.hitTimer    = 0
     self.delayMs     = 0
     self.elapsedMs   = 0
-    self.speed       = 400 / (60 / bpm)
+    self.speed       = bpm * 25 / 3  -- matches Playdate: 0.5*bpm/3 px/frame at 50fps
     return self
 end
 
@@ -93,7 +93,7 @@ function ButtonPress:update(dt)
 
     self.x = self.x - self.speed * dt
 
-    if self.x < LEFT_BOUNDARY - self.width then
+    if self.x < LEFT_BOUNDARY then
         self:recycle()
     end
 end
@@ -104,7 +104,10 @@ function ButtonPress:draw(scale)
     local quad = _quads[frameIdx]
     if not quad then return end
     love.graphics.setColor(1, 1, 1)
-    love.graphics.draw(_image, quad, self.x * scale, self.y * scale, 0, scale, scale)
+    love.graphics.draw(_image, quad,
+        (self.x + self.width/2) * scale, (self.y + self.height/2) * scale,
+        0, scale, scale,
+        self.width/2, self.height/2)
 end
 
 function ButtonPress:getBounds()

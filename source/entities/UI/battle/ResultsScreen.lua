@@ -2,7 +2,7 @@
 ResultsScreen = {}
 ResultsScreen.__index = ResultsScreen
 
-local FRAME = { playing=1, loading=2, win=3, lose=4 }
+local FRAME = { playing=1, win=2, lose=3, loading=4 }
 
 function ResultsScreen.new()
     local self = setmetatable({ state = "loading" }, ResultsScreen)
