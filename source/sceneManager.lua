@@ -277,9 +277,16 @@ function sceneManager.wheelmoved(x, y)
 	if transition.active then
 		return
 	end
-	
+
 	if currentScene and currentScene.wheelmoved then
 		currentScene.wheelmoved(x, y)
+	end
+end
+
+function sceneManager.keyreleased(key)
+	if transition.active then return end
+	if currentScene and currentScene.keyreleased then
+		currentScene.keyreleased(key)
 	end
 end
 

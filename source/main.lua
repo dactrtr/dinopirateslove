@@ -286,6 +286,10 @@ function love.keypressed(key)
 	sceneManager.keypressed(key)
 end
 
+function love.keyreleased(key)
+	sceneManager.keyreleased(key)
+end
+
 function love.gamepadpressed(joystick, button)
 	if joystick == activeJoystick and sceneManager.gamepadpressed then
 		sceneManager.gamepadpressed(button)
