@@ -11,26 +11,48 @@ local BUTTON_LABELS = {
     downButton = "▼",
 }
 
-local LEFT_BOUNDARY = 20  -- recycle when button exits left side
+-- Frame indices in button-table-32-32.png (8 frames, 1 row)
+local BUTTON_FRAMES = {
+    leftButton  = 1,
+    upButton    = 2,
+    rightButton = 3,
+    downButton  = 4,
+    aButton     = 5,
+    bButton     = 6,
+}
+local EMPTY_FRAME = 7
 
--- bpm        : beats per minute (controls scroll speed)
--- startX     : x position to reset to after recycling
--- keyProvider: function() → buttonKey string
+local LEFT_BOUNDARY = 20
+local _image, _quads  -- module-level cache shared across all instances
+
+local function loadAssets()
+    if _image then return end
+    _image = love.graphics.newImage('assets/images/ui/battle/button-table-32-32.png')
+    _quads = {}
+    local fw, fh = 32, 32
+    local iw = _image:getWidth()
+    local nFrames = math.floor(iw / fw)
+    for i = 1, nFrames do
+        _quads[i] = love.graphics.newQuad((i-1)*fw, 0, fw, fh, iw, fh)
+    end
+end
+
 function ButtonPress.new(bpm, startX, keyProvider)
+    loadAssets()
     local self = setmetatable({}, ButtonPress)
     self.keyProvider = keyProvider
     self.startX      = startX or 400
     self.buttonKey   = keyProvider()
     self.label       = BUTTON_LABELS[self.buttonKey] or "?"
     self.x           = startX or 400
-    self.y           = 40         -- aligns with HitZone at y=30, h=40
+    self.y           = 40
     self.width       = 32
     self.height      = 32
     self.isHit       = false
     self.hitTimer    = 0
     self.delayMs     = 0
     self.elapsedMs   = 0
-    self.speed       = 400 / (60 / bpm)  -- px/sec
+    self.speed       = 400 / (60 / bpm)
     return self
 end
 
@@ -44,12 +66,12 @@ function ButtonPress:recycle()
     self.label     = BUTTON_LABELS[self.buttonKey] or "?"
     self.isHit     = false
     self.hitTimer  = 0
-    self.elapsedMs = self.delayMs  -- skip delay on subsequent passes
+    self.elapsedMs = self.delayMs
 end
 
 function ButtonPress:hit()
     self.isHit    = true
-    self.hitTimer = 0.15  -- 150 ms empty state, then recycle
+    self.hitTimer = 0.15
 end
 
 function ButtonPress:update(dt)
@@ -77,15 +99,12 @@ function ButtonPress:update(dt)
 end
 
 function ButtonPress:draw(scale)
-    if self.isHit then return end
     scale = scale or 1
+    local frameIdx = self.isHit and EMPTY_FRAME or (BUTTON_FRAMES[self.buttonKey] or 1)
+    local quad = _quads[frameIdx]
+    if not quad then return end
     love.graphics.setColor(1, 1, 1)
-    love.graphics.rectangle("line",
-        self.x * scale, self.y * scale,
-        self.width * scale, self.height * scale)
-    love.graphics.printf(self.label,
-        self.x * scale, self.y * scale + 8 * scale,
-        self.width * scale, "center")
+    love.graphics.draw(_image, quad, self.x * scale, self.y * scale, 0, scale, scale)
 end
 
 function ButtonPress:getBounds()
