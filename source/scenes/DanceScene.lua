@@ -137,7 +137,7 @@ function danceScene.enter()
     end
 
     -- Build entities
-    state.hitZone        = HitZone.new(40, 100, 10, 40)
+    state.hitZone        = HitZone.new(40, 30, 10, 40)
     state.playerDance    = PlayerDance.new(state.bpm)
     state.enemyDance     = EnemyRatDance.new(state.bpm, state.enemyType, state.enemyEvolving)
     state.backgroundDance = BackgroundDance.new()
@@ -153,13 +153,19 @@ end
 
 -- ── Update ────────────────────────────────────────────────────────────────────
 function danceScene.update(dt)
-    if not PlayerData.isDancing then return end
-    if state.condition ~= nil then return end
+    -- Always update visual elements (animations run during ready screen too)
+    state.hitZone:update(dt)
+    state.playerDance:update(dt)
+    state.enemyDance:update(dt)
 
-    -- Update all buttons
+    -- Buttons scroll continuously (visible during ready screen)
     for _, btn in ipairs(state.buttons) do
         btn:update(dt)
     end
+
+    -- Hit detection only runs during active battle
+    if not PlayerData.isDancing then return end
+    if state.condition ~= nil then return end
 
     -- Check buttons in hitzone
     local inZone = state.hitZone:overlapping(state.buttons)

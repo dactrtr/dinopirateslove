@@ -11,6 +11,8 @@ local function aabbOverlap(ax, ay, aw, ah, bx, by, bw, bh)
            ay < by + bh and ay + ah > by
 end
 
+function HitZone:update(dt) end
+
 function HitZone:overlapping(buttons)
     local result = {}
     for _, btn in ipairs(buttons) do
