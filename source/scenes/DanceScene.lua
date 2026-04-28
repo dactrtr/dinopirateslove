@@ -153,6 +153,7 @@ end
 
 -- ── Update ────────────────────────────────────────────────────────────────────
 function danceScene.update(dt)
+    if not state.hitZone then return end
     -- Always update visual elements (animations run during ready screen too)
     state.hitZone:update(dt)
     state.playerDance:update(dt)
@@ -223,6 +224,7 @@ end
 
 -- ── Draw ──────────────────────────────────────────────────────────────────────
 function danceScene.draw()
+    if not state.backgroundDance then return end
     state.backgroundDance:draw(1)
 
     for _, btn in ipairs(state.buttons) do btn:draw(1) end
