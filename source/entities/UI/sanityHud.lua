@@ -1,39 +1,48 @@
-class("sanityHud").extends(NobleSprite)
+-- source/entities/UI/sanityHud.lua
+-- Sanity HUD - shows the player's sanity level
+local SanityHud = {}
 
-
-function sanityHud:init(x, y, zIndex, player)
-	sanityHud.super.init(self,'assets/images/ui/sanity.png', true)
-	-- Mark: animation states
-	self.animation:addState('good', 1, 2)
-	self.animation.good.frameDuration = 12
-	
-	self.animation:addState('normal', 3, 4)
-	self.animation.normal.frameDuration = 12
-	
-	self.animation:addState('mediocre', 5, 6)
-	self.animation.mediocre.frameDuration = 12
-	
-	self.animation:addState('insane', 7, 8)
-	self.animation.insane.frameDuration = 12
-	
-	-- Mark: properties (since are the sames from the sonar hud maybe this should be just a class)
-	self:setSize(17,12)
-	self:setZIndex(zIndex)
-	self.player = player
-	self:add(x,y)
-end
-function sanityHud:update()
-	local sanity = PlayerData.sanity
-	
-	if sanity < 30 then
-		self.animation:setState('insane')
-	elseif sanity < 50 then
-		self.animation:setState('mediocre')
-	elseif sanity < 80 then
-		self.animation:setState('normal')
-	elseif sanity < 100 then
-		self.animation:setState('good')
-	end
+function SanityHud.new(x, y)
+    local self = {
+        x = x or 0,
+        y = y or 0,
+        visible = true,
+    }
+    setmetatable(self, { __index = SanityHud })
+    return self
 end
 
+function SanityHud:setVisible(v)
+    self.visible = v
+end
 
+function SanityHud:update(dt)
+    -- nothing to update per-frame
+end
+
+function SanityHud:draw()
+    if not self.visible then return end
+    if not PlayerData then return end
+
+    local sanity = PlayerData.sanity or 100
+    local maxSanity = PlayerData.maxSanity or 100
+    local pct = math.max(0, sanity) / math.max(1, maxSanity)
+
+    -- Draw sanity bar (purple tones)
+    local barW = 36
+    local barH = 4
+    -- Background
+    love.graphics.setColor(0.2, 0.1, 0.2)
+    love.graphics.rectangle("fill", self.x, self.y, barW, barH)
+    -- Fill
+    local fillColor = pct > 0.5 and {0.6, 0.2, 0.8} or {0.9, 0.1, 0.1}
+    love.graphics.setColor(unpack(fillColor))
+    love.graphics.rectangle("fill", self.x, self.y, barW * pct, barH)
+    -- Outline
+    love.graphics.setColor(0.8, 0.8, 0.8)
+    love.graphics.rectangle("line", self.x, self.y, barW, barH)
+
+    love.graphics.setColor(1, 1, 1)
+end
+
+return SanityHud

@@ -12,6 +12,7 @@ local utilities = require 'utilities'
 local InteractionHUD = require 'entities.UI.interactionHUD'
 local PlayerHud = require 'entities.UI.playerHud'
 local SaveSystem = require 'SaveSystem'
+local conditionEval = require 'utilities.conditionEval'
 
 
 local FXshadow    = require 'entities.UI.FXshadow'
@@ -57,6 +58,8 @@ local gameScene = {
 	items = {},
 	-- Triggers
 	triggers = {},
+	-- NPCs
+	npcs = {},
 	-- Interaction HUD
 	interactionHUD = nil,
 	-- Player HUD (battery, health, sanity)
@@ -72,60 +75,25 @@ local gameScene = {
 	-- Debug mode
 	debugMode = false,        -- Toggle for debug visualizations
 	-- Darkness overlay
-	globalLightAmount = 0     -- 0 = full bright, 1 = full dark
+	globalLightAmount = 0,    -- 0 = full bright, 1 = full dark
+	-- Room index: iid string -> levelsLDTK index (built at startup for O(1) lookup)
+	roomsByIid = {}
 }
 
 local padding = 8
 
 -- MARK: Trigger Helpers
-local function checkCondition(condition)
-	if condition == "isTiny" then return PlayerData.isTiny end
-	if condition == "!isTiny" then return not PlayerData.isTiny end
-	
-	-- items.hasLamp
-	local itemKey = condition:match("^items%.(.+)")
-	if itemKey then return PlayerData.items[itemKey] end
-	
-	-- skills.canFlash
-	local skillKey = condition:match("^skills%.(.+)")
-	if skillKey then return PlayerData.skills[skillKey] end
-	
-	-- Numerical comparisons: battery < 20, mapPercent > 50
-	local var, op, val = condition:match("([%a%d]+)([><!=]=?)(%d+)")
-	if var and op and val then
-		local currentVal = PlayerData[var]
-		val = tonumber(val)
-		if currentVal then
-			if op == ">" then return currentVal > val
-			elseif op == "<" then return currentVal < val
-			elseif op == ">=" then return currentVal >= val
-			elseif op == "<=" then return currentVal <= val
-			elseif op == "==" then return currentVal == val
-			elseif op == "!=" then return currentVal ~= val
-			end
-		end
-	end
-	
-	return false
-end
-
+-- Returns (scriptName, isTerminal) for a trigger.
+-- Evaluates conditionalScripts top-to-bottom. Falls back to trigger.script.
 local function getTriggerScript(trigger)
 	if trigger.conditionalScripts and #trigger.conditionalScripts > 0 then
-		for _, entry in ipairs(trigger.conditionalScripts) do
-			local condition, script = entry:match("([^:]+):(.+)")
-			if condition and script then
-				if checkCondition(condition) then
-					return script
-				end
-			end
+		local scriptName, isTerminal = conditionEval.evaluateTrigger(trigger.conditionalScripts)
+		if scriptName then
+			return scriptName, isTerminal
 		end
 	end
-	
-	if PlayerData.isTiny and trigger.tinyScript then
-		return trigger.tinyScript
-	end
-	
-	return trigger.script
+	local isTerminalFallback = (trigger.type ~= "Search")
+	return trigger.script, isTerminalFallback
 end
 
 function gameScene.clearCurrentRoom()
@@ -189,6 +157,10 @@ function gameScene.clearCurrentRoom()
 		end
 	end
 	gameScene.triggers = {}
+
+	-- Clear NPCs
+	for _, npc in ipairs(gameScene.npcs or {}) do npc:remove() end
+	gameScene.npcs = {}
 end
 
 function gameScene.performRemoveTrigger(trigger)
@@ -210,25 +182,18 @@ function gameScene.removeTrigger(trigger)
 	table.insert(gameScene.pendingTriggerRemovals, trigger)
 end
 
-local function handleTriggerActivation(trigger, script)
+local function handleTriggerActivation(trigger, script, isTerminal)
 	if not script then return end
-	
+
 	-- Prevent double activation if already used in this interaction
 	if trigger.isCurrentlyActive then return end
-	
-	local isOneTime = false
+
+	local isOneTime = isTerminal or false
 	local cleanScript = script
-	
+
 	if script:sub(-1) == "!" then
 		isOneTime = true
 		cleanScript = script:sub(1, -2)
-	end
-	
-	-- Automatic Story triggers are one-time by default if legacy field used
-	if not trigger.conditionalScripts or #trigger.conditionalScripts == 0 then
-		if trigger.type == "Story" or trigger.type == "Cutscene" or trigger.type == "Counter" then
-			isOneTime = true
-		end
 	end
 	
 	-- Mark as active to prevent loop
@@ -307,7 +272,20 @@ function gameScene.setFloor(levelNumber, roomNumber)
 end
 
 
--- Placeholder levels data - you'll need to replace this with your actual levels data
+-- MARK: Room Index
+-- Build roomsByIid hash for O(1) UUID lookup
+function gameScene.buildRoomIndex()
+	gameScene.roomsByIid = {}
+	if not levelsLDTK then return end
+	for roomId, roomData in pairs(levelsLDTK) do
+		if roomData.uniqueIdentifer then
+			gameScene.roomsByIid[roomData.uniqueIdentifer] = roomId
+		end
+	end
+	local count = 0
+	for _ in pairs(gameScene.roomsByIid) do count = count + 1 end
+	printDebug("📦 Room index built: " .. count .. " entries")
+end
 
 function gameScene.load()
 	-- Debug mode starts disabled
@@ -327,7 +305,10 @@ function gameScene.load()
 	
 	-- Initialize DoorHandler with gameScene reference
 	DoorHandler.setGameScene(gameScene)
-	
+
+	-- Build room index for O(1) IID lookups
+	gameScene.buildRoomIndex()
+
 	-- Initialize pause menu with custom buttons for this scene
 	gameScene.pauseMenu = PauseMenu.new({
 		{text = "Resume", action = "resume"},
@@ -430,7 +411,10 @@ function gameScene.reloadCurrentRoom()
 	
 	-- Mark: triggers - Create triggers from level data
 	gameScene.loadTriggers()
-	
+
+	-- Mark: npcs - Create NPCs from level data
+	gameScene.loadNPCs()
+
 	-- Update room info in pause menu
 	gameScene.updateRoomInfo()
 
@@ -556,93 +540,80 @@ function gameScene.loadDoors()
 		printDebug("❌ ERROR: No level data loaded for doors.")
 		return
 	end
-	
+
 	-- Clear existing doors
 	for _, door in ipairs(gameScene.doors) do
 		door:remove()
 	end
 	gameScene.doors = {}
-	
-	local entities = gameScene.currentLevelData.entities
-	local neighbourLevels = gameScene.currentLevelData.neighbourLevels
-	
+
 	printDebug("🔍 DEBUG: Loading doors for " .. gameScene.currentLevelData.identifier)
-	
-	if not entities or not entities.Doors then
+
+	if not gameScene.currentLevelData.entities or not gameScene.currentLevelData.entities.Doors then
 		printDebug("ℹ️ No Doors entities in this level")
 		return
 	end
-	
-	-- Map DoorsConnection strings to cardinal direction codes used in neighbourLevels
-	local connectionToDir = {
-		Top = "n",
-		Down = "s",
-		Left = "w",
-		Right = "e"
-	}
-	
-	-- Create doors based on Doors entities
-	for _, doorEntity in ipairs(entities.Doors) do
-		local cf = doorEntity.customFields or {}
-		local connection = cf.DoorsConnection -- e.g., "Down"
-		local direction = connectionToDir[connection]
-		
-		if not direction then
-			printDebug("⚠️ WARNING: Unknown DoorsConnection '" .. tostring(connection) .. "'")
-		else
-			-- Find the neighbour level matching this direction
-			local nextLevelIid = nil
-			if neighbourLevels then
-				for _, neighbour in ipairs(neighbourLevels) do
-					if neighbour.dir == direction then
-						nextLevelIid = neighbour.levelIid
-						break
-					end
+
+	-- Calculate tile-map offsets (same formula used everywhere else)
+	local startX = VIRTUAL_WIDTH  / 2 - (gameScene.mapWidth  * gameScene.tileSize) / 2
+	local startY = VIRTUAL_HEIGHT / 2 - (gameScene.mapHeight * gameScene.tileSize) / 2
+
+	-- Build door parameter tables via utility (handles IID lookup + leadsTo resolution)
+	local doorParams = utilities.CreateDoorsFromLDTK(
+		gameScene.currentLevelData, startX, startY, gameScene.world
+	)
+
+	-- Instantiate Door objects from the parameter tables
+	for _, p in ipairs(doorParams) do
+		-- Resolve nextLevelIid from neighbourLevels using the original connection direction
+		local connectionToDir = { Top = "n", Down = "s", Left = "w", Right = "e" }
+		local cardinalDir = connectionToDir[p.direction]
+		local nextLevelIid = nil
+		local neighbourLevels = gameScene.currentLevelData.neighbourLevels
+		if cardinalDir and neighbourLevels then
+			for _, neighbour in ipairs(neighbourLevels) do
+				if neighbour.dir == cardinalDir then
+					nextLevelIid = neighbour.levelIid
+					break
 				end
-			end
-			
-			if nextLevelIid then
-				-- Find the room number for this IID if possible (for debug)
-				local nextRoomNumber = nil
-				if levelsLDTK then
-					for _, room in ipairs(levelsLDTK) do
-						if room.uniqueIdentifer == nextLevelIid then
-							if room.customFields then
-								nextRoomNumber = room.customFields.roomNumber
-							end
-							break
-						end
-					end
-				end
-				
-				-- Calculate offsets (same as in drawFloor)
-				local startX = VIRTUAL_WIDTH / 2 - (gameScene.mapWidth * gameScene.tileSize) / 2
-				local startY = VIRTUAL_HEIGHT / 2 - (gameScene.mapHeight * gameScene.tileSize) / 2
-				
-				-- Create door using entity position and dimensions
-				-- We use the entity's x, y, width, height directly from LDtk, + screen offsets
-				-- Subtract half dimensions to center the hitbox on the coordinate
-				local door = Door.new(
-					doorEntity.x + startX - doorEntity.width / 2, 
-					doorEntity.y + startY - doorEntity.height / 2, 
-					doorEntity.width, 
-					doorEntity.height,
-					connection, 
-					"open", 
-					nextLevelIid, 
-					gameScene.world, 
-					nextRoomNumber
-				)
-				table.insert(gameScene.doors, door)
-				
-				printDebug("🚪 Created door: " .. connection .. " (" .. direction .. ") -> " .. nextLevelIid .. 
-					" (Room " .. tostring(nextRoomNumber) .. ") at (" .. door.x .. ", " .. door.y .. ") [" .. door.width .. "x" .. door.height .. "]")
-			else
-				printDebug("⚠️ WARNING: No neighbour found for door direction '" .. direction .. "'")
 			end
 		end
+
+		-- Resolve human-readable destination room number (for debug display)
+		local nextRoomNumber = nil
+		if nextLevelIid and levelsLDTK then
+			local destIdx = gameScene.roomsByIid[nextLevelIid]
+			if destIdx and levelsLDTK[destIdx] and levelsLDTK[destIdx].customFields then
+				nextRoomNumber = levelsLDTK[destIdx].customFields.roomNumber
+			end
+		end
+
+		local door = Door.new(
+			p.x,
+			p.y,
+			p.width,
+			p.height,
+			p.direction,    -- DoorsConnection string; Door.new converts it internally
+			"open",
+			nextLevelIid,
+			gameScene.world,
+			nextRoomNumber,
+			p.leadsTo       -- resolved levelsLDTK index
+		)
+		-- Carry lock metadata onto the door instance
+		door.isLocked  = p.isLocked
+		door.keyNumber = p.keyNumber
+		door.iid       = p.iid
+		table.insert(gameScene.doors, door)
+
+		printDebug("🚪 Created door: " .. tostring(p.direction) ..
+			" -> " .. tostring(nextLevelIid) ..
+			" (Room " .. tostring(nextRoomNumber) .. ")" ..
+			" leadsTo[" .. tostring(p.leadsTo) .. "]" ..
+			" at (" .. door.x .. ", " .. door.y .. ")" ..
+			" [" .. door.width .. "x" .. door.height .. "]")
 	end
-	
+
 	printDebug("✅ Loaded " .. #gameScene.doors .. " doors from entities")
 end
 
@@ -835,16 +806,16 @@ function gameScene.loadTriggers()
 		end
 		
 		local trigger = {
+			iid = triggerEntity.iid,
 			x = triggerEntity.x + startX - triggerEntity.width / 2,
 			y = triggerEntity.y + startY - triggerEntity.height / 2,
 			width = triggerEntity.width,
 			height = triggerEntity.height,
 			script = cf.script,
-			type = cf.type or "Search",
+			type = cf.type,
 			conditionalScripts = cf.conditionalScripts or {},
 			usedTrigger = cf.usedTrigger or false,
 			mapPercent = cf.mapPercent or 0,
-			tinyScript = cf.tinyScript,
 			isTrigger = true,
 			sourceData = triggerEntity -- Store reference to source data for persistence
 		}
@@ -860,6 +831,23 @@ function gameScene.loadTriggers()
 	printDebug("✅ Loaded " .. #gameScene.triggers .. " triggers")
 end
 
+-- MARK: NPC Loading
+function gameScene.loadNPCs()
+	if not gameScene.currentLevelData then return end
+	gameScene.npcs = {}
+	local entities = gameScene.currentLevelData.entities
+	if not entities or not entities.NPC then return end
+	local NPC = require 'entities.props.npc'
+	local startX = VIRTUAL_WIDTH / 2 - (gameScene.mapWidth * gameScene.tileSize) / 2
+	local startY = VIRTUAL_HEIGHT / 2 - (gameScene.mapHeight * gameScene.tileSize) / 2
+	for _, npcEntity in ipairs(entities.NPC) do
+		local cf = npcEntity.customFields or {}
+		local npc = NPC.new(gameScene.world, npcEntity.x + startX, npcEntity.y + startY,
+			cf.type or "computer", npcEntity.iid, gameScene.currentRoom, cf.sourceFeed or 0)
+		table.insert(gameScene.npcs, npc)
+	end
+	printDebug("✅ Loaded " .. #gameScene.npcs .. " NPCs")
+end
 
 
 -- MARK: Level Transition
@@ -1085,6 +1073,9 @@ function gameScene.update(dt)
 			gameScene.player.hasMoved = false
 		end
 
+		-- Update NPCs
+		for _, npc in ipairs(gameScene.npcs or {}) do npc:update(dt) end
+
 		-- Handle automatic triggers
 		gameScene.checkAutomaticTriggers()
 
@@ -1187,13 +1178,22 @@ function gameScene.draw()
 			type = "item"
 		})
 	end
-	
+
+	-- Add NPCs
+	for _, npc in ipairs(gameScene.npcs or {}) do
+		table.insert(drawables, { obj = npc, y = npc.zIndex or (npc.spriteY + npc.spriteH), type = "npc" })
+	end
+
 	-- Sort by Y position (back to front)
 	table.sort(drawables, function(a, b) return a.y < b.y end)
 	
 	-- Draw all entities in sorted order
 	for _, drawable in ipairs(drawables) do
-		drawable.obj:draw(gameScene.debugMode)
+		if drawable.type == "npc" then
+			drawable.obj:draw()
+		else
+			drawable.obj:draw(gameScene.debugMode)
+		end
 	end
 	
 	-- Foreground PNG — occludes entities, drawn above the player
@@ -1245,10 +1245,10 @@ function gameScene.checkTriggerInteraction()
 		if item.isTrigger then
 			-- Manual types or default
 			if item.type == "Search" or item.type == "Call" or not item.type then
-				local script = getTriggerScript(item)
+				local script, isTerminal = getTriggerScript(item)
 				if script then
 					printDebug("🔍 Manually triggering: " .. script .. " (Type: " .. tostring(item.type) .. ")")
-					handleTriggerActivation(item, script)
+					handleTriggerActivation(item, script, isTerminal)
 					return true
 				end
 			end
@@ -1275,10 +1275,10 @@ function gameScene.checkAutomaticTriggers()
 			-- Automatic types
 			if item.type == "Story" or item.type == "Cutscene" or item.type == "Counter" then
 				if not item.isCurrentlyActive then
-					local script = getTriggerScript(item)
+					local script, isTerminal = getTriggerScript(item)
 					if script then
 						printDebug("🎭 Automatically triggering: " .. script .. " (Type: " .. tostring(item.type) .. ")")
-						handleTriggerActivation(item, script)
+						handleTriggerActivation(item, script, isTerminal)
 						return -- Activate only one per frame
 					end
 				end

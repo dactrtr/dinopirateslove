@@ -35,36 +35,42 @@ function DialogScreen:initialize()
     self.videoY = 142
 end
 
-function DialogScreen:addScreen(scriptName)
+function DialogScreen:addScreen(scriptName, feed)
     if not _G.script then
         printDebug("⚠️ Error: Global 'script' table not found.")
         return
     end
-    
+
     -- Don't restart if already playing this script
     if self.active and self.currentScript and self.currentScript.name == scriptName then
         return
     end
-    
+
     local targetScript = nil
-    for _, s in ipairs(_G.script) do 
+    for _, s in ipairs(_G.script) do
         if s.name == scriptName then
             targetScript = s
             break
         end
     end
-    
+
     if not targetScript then
         printDebug("⚠️ Warning: Script '" .. tostring(scriptName) .. "' not found.")
         return
     end
-    
+
+    -- Sanitize portrait/feed index: ensure it's a valid non-negative integer
+    if feed ~= nil then
+        feed = math.max(0, math.floor(feed))
+    end
+    self.currentFeed = feed
+
     self.currentScript = targetScript
     self.currentIndex = 0
     self.active = true
     PlayerData.isTalking = true
     PlayerData.isGaming  = false
-    
+
     self:nextDialog()
 end
 
@@ -80,9 +86,11 @@ function DialogScreen:nextDialog()
     
     local entry = self.currentScript.dialog[self.currentIndex]
     
-    -- Update components
+    -- Update components: per-entry video overrides the feed param; fall back to feed if set
     if entry.video then
         self.videoFeed:setState(entry.video)
+    elseif self.currentFeed ~= nil and self.currentFeed > 0 then
+        self.videoFeed:setState(tostring(self.currentFeed))
     end
     
     if entry.screen then
@@ -114,6 +122,7 @@ function DialogScreen:reset()
     self.currentScript = nil
     self.currentIndex = 0
     self.currentText = ""
+    self.currentFeed = nil
     self.imageScreen:clear()
 end
 

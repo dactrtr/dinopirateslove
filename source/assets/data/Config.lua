@@ -28,18 +28,20 @@ Config.CollideGroups = {
 -- Tilemap
 Config.Tiles = {
     size     = 16,
-    walkable = {4},   -- tile IDs that are NOT walls (floor = 4 in tileMapData)
-    IntGrid  = {
-        wall  = 1,
-        slime = 2,
-        hole  = 3,
-        floor = 4,
+    -- Tile IDs that are passable (everything else is treated as a solid wall)
+    walkable = {0, 2, 3, 4, 32},
+    IntGrid = {
+        wall     = 1,
+        slime    = 2,
+        hole     = 3,
+        floor    = 4,
+        tinyHole = 32,
     }
 }
 
 -- Player movement
 Config.Player = {
-    speed            = 1.5,
+    speed            = 2,
     speedDarkNoLamp  = 0.7,   -- multiplier when in darkness without lamp
     speedLowBattery  = 0.8,   -- multiplier when battery < batteryThresholdLow with lamp
     collideRect      = {x=8,  y=24, w=30, h=24},
@@ -51,6 +53,7 @@ Config.Player = {
     hudOffsetYTiny   = -17,
     triggerCheckDist        = 5,   -- px moved before re-checking triggers
     movementFramesPerAction = 3,   -- movement frames distributed to NPCs/enemies per player move
+    knockbackDistance       = 2,   -- px pushed on enemy hit
 }
 
 -- Dash ability
@@ -128,6 +131,11 @@ Config.Doors = {
         right = {x=32,  y=116},
         left  = {x=364, y=116},
     },
+}
+
+-- Portal Doors
+Config.Portals = {
+    collideRect = {x=0, y=0, w=24, h=24},
 }
 
 -- CrewMember AI
@@ -209,8 +217,45 @@ Config.Dance = {
 -- Cockpit scene
 Config.Cockpit = {
     lerpFactor       = 0.15,  -- pointer smoothing (0=frozen, 1=instant)
-    accelSensitivity = 1.0,   -- multiplier on raw accelerometer tilt
+    accelSensitivity = 2.0,   -- multiplier on raw accelerometer tilt
     pointerRadius    = 6,     -- circle radius in px
+    dpadSpeed        = 3,     -- pixels per frame when moving with d-pad
+    failLimit        = 10,    -- max wrong button presses before returning to TitleScene
+}
+
+Config.Space = {
+    crosshairSpeed        = 4,
+    lerpFactor            = 0.08,
+    accelSensitivity      = 1.2,
+    shipMoveLerp          = 0.12,
+    accelIdleThreshold    = 0.005,
+    accelIdleFrames       = 2,
+    accelCenterReturnLerp = 0.04,
+
+    -- speed & danger
+    speedDecay            = 0.05,
+    maxSpeed              = 20,
+    minSpeed              = 3,
+    dangerFillRate        = 0.002,
+    dangerDrainRate       = 0.003,
+
+    -- meteorite pools
+    meteoriteNearCount    = 14,
+    meteoriteFarCount     = 10,
+    meteoriteNearSpeed    = 3,
+    meteoriteFarSpeed     = 1.5,
+    meteoriteSpeedMult    = 0.2,
+    parallaxSpeed         = 3,
+    meteoriteFarParallax  = 0.5,
+    meteoriteFarScale     = 0.6,
+
+    -- collision
+    invincibilityFrames   = 60,
+    collisionZoneStart    = 0.90,  -- 0-1; meteorite must be this far into its approach before collision is live
+
+    -- hit shake
+    shakeFrames           = 25,    -- frames the shake lasts
+    shakeMagnitude        = 6,     -- max px offset at start of shake (decays to 0)
 }
 
 return Config

@@ -154,6 +154,10 @@ function titleScene.enter()
 			SaveSystem.reset()
 			PlayerData.actualLevel = 4
 			PlayerData.saveLevel = 7
+			PlayerData.health  = PlayerData.maxHealth or 3
+			PlayerData.battery = 100
+			PlayerData.isGaming   = true
+			PlayerData.fromTitle  = true
 			sceneManager.startTransition("title", "game", "animated", "transitionFall")
 		end
 	})

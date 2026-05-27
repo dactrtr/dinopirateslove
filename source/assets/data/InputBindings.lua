@@ -1,65 +1,77 @@
--- source/assets/data/InputBindings.lua
--- ─────────────────────────────────────────────────────────────
--- INPUT BINDINGS
--- Edita este archivo para remapear cualquier control del juego.
--- ─────────────────────────────────────────────────────────────
+-- assets/data/InputBindings.lua
+-- Keyboard/gamepad input bindings for LÖVE 2D.
+-- Input.is(key, action)   → true if `key` is bound to `action`
+-- Input.isDown(action)    → true if any key/button for `action` is held
+-- Input.danceKeys         → map of key → dance button name (for DanceScene)
 
 local Input = {}
 
--- ── GAMEPLAY ─────────────────────────────────────────────────
--- AButton: confirmar, avanzar diálogo. Hold 0.5s → abre menú equipo.
-Input.AButton = {"z", "return", "space"}
--- BButton: activar item equipado en juego / cancelar en menús.
-Input.BButton = {"x"}
-
--- ── NAVIGATION ───────────────────────────────────────────────
-Input.up    = {"w", "up"}
-Input.down  = {"s", "down"}
-Input.left  = {"a", "left"}
-Input.right = {"d", "right"}
-
--- ── SYSTEM ───────────────────────────────────────────────────
-Input.pause  = {"escape"}
-Input.resize = {"e"}   -- placeholder crank de Playdate
-
--- Evento sintético despachado por el hold timer de main.lua.
--- No asignes esta tecla manualmente.
-Input.menuOpen = {"__menuOpen__"}
-
--- ── DEV / WINDOW ─────────────────────────────────────────────
-Input.toggleCRT  = {"q"}
-Input.fullscreen = {"f"}
-Input.res1 = {"1"}
-Input.res2 = {"2"}
-Input.res3 = {"3"}
-
--- ── DANCE SCENE ──────────────────────────────────────────────
--- Mapeo de teclas físicas a botones de ritmo usados en DanceScene.
-Input.danceKeys = {
-    ["return"] = "aButton",  ["space"]  = "aButton",
-    ["lshift"] = "bButton",  ["rshift"] = "bButton",
-    ["left"]   = "leftButton", ["right"] = "rightButton",
-    ["up"]     = "upButton",   ["down"]  = "downButton",
+-- Action → list of keyboard keys
+local keyBindings = {
+    AButton    = { "z", "return", "space" },
+    BButton    = { "x", "lshift" },
+    up         = { "up",    "w" },
+    down       = { "down",  "s" },
+    left       = { "left",  "a" },
+    right      = { "right", "d" },
+    pause      = { "escape", "p" },
+    toggleCRT  = { "f1" },
+    fullscreen = { "f11" },
+    res1       = { "f2" },
+    res2       = { "f3" },
+    res3       = { "f4" },
 }
 
--- ── HELPERS ──────────────────────────────────────────────────
+-- Action → list of gamepad buttons
+local padBindings = {
+    AButton = { "a" },
+    BButton = { "b" },
+    up      = { "dpup" },
+    down    = { "dpdown" },
+    left    = { "dpleft" },
+    right   = { "dpright" },
+    pause   = { "start", "back" },
+}
 
---- Devuelve true si `key` coincide con algún binding de Input[action].
+-- Dance mode: key → button label shown on screen
+Input.danceKeys = {
+    ["z"]      = "A",
+    ["return"] = "A",
+    ["x"]      = "B",
+    ["up"]     = "up",
+    ["down"]   = "down",
+    ["left"]   = "left",
+    ["right"]  = "right",
+}
+
+-- Returns true if `key` (string from love.keypressed) is bound to `action`.
 function Input.is(key, action)
-    local binds = Input[action]
+    local binds = keyBindings[action]
     if not binds then return false end
     for _, k in ipairs(binds) do
-        if key == k then return true end
+        if k == key then return true end
     end
     return false
 end
 
---- Devuelve true si alguna tecla de Input[action] está presionada.
+-- Returns true if any key or gamepad button for `action` is currently held.
 function Input.isDown(action)
-    local binds = Input[action]
-    if not binds then return false end
-    for _, k in ipairs(binds) do
-        if love.keyboard.isDown(k) then return true end
+    local binds = keyBindings[action]
+    if binds then
+        for _, k in ipairs(binds) do
+            if love.keyboard.isDown(k) then return true end
+        end
+    end
+    local pads = padBindings[action]
+    if pads then
+        local joysticks = love.joystick.getJoysticks()
+        for _, js in ipairs(joysticks) do
+            if js:isGamepad() then
+                for _, btn in ipairs(pads) do
+                    if js:isGamepadDown(btn) then return true end
+                end
+            end
+        end
     end
     return false
 end

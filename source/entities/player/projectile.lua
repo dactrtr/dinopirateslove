@@ -170,9 +170,8 @@ function Projectile:handleCollision(other, col)
 	-- Enemy hit
 	if other.class and other.class.name == "Brocorat" then
 		printDebug("🎯 Projectile hit enemy!")
-		-- TODO: Stun/blind enemy
 		if other.onHitByProjectile then
-			other:onHitByProjectile()
+			other:onHitByProjectile(self)   -- pass self so knockback can use direction
 		end
 		self:startReturn()
 		return

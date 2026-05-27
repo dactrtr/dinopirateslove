@@ -68,6 +68,12 @@ function SaveSystem.getLevelState()
                             entityState.crewID = entity.customFields.crewID
                         end
 
+                        -- Doors
+                        if entityType == "Doors" then
+                            entityState.isOpen   = entity.customFields.isOpen   or false
+                            entityState.isLocked = entity.customFields.isLocked or false
+                        end
+
                         -- Items
                         if entity.layer == "Items" then
                             entityState.collected = entity.customFields.collected or false
@@ -78,6 +84,11 @@ function SaveSystem.getLevelState()
                             entityState.type = entity.customFields.type
                             entityState.script = entity.customFields.script
                             entityState.usedTrigger = entity.customFields.usedTrigger or false
+                        end
+
+                        -- NPCs
+                        if entityType == "NPC" then
+                            entityState.hasGranted = entity.customFields.hasGranted or false
                         end
                     end
 
@@ -154,8 +165,17 @@ function SaveSystem.restoreLevelState(levelState)
                                         if savedEntity.type then currentEntity.customFields.type = savedEntity.type end
                                         if savedEntity.script then currentEntity.customFields.script = savedEntity.script end
                                         
+                                        -- Doors
+                                        if savedEntity.isOpen ~= nil then currentEntity.customFields.isOpen = savedEntity.isOpen end
+                                        if savedEntity.isLocked ~= nil then currentEntity.customFields.isLocked = savedEntity.isLocked end
+
                                         -- Items
                                         if savedEntity.collected ~= nil then currentEntity.customFields.collected = savedEntity.collected end
+
+                                        -- NPCs
+                                        if savedEntity.hasGranted ~= nil then
+                                            currentEntity.customFields.hasGranted = savedEntity.hasGranted
+                                        end
                                     end
                                     break
                                 end

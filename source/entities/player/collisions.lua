@@ -2,6 +2,7 @@
 -- Collision-related functions for Player
 
 local collisions = {}
+local conditionEval = require 'utilities.conditionEval'
 
 -- Get the collision box position and dimensions
 function collisions.getCollisionRect(player)
@@ -125,6 +126,10 @@ function collisions.getType(player, other)
 		return 'touch'
 	elseif other.isTrigger then
 		return 'cross'
+	elseif other.isNPC then
+		return 'cross'
+	elseif other.isNPCWall then
+		return 'touch'
 	elseif other.class and other.class.name == 'Items' then
 		return 'cross'
 	elseif other.isProp then
@@ -203,8 +208,16 @@ function collisions.resolve(player, other)
 			player.currentTrigger = trigger
 		elseif trigger.type == "Story" then
 			PlayerData.isGaming = false
-			if player.dialogUI then player.dialogUI:addScreen(trigger.script) end
-			if trigger.sourceData then
+			local script, isTerminal
+			if trigger.conditionalScripts and #trigger.conditionalScripts > 0 then
+				script, isTerminal = conditionEval.evaluateTrigger(trigger.conditionalScripts)
+			end
+			if not script then
+				script     = trigger.script
+				isTerminal = true
+			end
+			if player.dialogUI then player.dialogUI:addScreen(script) end
+			if isTerminal and trigger.sourceData then
 				if not trigger.sourceData.customFields then trigger.sourceData.customFields = {} end
 				trigger.sourceData.customFields.usedTrigger = true
 			end
@@ -217,6 +230,9 @@ function collisions.resolve(player, other)
 			local gs = sceneManager.getScene("game")
 			if gs and gs.removeTrigger then gs.removeTrigger(trigger) end
 		end
+
+	elseif other.isNPC then
+		player.currentTrigger = other
 
 	elseif other.class and other.class.name == 'Items' then
 		local item = other

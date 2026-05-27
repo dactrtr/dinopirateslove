@@ -25,11 +25,16 @@ function Enemy:initialize(x, y, world, enemyType)
 	self.initialSpeed = 30
 	self.moveSpeed = self.initialSpeed
 	self.viewRange = 100
-	
+
+	-- Turn-based token budget
+	self.movementFrames    = 0
+	self.maxMovementFrames = 90
+
 	-- Enemy properties
 	self.powerLevel = 0
 	self.id = math.random(1000, 9999)
 	self.enemyType = enemyType or "generic"
+	self.damage    = (Config and Config.Enemy and Config.Enemy.damage) or 1
 	self.Zindex = ZIndex.enemy
 	
 	-- BUMP physics
@@ -49,22 +54,72 @@ function Enemy:initialize(x, y, world, enemyType)
 	-- self.currentAnimation = self.animations.idle
 end
 
--- Adjusts moveSpeed based on PlayerData battery and darkness state.
+-- Returns a speed multiplier (0.25–1.0) based on the player's current battery level.
+-- 4-tier system: >= 75 → full speed, >= 50 → 3/4, >= 25 → 1/2, < 25 → 1/4.
+local function getBatterySpeedMultiplier()
+	local bat = PlayerData and PlayerData.battery or 100
+	if     bat >= 75 then return 1.0
+	elseif bat >= 50 then return 0.75
+	elseif bat >= 25 then return 0.5
+	else                   return 0.25
+	end
+end
+
+-- Adjusts moveSpeed based on PlayerData battery (4-tier) and darkness state.
 -- Call once per update tick, before any movement method.
 function Enemy:updateMoveSpeed()
-	if PlayerData.battery < 10 and PlayerData.isInDarkness then
-		self.moveSpeed = 0.5
-	elseif PlayerData.battery > 60 and PlayerData.isInDarkness then
-		self.moveSpeed = self.initialSpeed * 0.7
-	else
-		self.moveSpeed = self.initialSpeed
+	local multiplier = getBatterySpeedMultiplier()
+	self.moveSpeed = self.initialSpeed * multiplier
+
+	-- Additional hard slowdown when battery is critically low AND in darkness
+	if PlayerData.isInDarkness then
+		local bat = PlayerData and PlayerData.battery or 100
+		if bat == 0 then
+			self.moveSpeed = (Config and Config.Enemy and Config.Enemy.moveSpeedBatteryEmpty) or 0.2
+		elseif bat < 10 then
+			self.moveSpeed = (Config and Config.Enemy and Config.Enemy.moveSpeedCritical) or 0.5
+		end
 	end
+end
+
+-- Add raw frames directly (synchronized with player movement).
+-- Frames accumulate up to maxMovementFrames (default 90).
+function Enemy:addMovementFrames(frames)
+	self.movementFrames = math.min(
+		self.maxMovementFrames,
+		self.movementFrames + frames
+	)
+end
+
+-- Add movement tokens (1 token = framesPerToken raw frames, default 30).
+function Enemy:addMovementTokens(amount)
+	local fpt = (Config and Config.CrewMember and Config.CrewMember.framesPerToken) or 30
+	self:addMovementFrames(amount * fpt)
 end
 
 -- Prevents the enemy from moving for `frames` update ticks.
 -- Called on Plungerang hit or light flash.
 function Enemy:blind(frames)
-	self.blindFrames = frames or 60
+	self.blindFrames    = frames or 60
+	self.isBlinded      = true
+	self.movementFrames = 0   -- cancel pending movement immediately
+end
+
+-- Apply a knockback push by `distance` pixels in the (dx, dy) direction.
+-- Uses world:move for safe, collision-resolved displacement.
+function Enemy:knockback(dx, dy, distance)
+	distance = distance or 16
+	if not (self.world and self.world:hasItem(self)) then return end
+	local newX = self.x + dx * distance
+	local newY = self.y + dy * distance
+	local actualX, actualY = self.world:move(
+		self,
+		newX + (self.collisionOffsetX or 0),
+		newY + (self.collisionOffsetY or 0),
+		function(item, other) return 'slide' end
+	)
+	self.x = actualX - (self.collisionOffsetX or 0)
+	self.y = actualY - (self.collisionOffsetY or 0)
 end
 
 -- Blind search: enemy moves towards player regardless of obstacles

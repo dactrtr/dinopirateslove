@@ -73,7 +73,8 @@ local function getSanityState(sanity)
 end
 
 function PlayerHud:update(dt)
-    local state = getSanityState(PlayerData.sanity)
+    if not PlayerData then return end
+    local state = getSanityState(PlayerData.sanity or 100)
     if state ~= self.currentState then
         self.currentState = state
         self.currentAnim  = self.animations[state]
@@ -82,7 +83,8 @@ function PlayerHud:update(dt)
 end
 
 function PlayerHud:draw(player)
-    if not PlayerData.items.hasDWatch then return end
+    if not PlayerData then return end
+    if not PlayerData.items or not PlayerData.items.hasDWatch then return end
 
     local yOffset = PlayerData.isTiny and -22 or -36
     local tx = math.floor(player.x)
@@ -98,14 +100,15 @@ function PlayerHud:draw(player)
 
     -- 2. Battery bar at (tx, ty-3) — drawn as a left-aligned black bar
     --    Left edge: 4px padding from sprite left edge → sx+4 = tx-13
-    local batteryW = math.floor((PlayerData.battery * BATTERY_MAX_W) / 100)
+    local battery = math.max(0, PlayerData.battery or 0)
+    local batteryW = math.floor((battery * BATTERY_MAX_W) / 100)
     if batteryW > 0 then
         love.graphics.setColor(0.196, 0.184, 0.161)
         love.graphics.rectangle('fill', sx + 4, ty - 3 - 1, batteryW, BATTERY_BAR_H)
     end
 
     -- 3. Health squares (one black square per health point, up to 10)
-    local hp = math.max(0, math.min(math.floor(PlayerData.healthPoints), 10))
+    local hp = math.max(0, math.min(math.floor(PlayerData.healthPoints or 0), 10))
     if hp > 0 then
         love.graphics.setColor(0.196, 0.184, 0.161)
         for i = 1, hp do

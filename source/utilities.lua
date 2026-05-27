@@ -290,4 +290,83 @@ function utilities.pointInPolygon(pts, px, py)
     return inside
 end
 
+-- MARK: Door / Room Utilities
+
+-- Find a room by its LDtk UUID string. Returns the levelsLDTK index (integer) or nil.
+-- Uses gameScene.roomsByIid hash built at startup for O(1) lookup.
+function utilities.FindRoomByIid(iid)
+	local sceneManager = require 'sceneManager'
+	local gs = sceneManager.getScene("game")
+	if not gs or not gs.roomsByIid then return nil end
+	return gs.roomsByIid[iid]
+end
+
+-- Translate a world position to room-local coordinates.
+-- startX/startY are the room origin offsets (top-left corner of the tile map in world space).
+function utilities.RoomTranslate(worldX, worldY, startX, startY)
+	return worldX - startX, worldY - startY
+end
+
+-- Convert an LDtk direction string to a dx,dy vector.
+-- Supports single-letter codes ("n","s","e","w") and symbol codes ("<",">","^","v"),
+-- as well as full words ("north","south","east","west").
+function utilities.ConvertLDTKDirection(dir)
+	local d = dir and tostring(dir):lower() or ""
+	if     d == "n" or d == "north" or d == "^" then return  0, -1
+	elseif d == "s" or d == "south" or d == "v" then return  0,  1
+	elseif d == "e" or d == "east"  or d == ">" then return  1,  0
+	elseif d == "w" or d == "west"  or d == "<" then return -1,  0
+	end
+	return 0, 0
+end
+
+-- Calculate which room a door leads to given a direction from the current room.
+-- roomData: the LDtk room entry (from levelsLDTK). direction: LDtk direction string.
+-- Returns the levelsLDTK index of the neighbour room, or nil.
+function utilities.CalculateLeadsTo(roomData, direction)
+	if not roomData or not roomData.neighbourLevels then return nil end
+	local dx, dy = utilities.ConvertLDTKDirection(direction)
+	for _, neighbour in ipairs(roomData.neighbourLevels) do
+		local ndx, ndy = utilities.ConvertLDTKDirection(neighbour.dir)
+		if ndx == dx and ndy == dy then
+			return utilities.FindRoomByIid(neighbour.levelIid)
+		end
+	end
+	return nil
+end
+
+-- Create door parameter tables from LDtk level data.
+-- Returns an array of door parameter tables ready to pass to Door.new().
+-- startX/startY: room origin offsets in world space. world: bump physics world.
+function utilities.CreateDoorsFromLDTK(levelData, startX, startY, world)
+	local doors = {}
+	if not levelData or not levelData.entities or not levelData.entities.Doors then
+		return doors
+	end
+	-- Map DoorsConnection string to cardinal direction code
+	local connectionToDir = {
+		Top = "n", Down = "s", Left = "w", Right = "e"
+	}
+	for _, doorEntity in ipairs(levelData.entities.Doors) do
+		local cf = doorEntity.customFields or {}
+		local connection = cf.DoorsConnection  -- e.g. "Down", "Right"
+		local direction  = connectionToDir[connection] or "n"
+		local leadsTo    = utilities.CalculateLeadsTo(levelData, direction)
+		table.insert(doors, {
+			world      = world,
+			x          = doorEntity.x + startX - doorEntity.width  / 2,
+			y          = doorEntity.y + startY - doorEntity.height / 2,
+			width      = doorEntity.width,
+			height     = doorEntity.height,
+			direction  = connection,  -- pass original connection string (Door.new converts it)
+			isLocked   = cf.NeedsKey or false,
+			keyNumber  = cf.KeyNumber or nil,
+			iid        = doorEntity.iid,
+			sourceData = doorEntity,
+			leadsTo    = leadsTo,
+		})
+	end
+	return doors
+end
+
 return utilities

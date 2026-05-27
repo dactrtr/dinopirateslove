@@ -15,6 +15,7 @@ local sceneManager = require "sceneManager"
 local titleScene = require "scenes/titleScene"
 local gameScene = require "scenes/gameScene"
 local danceScene = require "scenes/DanceScene"
+local cockpitScene = require "scenes/CockpitScene"
 local tileMapData = require 'assets/data/tilemap'
 
 -- Initialize Graphics compatibility layer BEFORE script data
@@ -131,6 +132,7 @@ function love.load()
 	sceneManager.registerScene("title", titleScene)
 	sceneManager.registerScene("game", gameScene)
 	sceneManager.registerScene("dance", danceScene)
+	sceneManager.registerScene("cockpit", cockpitScene)
 	sceneManager.setCurrentScene("title")
 	
 	-- Initialize gamepad support

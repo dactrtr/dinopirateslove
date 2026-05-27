@@ -1,3 +1,3 @@
 levelsLDTK = {}
-require 'assets/data/levels_floor4'
-require 'assets/data/levels_floor3'
+love.filesystem.load('assets/data/levels_floor4.lua')()
+love.filesystem.load('assets/data/levels_floor3.lua')()

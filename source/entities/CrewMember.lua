@@ -73,6 +73,7 @@ function CrewMember:initialize(x, y, world, player, iid, data)
 	self.iid    = iid
 	self.crewId = (data and data.customFields and data.customFields.crewID) or nil
 	self.room   = (data and data.customFields and data.customFields.roomNumber) or nil
+	self.hasBag = (data and data.customFields and data.customFields.hasBag) or false
 	self.sourceData = data or {}
 	self.player = player
 	self.world  = world

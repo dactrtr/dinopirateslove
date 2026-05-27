@@ -37,15 +37,16 @@ local function convertDirection(ldtkDir)
 	return converted
 end
 
-function Door.new(x, y, w, h, direction, status, nextLevelIid, world, destinationRoomNumber)
+function Door.new(x, y, w, h, direction, status, nextLevelIid, world, destinationRoomNumber, leadsToRoom)
 	local self = setmetatable({}, Door)
 	self.class = Door -- Reference to class for type checking
-	
+
 	-- Convert direction if needed
 	self.direction = convertDirection(direction)
 	self.status = status or "open"  -- "open" or "closed"
 	self.nextLevelIid = nextLevelIid
 	self.destinationRoomNumber = destinationRoomNumber
+	self.leadsToRoom = leadsToRoom  -- levelsLDTK index resolved at load time (O(1) lookup)
 	
 	-- Use provided positions and dimensions
 	self.x = x
