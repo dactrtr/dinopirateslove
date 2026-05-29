@@ -247,9 +247,7 @@ function utilities.CreateTileColliders(tileData, world, tileSize, offsetX, offse
 end
 
 utilities.SLIME_TILE_IDS = {}
-for _, id in ipairs((Config and Config.Tiles and Config.Tiles.slime) or {89,90,91,92,93,94,95,96,97,98}) do
-	utilities.SLIME_TILE_IDS[id] = true
-end
+utilities.SLIME_TILE_IDS[(Config and Config.Tiles and Config.Tiles.IntGrid and Config.Tiles.IntGrid.slime) or 2] = true
 
 function utilities.getTileUnderPlayer(tileData, tileSize, px, py, startX, startY)
 	-- local px, py is player pixel position in world coordinates (from player.x, player.y).

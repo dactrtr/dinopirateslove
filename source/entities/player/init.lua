@@ -61,6 +61,12 @@ function Player:initialize(x, y, world)
 	-- Initialize dialog system
 	self.dialogUI = DialogScreen()
 
+	-- Sliding state
+	self.slideHitWall    = false
+	self.slideDX         = 0
+	self.slideDY         = 0
+	self.slideExitFrames = false
+
 	-- Dash state
 	local dashCfg = Config and Config.Dash or {}
 	self.isDashing            = false
@@ -398,8 +404,29 @@ function Player:getTileCoords()
 end
 
 function Player:onSlime()
-	local tileId = self:getTileCoords()
-	return tileId and utilities.SLIME_TILE_IDS[tileId] or false
+	local sceneManager = require 'sceneManager'
+	local gameScene = sceneManager.getScene("game")
+	if not gameScene or not gameScene.tileMapData then return false end
+
+	local tileSize = gameScene.tileSize
+	local startX = VIRTUAL_WIDTH  / 2 - (gameScene.mapWidth  * tileSize) / 2
+	local startY = VIRTUAL_HEIGHT / 2 - (gameScene.mapHeight * tileSize) / 2
+
+	-- Sample a 3×3 grid at the player's feet to catch tile-edge overlaps (matches Playdate IsPlayerOnSlime)
+	local feetY  = self.y + 12
+	local halfW  = PlayerData.isTiny and 5 or 8
+	local xOff   = { -halfW, 0, halfW }
+	local yOff   = { -4, 0, 4 }
+
+	for _, dx in ipairs(xOff) do
+		for _, dy in ipairs(yOff) do
+			local tileId = utilities.getTileUnderPlayer(gameScene.tileMapData, tileSize, self.x + dx, feetY + dy, startX, startY)
+			if tileId and utilities.SLIME_TILE_IDS[tileId] then
+				return true
+			end
+		end
+	end
+	return false
 end
 
 function Player:checkSlimeTile(direction)

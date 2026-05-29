@@ -1205,11 +1205,6 @@ function gameScene.draw()
 		FXshadow.draw(gameScene.player, gameScene.globalLightAmount or 0)
 	end
 
-	-- Draw dialog UI on top of everything
-	if gameScene.player and gameScene.player.dialogUI then
-		gameScene.player.dialogUI:draw()
-	end
-
 	-- Draw player HUD (battery, health, sanity) above player
 	if gameScene.playerHud and gameScene.player then
 		gameScene.playerHud:draw(gameScene.player)
@@ -1218,6 +1213,11 @@ function gameScene.draw()
 	-- Draw interaction HUD icons above player
 	if gameScene.interactionHUD and gameScene.player then
 		gameScene.interactionHUD:draw(gameScene.player.x, gameScene.player.y)
+	end
+
+	-- Draw dialog UI above HUD
+	if gameScene.player and gameScene.player.dialogUI then
+		gameScene.player.dialogUI:draw()
 	end
 	
 	-- Draw all debug visualizations using utilities module

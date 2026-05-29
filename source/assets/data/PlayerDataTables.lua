@@ -17,7 +17,7 @@ end
 -- Define the default state (Single Source of Truth)
 local DefaultPlayerData = {
 	x = 200,
-	y = 112,
+	y = 200,
 	speed = Config.Player.speed,
 	healthPoints = 3,
 	danceThresholdHP = 1,
@@ -50,6 +50,7 @@ local DefaultPlayerData = {
 	isGaming = false,
 	fromTitle = false,
 	isDancing = false,
+	isSliding = false,
 	amountDances = 0,
 	isInDarkness = false,
 	showLightCone = false,
@@ -61,7 +62,7 @@ local DefaultPlayerData = {
 	saveLevel= nil,
 	playerSpawn ={
 		x = 200,
-		y = 112,
+		y = 200,
 	},
 	playerExit ={
 		x = nil,
