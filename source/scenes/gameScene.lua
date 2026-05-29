@@ -1355,6 +1355,12 @@ function gameScene.keypressed(key)
 end
 
 function gameScene.gamepadInput(input)
+	-- Cutscene takes full control
+	if ComicPlayer.isActive() then
+		ComicPlayer.gamepadInput()
+		return
+	end
+
 	-- Crank via right stick
 	local cd = Input.getCrankDelta()
 	if cd ~= 0 and gameScene.player and gameScene.player.handleCrankInput then

@@ -291,4 +291,11 @@ function ComicPlayer.keypressed(key)
 	end
 end
 
+function ComicPlayer.gamepadInput()
+	if not active then return end
+	if Input.wasPressed("AButton") or Input.wasPressed("BButton") then
+		advance()
+	end
+end
+
 return ComicPlayer
