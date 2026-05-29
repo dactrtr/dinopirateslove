@@ -35,6 +35,11 @@ UI_OVERLAY_OPACITY = 0.8 -- Opacity for menu overlays and backgrounds
 
 -- Todos los bindings están en assets/data/InputBindings.lua
 Input = require 'assets.data.InputBindings'
+local ControllerConfig = require 'assets.data.ControllerConfig'
+
+-- Set DEBUG_CONTROLLER = true to print button/axis info when a gamepad is connected.
+-- Useful for finding raw button indices for a new controller.
+DEBUG_CONTROLLER = false
 
 -- Global variables
 crt_effect = nil -- Made global for settings menu access
@@ -141,9 +146,18 @@ end
 
 function initGamepads()
 	joysticks = love.joystick.getJoysticks()
-	
+
 	if #joysticks > 0 then
 		activeJoystick = joysticks[1]
+		local name    = activeJoystick:getName() or "unknown"
+		local isGP    = activeJoystick:isGamepad()
+		local profile = ControllerConfig.getProfile(activeJoystick)
+		printDebug("🎮 Controller connected: " .. name)
+		printDebug("   isGamepad: " .. tostring(isGP) .. "  |  profile: " .. tostring(profile.name))
+		if DEBUG_CONTROLLER then
+			print("🎮 DEBUG_CONTROLLER ON — press buttons to see their indices")
+			print("   Controller: " .. name .. "  |  isGamepad: " .. tostring(isGP))
+		end
 	end
 end
 
@@ -178,6 +192,7 @@ function love.resize(w, h)
 end
 
 function love.update(dt)
+	Input.update(activeJoystick)
 	sceneManager.update(dt)
 
 	-- Hold AButton → abrir menú de equipo (dispara una sola vez por hold)
@@ -200,27 +215,31 @@ function love.update(dt)
 end
 
 function handleGamepadInput(dt)
-	local leftX = activeJoystick:getGamepadAxis("leftx")
-	local leftY = activeJoystick:getGamepadAxis("lefty")
-	
-	local deadzone = 0.3
-	local moveLeft = leftX < -deadzone or activeJoystick:isGamepadDown("dpleft")
-	local moveRight = leftX > deadzone or activeJoystick:isGamepadDown("dpright")
-	local moveUp = leftY < -deadzone or activeJoystick:isGamepadDown("dpup")
-	local moveDown = leftY > deadzone or activeJoystick:isGamepadDown("dpdown")
-	
+	local cc       = ControllerConfig
+	local js       = activeJoystick
+	local deadzone = cc.getDeadzone(js)
+
+	local leftX = cc.getAxis(js, "horizontal")
+	local leftY = cc.getAxis(js, "vertical")
+
+	local moveLeft  = leftX < -deadzone or cc.isDown(js, "dpleft")
+	local moveRight = leftX >  deadzone or cc.isDown(js, "dpright")
+	local moveUp    = leftY < -deadzone or cc.isDown(js, "dpup")
+	local moveDown  = leftY >  deadzone or cc.isDown(js, "dpdown")
+
 	if sceneManager.gamepadInput then
 		sceneManager.gamepadInput({
-			left = moveLeft,
-			right = moveRight,
-			up = moveUp,
-			down = moveDown,
-			a = activeJoystick:isGamepadDown("a"),
-			b = activeJoystick:isGamepadDown("b"),
-			x = activeJoystick:isGamepadDown("x"),
-			y = activeJoystick:isGamepadDown("y"),
-			start = activeJoystick:isGamepadDown("start"),
-			back = activeJoystick:isGamepadDown("back")
+			left     = moveLeft,
+			right    = moveRight,
+			up       = moveUp,
+			down     = moveDown,
+			a        = cc.isDown(js, "AButton"),
+			b        = cc.isDown(js, "BButton"),
+			x        = cc.isDown(js, "XButton"),
+			y        = cc.isDown(js, "menuOpen"),
+			menuOpen = cc.isDown(js, "menuOpen"),
+			start    = cc.isDown(js, "pause"),
+			back     = cc.isDown(js, "back"),
 		})
 	end
 end
