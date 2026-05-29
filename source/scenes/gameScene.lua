@@ -345,7 +345,8 @@ function gameScene.enter()
 		gameScene.performChangeLevel(td.iid, td.dir, td.px, td.py)
 	else
 		-- Normal entry (e.g. from Title) - Load from save or defaults
-		local startRoom = PlayerData.saveLevel or 2
+		-- Room 407 = level 4, room 7 (the starting room, same as Playdate Floor407)
+		local startRoom = PlayerData.saveLevel or 7
 		local startLevel = PlayerData.actualLevel or 4
 		
 		-- Restore player position (playerSpawn is source of truth, x/y is fallback for old saves)
@@ -1354,6 +1355,12 @@ function gameScene.keypressed(key)
 end
 
 function gameScene.gamepadInput(input)
+	-- Crank via right stick
+	local cd = Input.getCrankDelta()
+	if cd ~= 0 and gameScene.player and gameScene.player.handleCrankInput then
+		gameScene.player:handleCrankInput(cd)
+	end
+
 	-- Let pause menu handle gamepad input first
 	local action = gameScene.pauseMenu:gamepadInput(input)
 	if action then
@@ -1364,7 +1371,7 @@ function gameScene.gamepadInput(input)
 	
 	-- Pass gamepad input to In-Game Menu or game
 	if PlayerData.isEquiping then
-		if input.y or input.b then
+		if Input.wasPressed("menuOpen") or Input.wasPressed("BButton") then
 			-- Close Menu on B or Y
 			PlayerData.isGaming = true
 			PlayerData.isEquiping = false
@@ -1372,7 +1379,7 @@ function gameScene.gamepadInput(input)
 			InGameMenu:gamepadInput(input)
 		end
 	elseif not gameScene.pauseMenu:isVisible() then
-		if input.y and PlayerData.isGaming and PlayerData.items.hasDWatch then
+		if Input.wasPressed("menuOpen") and PlayerData.isGaming and PlayerData.items.hasDWatch then
 			-- Open In-Game Menu for equipment (requires D-Watch, only while gaming)
 			PlayerData.isGaming = false
 			PlayerData.isEquiping = true
@@ -1386,7 +1393,7 @@ function gameScene.gamepadInput(input)
 		end
 		
 		-- Also check for 'A' button to interact or advance dialog
-		if input.a then
+		if Input.wasPressed("AButton") then
 			if PlayerData.isTalking then
 				gameScene.player:displayDialog()
 			else
