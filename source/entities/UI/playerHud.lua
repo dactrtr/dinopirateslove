@@ -84,7 +84,8 @@ end
 
 function PlayerHud:draw(player)
     if not PlayerData then return end
-    if not PlayerData.items or not PlayerData.items.hasDWatch then return end
+    if not PlayerData.items then return end
+    if not (PlayerData.items.hasLamp or PlayerData.items.hasBoots or PlayerData.items.hasDWatch) then return end
 
     local yOffset = PlayerData.isTiny and -22 or -36
     local tx = math.floor(player.x)

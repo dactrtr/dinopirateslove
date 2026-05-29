@@ -45,7 +45,7 @@ function animations.load(spritesheet)
 		lampIdle = anim8.newAnimation(getFrames(grid, 53, 64, cols), durIdle),
 		
 		-- Actions
-		charge = anim8.newAnimation(getFrames(grid, 36, 40, cols), 0.4), -- 12 ticks
+		charge = anim8.newAnimation(getFrames(grid, 36, 40, cols), 0.08), -- 5 frames ~0.4s total
 		
 		-- Dashing
 		dashRight = anim8.newAnimation(getFrames(grid, 65, 68, cols), durDash),
@@ -95,8 +95,13 @@ end
 
 -- Update animation based on movement direction
 function animations.updateAnimation(player, dx, dy)
+	-- Don't override transform animation while it's playing
+	if player.transformAnimTimer and player.transformAnimTimer > 0 then
+		return
+	end
+
 	local anims = player.animations
-	
+
 	if PlayerData.isTiny then
 		-- Tiny never uses slideExitFrames — endSliding() goes directly to tinyIdle
 		if PlayerData.isSliding then
@@ -161,7 +166,15 @@ function animations.updateAnimation(player, dx, dy)
 			player.currentAnimation = anims.up
 			PlayerData.direction = "up"
 		else
-			player.currentAnimation = PlayerData.hasLamp and anims.lampIdle or anims.idle
+			if PlayerData.isCharging then
+				if player.currentAnimation ~= anims.charge then
+					anims.charge:gotoFrame(1)
+					anims.charge:resume()
+					player.currentAnimation = anims.charge
+				end
+			else
+				player.currentAnimation = PlayerData.hasLamp and anims.lampIdle or anims.idle
+			end
 			PlayerData.direction = "idle"
 		end
 	end

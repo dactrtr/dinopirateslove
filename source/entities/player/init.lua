@@ -67,6 +67,12 @@ function Player:initialize(x, y, world)
 	self.slideDY         = 0
 	self.slideExitFrames = false
 
+	-- Charge state
+	self.chargeTimer = 0
+
+	-- Transform animation state
+	self.transformAnimTimer = 0
+
 	-- Dash state
 	local dashCfg = Config and Config.Dash or {}
 	self.isDashing            = false
@@ -140,6 +146,17 @@ end
 
 -- Update function
 function Player:update(dt)
+	-- Tick charge timer
+	if self.chargeTimer > 0 then
+		self.chargeTimer = math.max(0, self.chargeTimer - dt)
+		PlayerData.isCharging = self.chargeTimer > 0
+	end
+
+	-- Tick transform animation timer
+	if self.transformAnimTimer > 0 then
+		self.transformAnimTimer = math.max(0, self.transformAnimTimer - dt)
+	end
+
 	-- Update projectile if active
 	if self.projectile then
 		playerPlunge.update(self, dt)
@@ -352,32 +369,35 @@ end
 
 
 function Player:handleCrankInput(delta)
-	-- Only allow size change if on a minifier
-	if not PlayerData.readyToShrink then
+	if PlayerData.readyToShrink then
+		-- Inside minifier: crank changes size
+		if math.abs(delta) > 0 then
+			self:toggleSize()
+		end
 		return
 	end
 
-	-- Threshold for activation (accumulate delta if needed, but for wheel usually 1 click is enough)
-	if math.abs(delta) > 0 then
-		self:toggleSize()
+	-- Normal gameplay: clockwise (positive delta) charges battery
+	if PlayerData.isGaming and delta > 0 and PlayerData.battery < 100 then
+		PlayerData.battery = math.min(100, PlayerData.battery + 3)
+		PlayerData.isActive   = true
+		PlayerData.isCharging = true
+		self.chargeTimer      = 0.5  -- hold charge state for 0.5s after last crank tick
 	end
 end
 
 function Player:toggleSize()
-	-- Toggle state
 	PlayerData.isTiny = not PlayerData.isTiny
 	printDebug("🤏 Player size toggled. isTiny: " .. tostring(PlayerData.isTiny))
-	
-	-- Update dimensions based on state
+
 	self:syncDimensions()
-	
-	-- Verify BUMP world update
-	local bumpX, bumpY, bumpW, bumpH = self.world:getRect(self)
-	printDebug("  🌍 BUMP world collision: x=" .. bumpX .. ", y=" .. bumpY .. ", w=" .. bumpW .. ", h=" .. bumpH)
-	printDebug("  🎮 Player sprite position: x=" .. self.x .. ", y=" .. self.y)
-	
-	-- Update animation state immediately
-	playerAnimations.updateAnimation(self, 0, 0)
+
+	-- Play transformTo and block updateAnimation for its full duration (6 frames × 0.13s ≈ 0.8s)
+	local anim = self.animations.transformTo
+	anim:gotoFrame(1)
+	anim:resume()
+	self.currentAnimation   = anim
+	self.transformAnimTimer = 0.8
 end
 
 function Player:moveTo(x, y)

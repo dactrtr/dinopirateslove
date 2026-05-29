@@ -7,8 +7,8 @@ local movements = {}
 function movements.handleInput(player, dt)
 	local dx, dy = 0, 0
 
-	-- Don't allow movement if talking or in cutscene or sliding
-	if PlayerData.isTalking or PlayerData.isCutscene or PlayerData.isSliding then return dx, dy end
+	-- Don't allow movement if talking, in cutscene, sliding, or charging battery
+	if PlayerData.isTalking or PlayerData.isCutscene or PlayerData.isSliding or PlayerData.isCharging then return dx, dy end
 
 
 	-- Keyboard movement
