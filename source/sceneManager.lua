@@ -266,10 +266,24 @@ function sceneManager.keypressed(key)
 	if transition.active then
 		return  -- Ignore input during transitions
 	end
-	
+
 	-- Pass input to current scene
 	if currentScene and currentScene.keypressed then
 		currentScene.keypressed(key)
+	end
+end
+
+function sceneManager.gamepadInput(input)
+	if transition.active then return end
+	if currentScene and currentScene.gamepadInput then
+		currentScene.gamepadInput(input)
+	end
+end
+
+function sceneManager.gamepadpressed(button)
+	if transition.active then return end
+	if currentScene and currentScene.gamepadpressed then
+		currentScene.gamepadpressed(button)
 	end
 end
 

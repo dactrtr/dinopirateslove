@@ -252,4 +252,21 @@ function titleScene.keypressed(key)
 	end
 end
 
+function titleScene.gamepadInput(input)
+	if Input.wasPressed("up") then
+		titleScene.currentOption = titleScene.currentOption - 1
+		if titleScene.currentOption < 1 then titleScene.currentOption = #titleScene.menuItems end
+		titleScene.updateSelection()
+	elseif Input.wasPressed("down") then
+		titleScene.currentOption = titleScene.currentOption + 1
+		if titleScene.currentOption > #titleScene.menuItems then titleScene.currentOption = 1 end
+		titleScene.updateSelection()
+	elseif Input.wasPressed("AButton") then
+		local item = titleScene.menuItems[titleScene.currentOption]
+		if item and item.action then
+			item.action()
+		end
+	end
+end
+
 return titleScene
