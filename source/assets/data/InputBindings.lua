@@ -141,7 +141,7 @@ function Input.update(joystick)
                 if delta < -math.pi then delta = delta + 2 * math.pi end
                 crankAccum = crankAccum + delta
                 if math.abs(crankAccum) >= CRANK_THRESHOLD then
-                    pendingCrankDelta = crankAccum
+                    pendingCrankDelta = pendingCrankDelta + crankAccum
                     crankAccum = 0
                 end
             end
