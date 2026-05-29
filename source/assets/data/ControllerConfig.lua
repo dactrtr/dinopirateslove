@@ -176,8 +176,8 @@ function ControllerConfig.getAxis(joystick, axisName)
     if joystick:isGamepad() and sdlAxis then
         return joystick:getGamepadAxis(sdlAxis)
     else
-        -- Raw axis fallback: 0 = left stick X, 1 = left stick Y
-        local rawIndex = (axisName == "horizontal") and 0 or 1
+        local axisMap = { horizontal = 0, vertical = 1, crankX = 2, crankY = 3 }
+        local rawIndex = axisMap[axisName] or 0
         return joystick:getAxis(rawIndex + 1)  -- LÖVE raw axes are 1-indexed
     end
 end
