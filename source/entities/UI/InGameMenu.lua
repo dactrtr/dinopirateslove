@@ -132,11 +132,8 @@ end
 
 function InGameMenu:gamepadInput(input)
     if not PlayerData.isEquiping then return false end
-    if input.right or (input.leftx and input.leftx > 0.5) then
-        self:nextItem(); return true
-    elseif input.left or (input.leftx and input.leftx < -0.5) then
-        self:prevItem(); return true
-    end
+    if Input.wasPressed("right") then self:nextItem(); return true end
+    if Input.wasPressed("left")  then self:prevItem(); return true end
     return false
 end
 
