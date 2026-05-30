@@ -241,7 +241,10 @@ function CrewMember:taken()
 
 	-- Restaurar plungerang SIEMPRE (doc sección 10)
 	if self.player then
-		self.player.hasProjectile = true
+		self.player.hasProjectile       = true
+		PlayerData.items.hasPlunger     = true
+		PlayerData.skills.canPlungerang = true
+		PlayerData.activeItem           = 3
 	end
 
 	printDebug("🎯 CrewMember " .. tostring(self.iid) .. " capturado! Total: " .. PlayerData.CrewMemberData.amountTaken)

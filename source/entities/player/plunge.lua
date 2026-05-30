@@ -39,11 +39,10 @@ function plunge.tryActivate(player)
 		return false
 	end
 	
-	-- 6. Must have a directional heading (not idle)
+	-- 6. Determine fire direction — use last non-idle direction as fallback
 	local direction = PlayerData.direction
 	if direction == "idle" or not direction then
-		printDebug("❌ Plunge failed: No directional heading (idle)")
-		return false
+		direction = PlayerData.lastDirection or "right"
 	end
 	
 	-- All checks passed - activate!

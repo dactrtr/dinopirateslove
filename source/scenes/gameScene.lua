@@ -1255,12 +1255,19 @@ function gameScene.checkTriggerInteraction()
 			end
 		end
 	end
+
+	-- Minifier: press A while standing on it to lock in and start transforming.
+	if PlayerData.readyToShrink and not PlayerData.isMinifying and PlayerData.isGaming then
+		gameScene.player:startMinifying()
+		return true
+	end
+
 	return false
 end
 
 -- Handle automatic triggers
 function gameScene.checkAutomaticTriggers()
-	if not gameScene.player or PlayerData.isTalking or PlayerData.isCutscene then return end
+	if not gameScene.player or PlayerData.isTalking or PlayerData.isCutscene or PlayerData.isMinifying then return end
 	
 	local px, py, pw, ph = gameScene.player:getCollisionRect()
 	local items, len = gameScene.world:queryRect(px, py, pw, ph)
@@ -1314,9 +1321,11 @@ function gameScene.keypressed(key)
 			gameScene.checkTriggerInteraction()
 		end
 
-		-- BButton activa el item equipado (plungerang, dash, flash, etc.)
+		-- BButton: cancela el minifier si está bloqueado, si no activa el item equipado
 		if Input.is(key, "BButton") then
-			if gameScene.player and gameScene.player.handleActionButton then
+			if PlayerData.isMinifying then
+				gameScene.player:finishMinifying()
+			elseif gameScene.player and gameScene.player.handleActionButton then
 				gameScene.player:handleActionButton()
 			end
 		end
@@ -1394,11 +1403,16 @@ function gameScene.gamepadInput(input)
 			end
 		end
 
-		if gameScene.player and gameScene.player.handleGamepadInput then
-			gameScene.player:handleGamepadInput(input)
+		-- BButton: cancel minifier if locked in, otherwise fire equipped item
+		if Input.wasPressed("BButton") then
+			if PlayerData.isMinifying then
+				gameScene.player:finishMinifying()
+			elseif gameScene.player then
+				gameScene.player:handleActionButton()
+			end
 		end
-		
-		-- Also check for 'A' button to interact or advance dialog
+
+		-- AButton: interact with triggers or advance dialog
 		if Input.wasPressed("AButton") then
 			if PlayerData.isTalking then
 				gameScene.player:displayDialog()
@@ -1455,9 +1469,10 @@ function gameScene.drawTriggerIcons()
 		end
 	end
 	
-	-- Check if player is on a minifier
+	-- Check if player is on a minifier. Show the crank direction prompt:
+	-- counter-clockwise to shrink (normal), clockwise to grow back (when tiny).
 	if not foundTrigger and PlayerData.readyToShrink and gameScene.interactionHUD then
-		gameScene.interactionHUD:setState("crankClock")
+		gameScene.interactionHUD:setState(PlayerData.isTiny and "crankClock" or "crankAntiClock")
 		gameScene.interactionHUD:setVisible(true)
 		foundTrigger = true
 	end

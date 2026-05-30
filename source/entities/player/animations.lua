@@ -100,6 +100,12 @@ function animations.updateAnimation(player, dx, dy)
 		return
 	end
 
+	-- While locked in the minifier, the crank handler drives the animation
+	-- (transformCycle while cranking, transformTo on completion). Don't override it.
+	if PlayerData.isMinifying then
+		return
+	end
+
 	local anims = player.animations
 
 	if PlayerData.isTiny then
@@ -156,15 +162,19 @@ function animations.updateAnimation(player, dx, dy)
 		elseif dx > 0 then
 			player.currentAnimation = PlayerData.hasLamp and anims.lampRight or anims.right
 			PlayerData.direction = "right"
+			PlayerData.lastDirection = "right"
 		elseif dx < 0 then
 			player.currentAnimation = PlayerData.hasLamp and anims.lampLeft or anims.left
 			PlayerData.direction = "left"
+			PlayerData.lastDirection = "left"
 		elseif dy > 0 then
 			player.currentAnimation = PlayerData.hasLamp and anims.lampDown or anims.down
 			PlayerData.direction = "down"
+			PlayerData.lastDirection = "down"
 		elseif dy < 0 then
 			player.currentAnimation = anims.up
 			PlayerData.direction = "up"
+			PlayerData.lastDirection = "up"
 		else
 			if PlayerData.isCharging then
 				if player.currentAnimation ~= anims.charge then

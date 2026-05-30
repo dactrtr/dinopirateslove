@@ -2,6 +2,7 @@
 local Class = require 'libraries/middleclass'
 local VideoFeed = require 'entities/UI/dialog/videoFeed'
 local ImageScreen = require 'entities/UI/dialog/imageScreen'
+local markdownText = require 'entities/UI/markdownText'
 
 local DialogScreen = Class('DialogScreen')
 
@@ -147,12 +148,11 @@ function DialogScreen:draw()
     -- Draw Video Feed (Portrait)
     self.videoFeed:draw(self.videoX, self.videoY)
     
-    -- Draw Text
-    -- User requested black color and smaller size
-    love.graphics.setFont(self.font)
-    love.graphics.setColor(0.196, 0.184, 0.161, 1)
-    love.graphics.printf(self.currentText, self.textX, self.textY, self.textWidth)
-    
+    -- Draw Text with basic-markdown styling (*bold*), mirroring Playdate's
+    -- drawTextInRect. markdownText handles font/color save+restore internally.
+    markdownText.draw(self.currentText, self.textX, self.textY, self.textWidth,
+        self.font, {0.196, 0.184, 0.161, 1})
+
     -- Reset to default font/color for other components
     love.graphics.setColor(1, 1, 1, 1)
     if font then love.graphics.setFont(font) end

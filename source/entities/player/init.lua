@@ -73,6 +73,12 @@ function Player:initialize(x, y, world)
 	-- Transform animation state
 	self.transformAnimTimer = 0
 
+	-- Minifier state: prop the player is currently standing on (if any)
+	self.currentMinifier = nil
+	-- Counts down while cranking inside the minifier; when it hits 0 the player
+	-- reverts to idle (mirrors Playdate's crankStopTimer / crankIsMoving logic).
+	self.minifyCrankTimer = 0
+
 	-- Dash state
 	local dashCfg = Config and Config.Dash or {}
 	self.isDashing            = false
@@ -155,6 +161,18 @@ function Player:update(dt)
 	-- Tick transform animation timer
 	if self.transformAnimTimer > 0 then
 		self.transformAnimTimer = math.max(0, self.transformAnimTimer - dt)
+	end
+
+	-- Minifier crank-stop detection: transformCycle plays while cranking (set by
+	-- handleCrankInput, which keeps minifyCrankTimer fed); once the player stops
+	-- cranking the timer runs out and we revert to idle. Skipped while transformTo
+	-- is playing (transformAnimTimer > 0) so the shrink animation isn't cut short.
+	if PlayerData.isMinifying and self.transformAnimTimer <= 0 then
+		if self.minifyCrankTimer > 0 then
+			self.minifyCrankTimer = math.max(0, self.minifyCrankTimer - dt)
+		else
+			self:idle()  -- not cranking → idle (respects isTiny / lamp)
+		end
 	end
 
 	-- Update projectile if active
@@ -351,9 +369,11 @@ function Player:displayDialog()
 end
 
 function Player:checkPropInteractions()
-	-- Reset state frame by frame
+	-- Reset state frame by frame. While locked into the minifier the player stays
+	-- centered on it, so the overlap below re-asserts readyToShrink/currentMinifier.
 	PlayerData.readyToShrink = false
-	
+	self.currentMinifier     = nil
+
 	-- Check for overlaps with props using centralized logic
 	local collisionsList, count = self:checkCollisions()
 	
@@ -368,17 +388,57 @@ function Player:checkPropInteractions()
 end
 
 
+-- Minifier crank tuning (mirrors Playdate's getCrankTicks(4)/actualPlayerSize loop).
+-- One "tick" ≈ 30° of crank rotation (matches Input.CRANK_THRESHOLD); each tick moves
+-- actualPlayerSize by MINIFY_SIZE_STEP. playerSize is 10, so a full transform takes
+-- ~5 ticks (≈150° of cranking).
+local MINIFY_CRANK_TICK = math.rad(30)
+local MINIFY_SIZE_STEP  = 2
+-- Seconds of crank inactivity before the minifying player reverts to idle.
+-- (Playdate uses 0.1s; a slightly larger window avoids flicker between crank ticks.)
+local MINIFY_CRANK_STOP = 0.2
+
 function Player:handleCrankInput(delta)
-	if PlayerData.readyToShrink then
-		-- Inside minifier: crank changes size
-		if math.abs(delta) > 0 then
-			self:toggleSize()
+	if delta == 0 then return end
+
+	-- Locked into the minifier: crank gradually transforms the player's size.
+	-- Counter-clockwise (negative) shrinks; clockwise (positive) grows.
+	if PlayerData.isMinifying then
+		-- Show the spinning animation and keep it alive until the crank stops.
+		self:transformCycle()
+		self.minifyCrankTimer = MINIFY_CRANK_STOP
+
+		local ticks  = math.max(1, math.floor(math.abs(delta) / MINIFY_CRANK_TICK + 0.5))
+		local amount = ticks * MINIFY_SIZE_STEP
+
+		if not PlayerData.isTiny then
+			-- Shrinking (counter-clockwise)
+			if delta < 0 then
+				PlayerData.actualPlayerSize = PlayerData.actualPlayerSize - amount
+				if PlayerData.actualPlayerSize <= 0 then
+					PlayerData.actualPlayerSize = 0
+					self:shrink()
+				end
+			end
+		else
+			-- Growing (clockwise)
+			if delta > 0 then
+				PlayerData.actualPlayerSize = PlayerData.actualPlayerSize + amount
+				if PlayerData.actualPlayerSize >= PlayerData.playerSize then
+					PlayerData.actualPlayerSize = PlayerData.playerSize
+					self:grow()
+				end
+			end
 		end
 		return
 	end
 
-	-- Normal gameplay: clockwise (positive delta) charges battery
-	if PlayerData.isGaming and delta > 0 and PlayerData.battery < 100 then
+	-- Standing on a minifier but not locked in yet: crank does nothing.
+	-- The player must press A (startMinifying) to begin transforming.
+	if PlayerData.readyToShrink then return end
+
+	-- Normal gameplay: clockwise (positive delta) charges battery (not while tiny)
+	if PlayerData.isGaming and not PlayerData.isTiny and delta > 0 and PlayerData.battery < 100 then
 		PlayerData.battery = math.min(100, PlayerData.battery + 3)
 		PlayerData.isActive   = true
 		PlayerData.isCharging = true
@@ -386,18 +446,71 @@ function Player:handleCrankInput(delta)
 	end
 end
 
-function Player:toggleSize()
-	PlayerData.isTiny = not PlayerData.isTiny
-	printDebug("🤏 Player size toggled. isTiny: " .. tostring(PlayerData.isTiny))
+-- Lock the player onto the minifier and begin the size-change sequence.
+-- Triggered by pressing A while standing on a minifier (readyToShrink + isGaming).
+function Player:startMinifying()
+	if not self.currentMinifier or PlayerData.isTalking or not PlayerData.isGaming then return end
 
+	PlayerData.isMinifying = true
+	PlayerData.isGaming    = false
+
+	-- Auto-center on the minifier (prop x/y is top-left of a 32×32 tile).
+	local targetX = self.currentMinifier.x + 16
+	local targetY = self.currentMinifier.y + 16 - 10
+	self:moveTo(targetX, targetY)
+
+	-- Reset progress: full size when shrinking, zero when growing.
+	PlayerData.actualPlayerSize = PlayerData.isTiny and 0 or PlayerData.playerSize
+
+	-- Show idle while locked in; transformCycle only plays once the player cranks.
+	self.minifyCrankTimer = 0
+	self:idle()
+
+	printDebug("🌀 startMinifying (isTiny: " .. tostring(PlayerData.isTiny) .. ")")
+end
+
+-- Release the minifier lock (transform completed or cancelled with B).
+function Player:finishMinifying()
+	PlayerData.isMinifying = false
+	PlayerData.isGaming    = true
+	printDebug("✅ finishMinifying")
+end
+
+-- Looping animation shown while the player cranks inside the minifier.
+function Player:transformCycle()
+	local anim = self.animations.transformCycle
+	if self.currentAnimation ~= anim then
+		anim:gotoFrame(1)
+		anim:resume()
+		self.currentAnimation = anim
+	end
+end
+
+-- Complete the shrink: become tiny, swap the collision box, play transformTo.
+function Player:shrink()
+	PlayerData.isTiny = true
 	self:syncDimensions()
+	PlayerData.actualPlayerSize = 0
 
-	-- Play transformTo and block updateAnimation for its full duration (6 frames × 0.13s ≈ 0.8s)
 	local anim = self.animations.transformTo
 	anim:gotoFrame(1)
 	anim:resume()
 	self.currentAnimation   = anim
-	self.transformAnimTimer = 0.8
+	self.transformAnimTimer = 0.8  -- block updateAnimation until transformTo finishes
+
+	self:finishMinifying()
+	printDebug("🤏 Player shrank. isTiny: true")
+end
+
+-- Complete the grow: return to full size and idle.
+function Player:grow()
+	PlayerData.isTiny = false
+	self:syncDimensions()
+	PlayerData.actualPlayerSize = PlayerData.playerSize
+	self:idle()
+
+	self:finishMinifying()
+	printDebug("🌱 Player grew. isTiny: false")
 end
 
 function Player:moveTo(x, y)

@@ -32,6 +32,7 @@ local DefaultPlayerData = {
 	keys = {}, -- Table to store collected keys by number: {[1] = true, [2] = true, ...}
 	canDance = false,
 	readyToShrink = false,
+	isMinifying = false,
 	isTiny = false,
 	isBig = false,
 	playerSize = 10 ,
@@ -55,6 +56,7 @@ local DefaultPlayerData = {
 	isInDarkness = false,
 	showLightCone = false,
 	direction = "idle",
+	lastDirection = "right",
 	lastRoom = nil,
 	actualLevel = nil,
 	actualRoom = nil,
