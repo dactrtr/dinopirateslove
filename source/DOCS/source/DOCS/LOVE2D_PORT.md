@@ -105,7 +105,7 @@ All Playdate hardware inputs map to fixed keys in the Love2D port. **Every secti
 | Playdate input | Love2D key | Notes |
 |----------------|-----------|-------|
 | **A button** | `Z` | Interact, confirm, trigger dialog, start minifying |
-| **B button** | `X` | Use active ability (dash, plungerang, flash), cancel minifying, close menu |
+| **B button** | `X` | Use active ability (plungerang, flash), cancel minifying, close menu |
 | **D-pad Up** | `Up arrow` | Move up |
 | **D-pad Down** | `Down arrow` | Move down |
 | **D-pad Left** | `Left arrow` | Move left |
@@ -127,7 +127,7 @@ All Playdate hardware inputs map to fixed keys in the Love2D port. **Every secti
 
 ### 3.2. Implementing timers with a dt accumulator
 
-The game uses `playdate.timer.performAfterDelay(ms, fn)` extensively (dash cooldowns, invincibility, sanity ticks). That helper does not exist in Love2D — use an accumulator instead:
+The game uses `playdate.timer.performAfterDelay(ms, fn)` extensively (ability cooldowns, invincibility, sanity ticks). That helper does not exist in Love2D — use an accumulator instead:
 
 ```lua
 -- Define a simple timer utility
@@ -154,7 +154,7 @@ end)
 -- In update(dt): Timer.update(t, dt)
 ```
 
-For the dash cooldown (`Config.Dash.cooldown = 500` ms) and invincibility (`Config.Invincibility.duration = 1000` ms), this pattern directly replaces the Playdate timers.
+For the LightBurst cooldown (`Config.LightBurst.cooldown = 1000` ms) and invincibility (`Config.Invincibility.duration = 1000` ms), this pattern directly replaces the Playdate timers.
 
 ### 3.3. Crank → Q and E keys
 

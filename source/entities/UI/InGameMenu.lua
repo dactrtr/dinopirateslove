@@ -71,6 +71,7 @@ function InGameMenu:load()
     for i = 0, 20 do
         hatQuads[i + 1] = love.graphics.newQuad(i * HAT_W, 0, HAT_W, HAT_H, hw, hh)
     end
+
 end
 
 -- ── Skill navigation helpers ──────────────────────────────────────────────────
@@ -176,13 +177,16 @@ function InGameMenu:_buildMapCanvas()
         local by  = cfg.posY + row * MAP_SPACING
 
         if cf.visited then
-            -- Visited rooms: transparent (dark background shows through)
-            -- Only the current room gets a white square + dot
             if PlayerData.actualLevel == level and PlayerData.actualRoom == roomNum then
+                -- Current room: white square + dark center dot
                 love.graphics.setColor(1, 1, 1, 1)
                 love.graphics.rectangle("fill", bx + 1, by + 1, 5, 5)
                 love.graphics.setColor(0.196, 0.184, 0.161, 1)
                 love.graphics.rectangle("fill", bx + 2, by + 2, 3, 3)
+            else
+                -- Visited room: solid white square
+                love.graphics.setColor(1, 1, 1, 1)
+                love.graphics.rectangle("fill", bx + 1, by + 1, 5, 5)
             end
         end
 

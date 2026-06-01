@@ -164,6 +164,60 @@ function Player:finishMinifying()
     self.triggerEnteredOnce = false
     self.uiHud:setVisible(false)
 end
+
+function Player:startCooking()
+    if not self.currentMicrowave or PlayerData.isTalking or not PlayerData.isGaming then return end
+    -- Cooking is only possible while big — the tiny player can't operate the microwave.
+    if PlayerData.isTiny then
+        printDebug("Too small to use the microwave!")
+        return
+    end
+    -- Nothing to do? Don't enter cooking.
+    if (PlayerData.food or 0) <= 0 or PlayerData.healthPoints >= Config.Player.maxHealthPoints then return end
+
+    -- Lock player and center
+    PlayerData.isGaming = false
+    self.triggerEnteredOnce = true -- Stop trigger checks
+
+    -- Auto center on microwave
+    local targetX = self.currentMicrowave.x
+    local targetY = self.currentMicrowave.y - 10
+    self:moveTo(targetX, targetY)
+    if shadow then shadow:moveTo(targetX, targetY) end
+
+    -- Show crank prompt
+    -- Future hook: set a distinct cooking player animation + HUD state here (out of scope for v1).
+    self.uiHud:setCrankClock()
+    self:showUIHUD()
+
+    -- Reset crank accumulator
+    self.cookProgress = 0
+end
+
+function Player:finishCooking()
+    PlayerData.isGaming = true
+    self.triggerEnteredOnce = false
+    self.uiHud:setVisible(false)
+    self.cookProgress = 0
+end
+
+function Player:checkMicrowave()
+    if self.currentMicrowave then
+        local stillInside = false
+        for _, sprite in ipairs(self:overlappingSprites()) do
+            if sprite == self.currentMicrowave then
+                stillInside = true
+                break
+            end
+        end
+
+        if not stillInside then
+            self.uiHud:setVisible(false)
+            self.currentMicrowave = nil
+            PlayerData.readyToCook = false
+        end
+    end
+end
 function Player:pedometer()
   PlayerData.steps += Config.Pedometer.stepsPerMovement
   PlayerData.totalSteps += Config.Pedometer.stepsPerMovement
@@ -278,11 +332,11 @@ function Player:update()
     return
   end
 
-  -- Update dash movement if dashing
-  self:updateDash()
-  
   -- Update sliding movement if on slime
   self:updateSliding()
+
+  -- Update grappling-hook pull if active
+  self:updateGrapplePull()
 
   -- Check if player is on a slime tile (IDs 89-97)
   self:checkSlimeTile()
@@ -297,10 +351,12 @@ function Player:update()
     self.lightConeHideTime = nil
   end
 
+
   self:checkForegroundDepth()
   
   self:checkTrigger()
   self:checkMinifier()
+  self:checkMicrowave()
 
   -- if PlayerData.storyCounter == 4 then
   -- PlayerData.isRinging = true
@@ -312,6 +368,9 @@ function Player:update()
     PlayerData.battery = 0
   elseif PlayerData.battery >= 100 then
     PlayerData.battery = 100
+  end
+  if PlayerData.healthPoints > Config.Player.maxHealthPoints then
+    PlayerData.healthPoints = Config.Player.maxHealthPoints
   end
   if PlayerData.items.hasLamp == true and PlayerData.isInDarkness == true then
     if PlayerData.battery < Config.Sanity.batteryThresholdLow then

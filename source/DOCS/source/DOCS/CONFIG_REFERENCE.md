@@ -24,7 +24,7 @@ Controls draw order. Higher value = drawn on top. Used in every entity's `:setZI
 | ZIndex | `fx` | 1999 | layer | FXshadow (darkness mask) |
 | ZIndex | `ui` | 2000 | layer | UIHud (interaction indicator) |
 | ZIndex | `hud` | 2000 | layer | playerHud, Battery, HealthIndicator |
-| ZIndex | `menu` | 2100 | layer | inGameMenu, itemMenu, skillInfo |
+| ZIndex | `menu` | 2100 | layer | inGameMenu (map + crew hats) |
 | ZIndex | `alert` | 2200 | layer | Achievement notification toasts |
 
 ---
@@ -75,18 +75,21 @@ Numeric IDs for the Playdate sprite collision system. Each sprite calls `:setGro
 | Player | `triggerCheckDist` | 5 | px | Pixels moved before re-checking trigger overlap |
 | Player | `movementFramesPerAction` | 3 | frames | Movement frames distributed to NPCs/enemies per move |
 | Player | `knockbackDistance` | 2 | px | Push distance when colliding with an enemy |
+| Player | `maxHealthPoints` | 10 | HP | Hard cap on `healthPoints`; HUD draws up to 10 dots. Enforced in `Player:update()`, the cook loop, and the DanceScene win heal |
 
 ---
 
-## Config.Dash — Dash Ability
+## Config.Microwave — Food Healing
 
 | Section | Name | Value | Unit | Description |
 |---|---|---|---|---|
-| Dash | `speed` | 6 | px/frame | Speed during the dash |
-| Dash | `totalDistance` | 56 | px | Total distance traveled before stopping |
-| Dash | `bounceDistance` | 16 | px | Remaining distance when bounce activates |
-| Dash | `batteryCost` | 10 | units | Battery consumed on activation |
-| Dash | `cooldown` | 500 | ms | Minimum time between dashes |
+| Microwave | `hpPerFood` | 1 | HP | HP restored per food cooked (1:1 for now; tune later) |
+| Microwave | `caloriesPerFood` | 1 | calories | Calories gained per food cooked (byproduct; tune later) |
+| Microwave | `carryMax` | 10 | food | Max food the player can carry (`grabFood` clamp) |
+| Microwave | `perPickup` | 1 | food | Food granted per food item picked up |
+| Microwave | `crankPerFood` | 1 | crank ticks | Crank ticks (`getCrankTicks(4)`, ~90° each) to cook 1 food — NOT degrees |
+
+See `MICROWAVE_AND_FOOD.md` for the full system.
 
 ---
 
@@ -145,6 +148,7 @@ Numeric IDs for the Playdate sprite collision system. Each sprite calls `:setGro
 | LightBurst | `coneDistance` | 200 | px | Depth of the light cone polygon |
 | LightBurst | `coneHeight` | 12 | factor | Lateral scale factor of the cone |
 | LightBurst | `blindDuration` | 60 | frames | Frames enemies remain blinded |
+| LightBurst | `selfDamage` | 1 | HP | HP the player loses each time the flash fires (0 = off) |
 
 ---
 

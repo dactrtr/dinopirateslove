@@ -76,6 +76,13 @@ end
 function Enemy:moveCollision(movementX, movementY, player)
     -- Speed is now managed by updateMoveSpeed() called before this function
 
+    -- Holes (IntGrid 3) are walkable tiles with no physical collider, so
+    -- moveWithCollisions won't stop the enemy. Sample the target tile and refuse
+    -- to step onto a hole — the enemy halts at the edge instead of crossing it.
+    if IsHoleAt(movementX, movementY) then
+        return
+    end
+
     local actualX, actualY, collisions, length = self:moveWithCollisions(movementX, movementY)
     local bounceFactor = Config.Enemy.bounceFactor
     if length > 0 then

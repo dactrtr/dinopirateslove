@@ -76,10 +76,8 @@ isDancing = true  (in DanceScene)            → active rhythm battle
 |---|---|---|
 | `up/down/left/right` (Hold) | `isGaming == true` | `player:move(direction)` — moves the player |
 | `up/down/left/right` (Up) | Always | `player:idle()` — stops movement |
-| `left` (Down) | `isEquiping == true` | `inGameEquip:prevItem()` — previous skill |
-| `right` (Down) | `isEquiping == true` | `inGameEquip:nextItem()` — next skill |
 
-`up` and `down` have no function in the equipment menu — only `left` and `right` cycle items.
+The in-game menu is purely visual (map + crew hats); the D-pad has no menu actions.
 
 ---
 
@@ -95,11 +93,11 @@ isDancing = true  (in DanceScene)            → active rhythm battle
    → isGaming = false, isTalking = true
    → dialogUI:addScreen(trigger:returnScript(), trigger.sourceFeed)
 
-3. isEquiping == true  (evaluated independently, can stack)
-   → inGameEquip:selectItem()
-
-4. readyToShrink == true  AND  isGaming == true
+3. readyToShrink == true  AND  isGaming == true
    → player:startMinifying()
+
+4. readyToCook == true  AND  isGaming == true   (independent `if`)
+   → player:startCooking()   (microwave — see MICROWAVE_AND_FOOD.md)
 ```
 
 `AButtonHeld` (after holding for 1 second):
@@ -115,6 +113,7 @@ isGaming == true  AND  hasDWatch == true
 | `A` (Down) | `currentTrigger` + `isGaming` | Activate manual trigger |
 | `A` (Down) | `isEquiping` | Confirm skill in menu |
 | `A` (Down) | `readyToShrink` + `isGaming` | Start minification |
+| `A` (Down) | `readyToCook` + `isGaming` + **not tiny** | Start cooking at microwave (`startCooking()`) — big-only |
 | `A` (Hold every frame) | — | No action |
 | **`A` (1 second hold)** | `isGaming` + `hasDWatch` | **Open equipment menu** |
 | `A` (Up) | — | No action |
@@ -133,24 +132,40 @@ isGaming == true  AND  hasDWatch == true
 2. isGaming == false  AND  readyToShrink == true
    → player:finishMinifying()
 
-3. isGaming == true  AND  player.isAlive
-   → player:useAbility()
-       activeItem == 1 + canFlash      → lightBurst()
-       activeItem == 2 + canDash       → dash()
-       activeItem == 3 + canPlungerang → plunge()
+2b. isGaming == false  AND  readyToCook == true
+   → player:finishCooking()   (cancel/finish microwave cooking)
 
-4. ALWAYS (at end of B)
-   → player:distributeMovementTokens(5)
+3. isGaming == true  AND  player.isAlive
+   → player:useAbility()   (instant; requires a facing direction — idle does nothing)
+       isInDarkness → lightBurst()  (flash)
+       else         → plunge()      (plungerang boomerang)
 ```
+
+Holding B instead starts a charge, and releasing fires the charged ability (see
+"B Button — Hold & Release" below). Movement tokens are granted by each ability **when it
+actually fires**, not on every B press.
 
 | Input | Condition | Action |
 |---|---|---|
 | `B` (Down) | `!isGaming` + `isEquiping` | Close equipment menu |
 | `B` (Down) | `!isGaming` + `readyToShrink` | Finish minification |
-| `B` (Down) | `isGaming` + alive | Use active ability |
-| `B` (Down) | Always | `distributeMovementTokens(5)` |
-| `B` (Hold) | — | No action |
-| `B` (Up) | — | No action |
+| `B` (Down) | `!isGaming` + `readyToCook` | Finish/cancel microwave cooking (`finishCooking()`) |
+| `B` (Down) | `isGaming` + alive | Use instant ability — `lightBurst()` (dark) or `plunge()` (lit); requires a direction |
+| `B` (Hold) | `isGaming` + alive, after `holdDelay` | Start charge — `beginDarkCharge()` (dark) or `beginGrappleCharge()` (lit) |
+| `B` (Up) | charge active | End charge — dark reveal / grapple launch (nothing if undercharged) |
+
+### B Button — Hold & Release
+
+The B hold uses a **custom timer** in `MazeScene:update()` (`bButtonDownTime`), not the SDK's
+`BButtonHeld` (which is fixed at 1 s). After `Config.DarkReveal.holdDelay` (dark) or
+`Config.Grapple.holdDelay` (lit) ms of holding B, the matching charge begins and the
+`crankClock` HUD indicator appears. While charging, crank rotation accumulates into the
+charge instead of charging the battery. On release:
+- **Dark reveal** — if crank ≥ `Config.DarkReveal.crankThreshold` and battery ≥
+  `Config.DarkReveal.minBattery`, `activateDarkReveal()` fires.
+- **Grapple launch** — `endGrappleCharge()` fires the hook, distance ∝ crank amount.
+- Undercharged release fires nothing (the instant-ability fallback needs a direction, and you
+  charge while idle).
 
 ---
 
@@ -160,9 +175,11 @@ The crank uses `playdate.getCrankTicks(4)` — equivalent to 4 clicks per full r
 
 | Input | Condition | Action |
 |---|---|---|
-| Rotation (any direction) | `isAlive == true` | `player:burnCalories(1)` |
+| Rotation (any) | `isDarkCharging` or `isGrappleCharging` | Routes delta to the active charge (`addDarkCrankDelta` / `addGrappleCrankDelta`); returns early, skipping battery charge |
+| Positive rotation | `isAlive == true` AND **not** cooking | `player:burnCalories(1)` — **skipped while cooking** (`isGaming==false` + `readyToCook==true`) so the cook calorie byproduct isn't cancelled |
 | Positive rotation | `isGaming` + `battery < 100` + not minifying/tiny | `player:chargeBattery(3)` + refresh shadow |
 | Rotation (any) | `readyToShrink == true` | `player:transformCycle()` |
+| Rotation (any) | `!isGaming` + `readyToCook == true` | Cook food: accumulate `cookProgress`; each `Config.Microwave.crankPerFood` ticks consumes 1 food for `+hpPerFood` HP and `+caloriesPerFood` calories (both clamped); auto-finishes at full HP or 0 food. See `MICROWAVE_AND_FOOD.md` |
 
 Battery charges 3 points per crank tick. Negative crank rotation does not charge (only positive direction charges).
 
@@ -250,8 +267,8 @@ The debug cheat code (`up up up down`) is registered in `main.lua` (commented ou
 AButtonDown:
 ├── isTalking?                → displayDialog()
 ├── currentTrigger + isGaming? → activate manual trigger
-├── isEquiping?               → selectItem()
-└── readyToShrink + isGaming? → startMinifying()
+├── readyToShrink + isGaming? → startMinifying()
+└── readyToCook + isGaming?   → startCooking()   (microwave)
 
 AButtonHeld (1 sec):
 └── isGaming + hasDWatch      → displayMenu()
@@ -259,11 +276,19 @@ AButtonHeld (1 sec):
 BButtonDown:
 ├── !isGaming + isEquiping    → closeMenu(), isGaming=true
 ├── !isGaming + readyToShrink → finishMinifying()
-├── isGaming + isAlive        → useAbility()
-│     ├── activeItem=1 + canFlash      → lightBurst()
-│     ├── activeItem=2 + canDash       → dash()
-│     └── activeItem=3 + canPlungerang → plunge()
-└── ALWAYS → distributeMovementTokens(5)
+├── !isGaming + readyToCook   → finishCooking()   (microwave)
+└── isGaming + isAlive        → useAbility()   (instant; needs a direction)
+      ├── isInDarkness → lightBurst()  (flash)
+      └── else         → plunge()      (plungerang)
+
+BButtonHeld (custom timer in MazeScene:update, ~holdDelay):
+└── isGaming + isAlive → beginDarkCharge() (dark) / beginGrappleCharge() (lit)
+
+BButtonUp:
+└── endDarkCharge() / endGrappleCharge() → dark reveal or grapple launch
+
+Movement tokens: granted by each ability when it fires (lightBurst / plunge /
+grapple launch / dark reveal = Config.Player.movementTokensPerAction), NOT on every B press.
 ```
 
 ---
@@ -314,9 +339,13 @@ function love.wheelmoved(x, y)
 end
 ```
 
-### `distributeMovementTokens` Always Runs with B
+### `distributeMovementTokens` Runs When a B Ability Fires
 
-Even if no skill was used, B always activates the enemy turn. In Love2D, replicate this behavior exactly.
+A B ability advances the enemy turn only when it **actually fires** — `lightBurst` (flash),
+`plunge` (plungerang), grapple launch, or dark reveal each grant
+`Config.Player.movementTokensPerAction` (5) tokens. Tapping B with no valid action, or holding
+B to charge while idle, grants nothing. In Love2D, replicate this per-ability behavior (not a
+blanket grant on every B press).
 
 ### CheatCode in Love2D
 

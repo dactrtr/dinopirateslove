@@ -1,6 +1,12 @@
 # In-Game Menu (inGameMenu)
 
-This document describes the player's equipment menu: opening and closing, item selection, the equipment system, `activeItem` routing, and the distinction between pause and equipping.
+This document describes the player's in-game menu: opening and closing, what it
+displays, and the distinction between pause and the menu.
+
+The menu is **purely visual / informational**. It shows the explored map and the
+hats of the captured crew members. There is no skill or item selection — abilities
+fire directly from the B button based on context (see `PLAYER_SYSTEMS.md` and
+`entities/player/abilities.lua`).
 
 ---
 
@@ -8,9 +14,7 @@ This document describes the player's equipment menu: opening and closing, item s
 
 | File | Class | Description |
 |---|---|---|
-| `entities/UI/inGameMenu.lua` | `inGameMenu` | Main menu container |
-| `entities/UI/itemMenu.lua` | `itemMenu` | Individual skill/item icon |
-| `entities/UI/skillInfo.lua` | `skillInfo` | Active skill banner panel |
+| `entities/UI/inGameMenu.lua` | `inGameMenu` | Menu container (map + crew hats) |
 
 ---
 
@@ -23,11 +27,7 @@ Extends `Graphics.sprite`. Instantiated in `MazeScene:enter()`.
 | Component | Description | Position |
 |---|---|---|
 | `shadow` (400×240) | Semi-transparent background covering the screen | (200, 120) |
-| `menuSprite` | Menu frame image (`assets/images/ui/menu/ingame-menu`) | (200, 120) centered |
-| `lampItem` | Lamp item icon | (320, 64) when visible |
-| `bootItem` | Boots icon | (288, 128) when visible |
-| `plungerItem` | Plunger icon | (256, 128) when visible |
-| `equippedInfoPanel` | Banner for the currently selected skill | (220, 180) when an item is active |
+| `menuSprite` | Menu frame image (`assets/images/ui/menu/ingame-menu`), with the explored map drawn onto it | (200, 120) centered |
 | `hatSprites` | Array of captured crew member hat sprites | Grid starting at (43, 108) |
 
 ### Z-Index
@@ -36,8 +36,6 @@ Extends `Graphics.sprite`. Instantiated in `MazeScene:enter()`.
 |---|---|
 | `inGameMenu` (shadow) | `ZIndex.menu` (2100) |
 | `menuSprite` | `ZIndex.menu + 2` (2102) |
-| `itemMenu`, `skillInfo` | `ZIndex.menu + 3` (2103) |
-| `equippedInfoPanel` | `ZIndex.menu + 4` (2104) |
 | Hat sprites | `ZIndex.menu + 9` (2109) |
 
 ---
@@ -68,7 +66,7 @@ end
 
 ```
 PlayerData.isGaming   → false   (disables gameplay, movement input, abilities)
-PlayerData.isEquiping → true    (activates menu input)
+PlayerData.isEquiping → true    (marks the menu as open)
 ```
 
 ---
@@ -78,11 +76,7 @@ PlayerData.isEquiping → true    (activates menu input)
 ```lua
 function inGameMenu:closeMenu()
     shadow:clear(Graphics.kColorClear)
-    lampItem:remove()
-    bootItem:remove()
-    plungerItem:remove()
-    equippedInfoPanel:remove()
-    menuSprite:remove()
+    if menuSprite then menuSprite:remove() end
     -- Remove hat sprites
     for _, hatSprite in ipairs(self.hatSprites or {}) do
         hatSprite:remove()
@@ -104,114 +98,27 @@ PlayerData.isEquiping → false
 
 ---
 
-## Distinction: Pause vs. Equipping
+## Input While the Menu Is Open
 
-The game **has no real pause system**. Opening the equipment menu simulates a pause by setting `isGaming = false`, which:
+The menu has **no interactive controls** of its own. While `isEquiping == true`:
+
+- **A** does nothing menu-specific.
+- **B** closes the menu (`MazeScene` `BButtonDown`).
+- **◀ / ▶** still move the player's facing internally but perform no menu action.
+
+---
+
+## Distinction: Pause vs. Menu
+
+The game **has no real pause system**. Opening the menu simulates a pause by setting `isGaming = false`, which:
 
 - Stops player movement (movement input checks `isGaming`).
 - Stops abilities (B checks `isGaming` to use abilities).
-- Stops the enemy turn (`distributeMovementTokens` only runs when there is active input).
+- Stops the enemy turn (`distributeMovementTokens` only runs when a B ability fires, which requires `isGaming == true`).
 
 However, `update()` keeps running — the menu draws its components every frame. There is no literal engine freeze.
 
-`SaveSystem.save()` is called in `scene:pause()` (Playdate system menu) and in `scene:finish()` — **not** when opening the equipment menu.
-
----
-
-## Skill Navigation
-
-### `inGameMenu:getActiveSkillsList()`
-
-Dynamically builds the list of available skills based on the player's **skills**, not item possession:
-
-```lua
-function inGameMenu:getActiveSkillsList()
-    local skills = {}
-    if PlayerData.skills.canFlash      then table.insert(skills, 1) end  -- Lamp/Flash
-    if PlayerData.skills.canDash       then table.insert(skills, 2) end  -- Boot/Dash
-    if PlayerData.skills.canPlungerang then table.insert(skills, 3) end  -- Plunger/Plunge
-    return skills
-end
-```
-
-**Skill IDs:**
-- `1` = Flash (Lamp)
-- `2` = Dash (Boots)
-- `3` = Plungerang (Plunger)
-
-### `inGameMenu:prevItem()` / `inGameMenu:nextItem()`
-
-Cycle `PlayerData.activeItem` within the active list with wraparound:
-
-```lua
--- nextItem:
-currentIndex = currentIndex + 1
-if currentIndex > #activeSkills then currentIndex = 1 end
-PlayerData.activeItem = activeSkills[currentIndex]
-
--- prevItem:
-currentIndex = currentIndex - 1
-if currentIndex < 1 then currentIndex = #activeSkills end
-PlayerData.activeItem = activeSkills[currentIndex]
-```
-
-If there are no active skills, `PlayerData.activeItem` is set to `0`.
-
-### `inGameMenu:selectItem()`
-
-Confirms the selection. In the current code it only calls `printDebug`. The actual selection already happened when navigating with `prevItem`/`nextItem` — `activeItem` is updated in real time.
-
----
-
-## `activeItem` Routing
-
-`PlayerData.activeItem` is the active skill number. It is used in multiple systems:
-
-| Value | Skill | Gameplay Use (B button) |
-|---|---|---|
-| `0` | None | `useAbility()` does nothing |
-| `1` | Flash | `player:lightBurst()` |
-| `2` | Dash | `player:dash()` |
-| `3` | Plungerang | `player:plunge()` |
-
-The menu validates that `activeItem` is always a value within `getActiveSkillsList()`. If it is not, it resets it to the first available skill.
-
----
-
-## `itemMenu` — Individual Item Icon
-
-Extends `NobleSprite`. Image: `assets/images/ui/menu/menuitems`.
-
-### Animation States
-
-| State | Frame | Condition |
-|---|---|---|
-| `lamp` | 5 | Lamp not selected |
-| `lampSelected` | 6 | `activeItem == 1` |
-| `boot` | 3 | Boots not selected |
-| `bootSelected` | 4 | `activeItem == 2` |
-| `plunger` | 1 | Plunger not selected |
-| `plungerSelected` | 2 | `activeItem == 3` |
-
-`itemMenu:show(x, y)` adds it to the scene at the given position. `itemMenu:remove()` removes it.
-
----
-
-## `skillInfo` — Skill Information Panel
-
-Extends `NobleSprite`. Image: `assets/images/ui/menu/skillinfo`. Size: 145×42 px.
-
-### Animation States
-
-| State | Frame | Skill Displayed |
-|---|---|---|
-| `plunder` | 1 | Plungerang |
-| `dash` | 2 | Dash |
-| `flash` | 3 | Flash/Lamp |
-
-When created with `__item = 'equipped'`, `update()` reads `PlayerData.activeItem` and changes state automatically to always show the active skill.
-
-`skillInfo:show(x, y)` adds it to the scene.
+`SaveSystem.save()` is called in `scene:pause()` (Playdate system menu) and in `scene:finish()` — **not** when opening the menu.
 
 ---
 
@@ -269,35 +176,12 @@ function InGameMenu:draw()
     -- Semi-transparent background
     love.graphics.setColor(0, 0, 0, 0.7)
     love.graphics.rectangle("fill", 0, 0, 400, 240)
-    -- Menu frame
+    -- Menu frame (with the explored map already drawn onto it)
     love.graphics.setColor(1, 1, 1)
     love.graphics.draw(self.menuImage, 200, 120, 0, 1, 1,
         self.menuImage:getWidth()/2, self.menuImage:getHeight()/2)
-    -- Available skills
-    self:drawSkills()
-end
-```
-
-### Active Skill Cycling
-
-```lua
-function InGameMenu:getActiveSkills()
-    local skills = {}
-    if PlayerData.skills.canFlash      then table.insert(skills, {id=1, name="Flash"}) end
-    if PlayerData.skills.canDash       then table.insert(skills, {id=2, name="Dash"}) end
-    if PlayerData.skills.canPlungerang then table.insert(skills, {id=3, name="Plungerang"}) end
-    return skills
-end
-
-function InGameMenu:nextItem()
-    local skills = self:getActiveSkills()
-    if #skills == 0 then return end
-    local idx = 1
-    for i, s in ipairs(skills) do
-        if s.id == PlayerData.activeItem then idx = i; break end
-    end
-    idx = (idx % #skills) + 1
-    PlayerData.activeItem = skills[idx].id
+    -- Captured crew hats
+    self:drawCrewHats()
 end
 ```
 

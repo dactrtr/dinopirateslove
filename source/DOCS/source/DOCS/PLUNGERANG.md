@@ -6,20 +6,20 @@ The player's boomerang projectile system. It is split across two files: skill ac
 
 ## Entry Point — `Player:plunge()` (`entities/player/plunge.lua`)
 
-The skill is activated when the player presses B with the Plunger equipped.
+The skill is activated when the player presses B in a lit room (in darkness, B fires
+the lamp instead — see `entities/player/abilities.lua`).
 
 ### Validations in Order
 
 ```
-1. PlayerData.activeItem == 3          (plunger equipped)
-2. PlayerData.items.hasPlunger == true (has the item)
-3. PlayerData.skills.canPlungerang == true (has the skill)
-4. PlayerData.isTiny == false          (cannot throw in tiny mode)
-5. self.isPlunging == false            (no projectile currently in flight)
-6. self.hasProjectile == true          (has the projectile; if lost, cannot throw)
-7. self.isAlive == true
-8. PlayerData.isGaming == true
-9. PlayerData.direction != 'idle' AND direction != nil  (must be moving)
+1. PlayerData.items.hasPlunger == true (has the item)
+2. PlayerData.skills.canPlungerang == true (has the skill)
+3. PlayerData.isTiny == false          (cannot throw in tiny mode)
+4. self.isPlunging == false            (no projectile currently in flight)
+5. self.hasProjectile == true          (has the projectile; if lost, cannot throw)
+6. self.isAlive == true
+7. PlayerData.isGaming == true
+8. PlayerData.direction != 'idle' AND direction != nil  (must be moving)
 ```
 
 If all validations pass:
@@ -126,7 +126,8 @@ The projectile chases the player's **current** position each frame. If the playe
 | Target | What Happens | Effect |
 |---|---|---|
 | `Enemy` | Immediately enters return phase | `entity:blind(Config.Projectile.blindDuration)` — 60 frames of blindness |
-| `PropItem` or `Box` (wall) | Immediately enters return phase | No effect on the prop |
+| `PropItem` of type `box` (not destroyed) | Immediately enters return phase | `other:smash()` — destroys the box (persisted via `destroyProp`) |
+| Other `PropItem` or `Box` (wall) | Immediately enters return phase | No effect on the prop |
 | `CrewMember` | Projectile is destroyed | `player.hasProjectile = false`, `player.isPlunging = false`, `:remove()` |
 | Player (catch) | `:onCaught()` → `:remove()` | Calls `player:onProjectileCaught()`, unlocks movement |
 

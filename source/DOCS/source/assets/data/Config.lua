@@ -29,11 +29,12 @@ Config.CollideGroups = {
 Config.Tiles = {
     size    = 16,
     IntGrid = {
-        wall     = 1,
-        slime    = 2,
-        hole     = 3,
-        floor    = 4,
-        tinyHole = 32,
+        wall        = 1,
+        slime       = 2,
+        hole        = 3,
+        floor       = 4,
+        tinyHole    = 32,
+        grapplePoint = 33,   -- hookable + walkable tile for the grappling hook
     }
 }
 
@@ -47,20 +48,44 @@ Config.Player = {
     collideRectHead  = {x=8,  y=8, w=16, h=16},
     uiOffsetX        = 30,
     uiOffsetY        = 30,
+    feetOffsetY      = 12,   -- px from sprite position down to the player's feet (tile sampling / grapple landing)
     hudOffsetY       = -40,
     hudOffsetYTiny   = -17,
     triggerCheckDist        = 5,   -- px moved before re-checking triggers
     movementFramesPerAction = 3,   -- movement frames distributed to NPCs/enemies per player move
+    movementTokensPerAction = 5,   -- movement tokens granted to enemies/crew when a B-ability actually fires
     knockbackDistance       = 2,   -- px pushed on enemy hit
+    maxHealthPoints         = 10,  -- hard cap on healthPoints (HUD draws up to 10 dots)
 }
 
--- Dash ability
-Config.Dash = {
-    speed          = 6,
-    totalDistance  = 56,
-    bounceDistance = 16,
-    batteryCost    = 10,
-    cooldown       = 500,   -- ms
+-- Microwave + Food healing
+Config.Microwave = {
+    hpPerFood       = 1,   -- HP restored per food cooked (1:1 for now; tune later)
+    caloriesPerFood = 1,   -- calories gained per food cooked (byproduct; tune later)
+    carryMax        = 10,  -- max food the player can carry
+    perPickup       = 1,   -- food granted per food item picked up
+    crankPerFood    = 1,   -- crank ticks (getCrankTicks(4)) accumulated to cook 1 food (~90 deg)
+}
+
+-- Dark Reveal skill (hold B + crank in darkness)
+Config.DarkReveal = {
+    minBattery            = 80,    -- minimum battery % required to start the crank charge
+    holdDelay             = 400,   -- ms holding B before the crank charge starts (custom; SDK Held is fixed at 1000)
+    crankThreshold        = 720,   -- degrees of total crank rotation required
+    revealDuration        = 3000,  -- ms the full light lasts after activation
+    rechargeBlockDuration = 3000,  -- ms recharge is blocked after reveal ends
+}
+
+-- Grappling Hook (charged plungerang in lit rooms)
+Config.Grapple = {
+    holdDelay       = 400,   -- ms holding B before the crank charge starts
+    minDistance     = 64,    -- px guaranteed on any release (~4 tiles)
+    maxDistance     = 320,   -- px cap (~20 tiles)
+    pixelsPerDegree = 0.4,   -- crank degrees -> launch distance
+    projectileSpeed = 8,     -- px/frame the hook flies out
+    pullSpeed       = 8,     -- px/frame the player slides toward the tile
+    cooldown        = 500,   -- ms between uses (reserved; not yet enforced)
+    ropeWidth       = 2,     -- px width of the black rope drawn from player to hook
 }
 
 -- Slide (slime)
@@ -101,11 +126,13 @@ Config.Sanity = {
 -- Light Burst (lamp ability)
 Config.LightBurst = {
     batteryCost   = 10,
+    minBattery    = 10,     -- minimum battery % required to use (just enough to cover batteryCost)
     cooldown      = 1000,   -- ms
     displayTime   = 1000,   -- ms the cone stays visible
     coneDistance  = 200,    -- px forward
     coneHeight    = 12,     -- scaling factor
     blindDuration = 60,     -- frames enemies stay blinded
+    selfDamage    = 1,      -- HP the player loses each time the flash fires (0 = no self-damage)
 }
 
 -- Projectile (plungerang)

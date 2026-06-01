@@ -62,10 +62,11 @@ function Player:initialize(x, y, world)
 	self.dialogUI = DialogScreen()
 
 	-- Sliding state
-	self.slideHitWall    = false
-	self.slideDX         = 0
-	self.slideDY         = 0
-	self.slideExitFrames = false
+	self.slideHitWall     = false
+	self.slideDX          = 0
+	self.slideDY          = 0
+	self.slideExitFrames  = false
+	self.committedSlideDir = nil   -- latched slide direction; input can't re-steer
 
 	-- Charge state
 	self.chargeTimer = 0
@@ -199,13 +200,10 @@ function Player:update(dt)
 			playerAnimations.updateAnimation(self, 0, 0)
 		end
 
-		-- Derive direction from current input so checkSlimeTile uses fresh direction
-		local inputDir
-		if     dx > 0 then inputDir = "right"
-		elseif dx < 0 then inputDir = "left"
-		elseif dy > 0 then inputDir = "down"
-		elseif dy < 0 then inputDir = "up"
-		end
+		-- Derive direction from current input so checkSlimeTile uses fresh direction.
+		-- Diagonals resolve to the axis that isn't blocked by a wall, so the player
+		-- slides straight down a corridor instead of squeezing out sideways at a corner.
+		local inputDir = self:resolveInputDirection(dx, dy)
 		self:checkSlimeTile(inputDir)
 
 		-- If slide just started, hand off to updateSliding (skip normal movement)
@@ -562,15 +560,62 @@ function Player:onSlime()
 	return false
 end
 
+-- Non-destructive probe: is there a solid wall/prop/door a short step away in
+-- the given cardinal direction? Used to resolve diagonal slide input.
+function Player:isSolidInDirection(direction, probe)
+	probe = probe or 4
+	local gx = self.x + ((direction == "right" and probe) or (direction == "left" and -probe) or 0)
+	local gy = self.y + ((direction == "down"  and probe) or (direction == "up"   and -probe) or 0)
+	local cx = gx + self.collisionOffsetX
+	local cy = gy + self.collisionOffsetY
+	local _, _, cols, len = self.world:check(self, cx, cy, function(item, other)
+		return playerCollisions.response(self, other)
+	end)
+	for i = 1, len do
+		local c = cols[i]
+		if c.type == 'slide' or c.type == 'touch' then return true end
+		if c.other.class and c.other.class.name == "Door" then return true end
+	end
+	return false
+end
+
+-- Resolve a (possibly diagonal) movement delta to a single cardinal direction.
+-- For diagonals, prefer the axis that isn't blocked by a wall; if both or neither
+-- are blocked, keep the previous horizontal-first behaviour.
+function Player:resolveInputDirection(dx, dy)
+	local horiz = (dx > 0 and "right") or (dx < 0 and "left") or nil
+	local vert  = (dy > 0 and "down")  or (dy < 0 and "up")   or nil
+
+	if horiz and vert then
+		local hBlocked = self:isSolidInDirection(horiz)
+		local vBlocked = self:isSolidInDirection(vert)
+		if hBlocked and not vBlocked then return vert  end
+		if vBlocked and not hBlocked then return horiz end
+		return horiz
+	end
+
+	return horiz or vert
+end
+
 function Player:checkSlimeTile(direction)
 	if PlayerData.isSliding then return end
 	if self.isDashing then return end
 	if self.isPlunging then return end
+
+	if not self:onSlime() then
+		-- Genuinely off the slime: forget the committed direction and the wall
+		-- latch so the next slide starts fresh.
+		self.committedSlideDir = nil
+		self.slideHitWall = false
+		return
+	end
+
 	if self.slideHitWall then return end
-	if not self:onSlime() then return end
 	if PlayerData.items.hasPlunger then return end
 
-	local dir = direction or PlayerData.direction
+	-- Reuse the committed direction if a slide is already in progress (survives a
+	-- one-frame onSlime() flicker at tile edges); input cannot re-steer it.
+	local dir = self.committedSlideDir or direction or PlayerData.direction
 	if not dir or dir == "idle" then return end
 
 	playerCollisions.startSliding(self, dir)
@@ -583,6 +628,9 @@ function Player:endSliding(hitWall)
 
 	if hitWall then
 		self.slideHitWall = true
+		-- Hit a wall: drop the committed direction so the player can pick a new
+		-- one after moving away (instead of re-sliding back into the wall).
+		self.committedSlideDir = nil
 	end
 
 	if PlayerData.isTiny then

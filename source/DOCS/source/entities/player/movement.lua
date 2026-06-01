@@ -2,8 +2,8 @@ local DRAIN_BATTERY_ON_WALK = false
 
 function Player:move(direction)
   if PlayerData.isGaming == true then
-    -- Don't allow normal movement while dashing, sliding or plunging
-    if self.isDashing or self.isSliding or self.isPlunging then
+    -- Don't allow normal movement while sliding, plunging, in flight, or being pulled
+    if self.isSliding or self.isPlunging or self.isGrapplePulling or self.isGrappling then
       return
     end
     

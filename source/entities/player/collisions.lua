@@ -469,6 +469,9 @@ function collisions.startSliding(player, direction)
 	PlayerData.isSliding = true
 	player.slideDX = dx
 	player.slideDY = dy
+	-- Commit the slide direction. While the player stays on slime, input cannot
+	-- re-steer the slide (cleared on wall hit or when leaving the slime entirely).
+	player.committedSlideDir = direction
 end
 
 -- Grab helpers

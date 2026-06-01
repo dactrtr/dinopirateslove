@@ -31,7 +31,6 @@ function Utilities.iddqd()
 	PlayerData.battery = 100
 	
 	PlayerData.skills.canFlash = true
-	PlayerData.skills.canDash = true
 	PlayerData.skills.canPlungerang = true
 	
 	PlayerData.CrewMemberData.amountTaken = 21
@@ -405,6 +404,32 @@ function findAndDestroyPropById(propId)
 	end
 end
 
+-- Marks an item entity as collected by its iid (per-instance persistence, e.g. food)
+function findAndCollectItemById(itemId)
+	local room = PlayerData.floor
+	if not levelsLDTK or not levelsLDTK[room] then
+		printDebug("⚠️ findAndCollectItemById: invalid room:", room)
+		return
+	end
+	local entities = levelsLDTK[room].entities
+
+	if not entities then
+		printDebug("⚠️ No entities found in room:", room)
+		return
+	end
+
+	for entityType, entitiesList in pairs(entities) do
+		for _, item in ipairs(entitiesList) do
+			local cf = item.customFields or {}
+			if cf.isItem == true and item.iid == itemId then
+				cf.collected = true
+				printDebug("🍔 Item collected:", itemId, "in", entityType)
+				return
+			end
+		end
+	end
+end
+
 -- Grants an achievement if it hasn't been granted yet
 function Utilities.grantAchievementIfNeeded(name)
 	-- Check if the ID exists in achievementData
@@ -460,11 +485,18 @@ end
 local TILE_SIZE = Config.Tiles.size
 
 local WALKABLE_TILES = {
-	[Config.Tiles.IntGrid.slime]    = true,
-	[Config.Tiles.IntGrid.hole]     = true,
-	[Config.Tiles.IntGrid.floor]    = true,
-	[Config.Tiles.IntGrid.tinyHole] = true,
+	[Config.Tiles.IntGrid.slime]        = true,
+	[Config.Tiles.IntGrid.hole]         = true,
+	[Config.Tiles.IntGrid.floor]        = true,
+	[Config.Tiles.IntGrid.tinyHole]     = true,
+	[Config.Tiles.IntGrid.grapplePoint] = true,  -- walkable; no wall collider generated
 }
+
+--- Returns true if the given IntGrid tile value is walkable (not a wall).
+-- nil (out of bounds) and any value outside WALKABLE_TILES count as a wall.
+function IsTileWalkable(tileValue)
+	return WALKABLE_TILES[tileValue] == true
+end
 
 --- Creates colliders for all non-walkable tiles (everything except slime/hole/floor).
 -- @param tileData table The 2D matrix of tile IDs
@@ -640,6 +672,22 @@ function IsPlayerOnTinyHole(px, py)
 	for _, dx in ipairs(xOffsets) do
 		for _, dy in ipairs(yOffsets) do
 			if GetTileUnderPlayer(px + dx, feetY + dy) == Config.Tiles.IntGrid.tinyHole then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+-- Generic hole check (IntGrid value 3) around a world point, sampling a 3×3 grid
+-- centered on the point. Used by enemies, which are always normal-size and so
+-- treat tinyHole (32) as floor — only real holes (3) block them.
+function IsHoleAt(px, py)
+	local r = 8
+	local offsets = { -r, 0, r }
+	for _, dx in ipairs(offsets) do
+		for _, dy in ipairs(offsets) do
+			if GetTileUnderPlayer(px + dx, py + dy) == Config.Tiles.IntGrid.hole then
 				return true
 			end
 		end

@@ -25,6 +25,7 @@ local DefaultPlayerData = {
 	battery = 100, 
 	sanity = 100,
 	calories = 100, -- top 500
+	food = 0, -- raw food carried; cooked at a microwave to heal
 	steps = 0,
 	totalSteps = 1000,
 	sanityCounter = 0, -- top 100
@@ -32,11 +33,11 @@ local DefaultPlayerData = {
 	keys = {}, -- Table to store collected keys by number: {[1] = true, [2] = true, ...}
 	canDance = false,
 	readyToShrink = false,
+	readyToCook = false,
 	isTiny = false,
 	isBig = false,
 	playerSize = 10 ,
 	actualPlayerSize = 10,
-	activeItem = 0,
 	sonarActive = false,
 	storyCounter = 0,
 	isActive = false, -- makes npc moves while charges the battery
@@ -53,6 +54,8 @@ local DefaultPlayerData = {
 	amountDances = 0,
 	isInDarkness = false,
 	showLightCone = false,
+	showFullLight    = false,  -- Dark Reveal skill active
+	rechargeBlocked  = false,  -- blocks crank battery recharge after Dark Reveal
 	direction = "idle",
 	lastRoom = nil,
 	actualLevel = nil,
@@ -83,7 +86,6 @@ local DefaultPlayerData = {
 	},
 	skills ={
 		canFlash = false,
-		canDash = false,
 		canPlungerang = false,
 	},
 	EnemiesData ={

@@ -128,6 +128,12 @@ function Player:collisionResponse(other)
     self:grabPlunger()
   return 'overlap'
 
+  elseif other:isa(Items) and other.type == 'food' then
+    if other.iid then findAndCollectItemById(other.iid) end
+    other:removeAll()
+    self:grabFood()
+  return 'overlap'
+
   elseif other:isa(NPC) then
     self.currentTrigger = other
     return 'overlap'
@@ -137,6 +143,17 @@ function Player:collisionResponse(other)
     PlayerData.readyToShrink = true
     self:showUIHUD()
     self.uiHud:setPressA()
+
+  return 'overlap'
+
+  elseif other:isa(PropItem) and other.type == 'microwave' then
+    self.currentMicrowave = other
+    PlayerData.readyToCook = true
+    -- Cooking is big-only: don't show the prompt to a tiny player who can't use it.
+    if not PlayerData.isTiny then
+      self:showUIHUD()
+      self.uiHud:setPressA()
+    end
 
   return 'overlap'
 

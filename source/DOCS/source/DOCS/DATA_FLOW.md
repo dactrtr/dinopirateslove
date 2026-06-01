@@ -26,16 +26,17 @@ or add a feature.
 │    SaveSystem.lua        → overwrites on load                    │
 │    player/movement.lua   → x, y, direction, isActive, battery   │
 │    player/sanity.lua     → sanity, sanityCounter                 │
-│    player/items.lua      → items.*, skills.*, keys[n]           │
+│    player/items.lua      → items.*, skills.*, keys[n], food     │
 │    player/state.lua      → isTiny, isBig, playerSize, floor     │
-│    player/collisions.lua → lastEnemyTouched, readyToShrink      │
-│    player/dash.lua       → battery (cost)                        │
+│    player/collisions.lua → lastEnemyTouched, readyToShrink,     │
+│                            readyToCook                           │
+│    MazeScene.cranked     → food, healthPoints, calories (cook)  │
 │    player/lightburst.lua → battery (cost)                        │
 │    MazeScene.lua         → isGaming, isCutscene, floor, room,   │
 │                            actualLevel, actualRoom, actualTilemap│
 │                            isInDarkness, visited (via levelsLDTK)│
 │    DanceScene.lua        → isDancing, amountDances, calories     │
-│    inGameMenu.lua        → isEquiping, activeItem                │
+│    inGameMenu.lua        → isEquiping                            │
 │    dialogScreen.lua      → isTalking, isGaming                  │
 │    Panels callback       → isCutscene, isGaming                  │
 │                                                                  │
@@ -139,7 +140,9 @@ Items "bag" / "honk"        → grabBag()
 Items "tools"               → grabTools()
 Items "boots"               → grabBoots()
 Items "plunger"             → grabPlunger()
+Items "food"                → collect by iid, grabFood() [food += perPickup]
 PropItem "minifier"         → readyToShrink=true, show "Press A" HUD
+PropItem "microwave"        → readyToCook=true, show "Press A" HUD [cook to heal]
 PropItem (isTube==true)     → riseAbove() [only if PlayerData.isTiny]
 PropItem (other)            → return 'freeze'
 Door (open / has key)       → prevRoom() + goTo() [scene transition]
@@ -222,9 +225,11 @@ Each NPC (Brocorat, CrewMember) in their update():
   ├─ Process one step of AI movement
   └─ Consume their movement frame budget
 
-Player presses B (use ability, no direction):
-  └─ distributeMovementTokens(5)         ← grants 5 tokens instead of frames
+Player fires a B ability (flash / plungerang / grapple launch / dark reveal):
+  └─ distributeMovementTokens(Config.Player.movementTokensPerAction = 5)  ← tokens, not frames
        (Tokens are converted to frames by framesPerToken in Config.CrewMember)
+       Only happens when the ability actually fires — not on every B press,
+       and not while holding B to charge.
 ```
 
 ---

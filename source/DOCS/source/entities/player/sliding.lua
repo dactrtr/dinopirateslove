@@ -3,7 +3,7 @@
 
 -- Check if the player is standing on a slime tile and start sliding
 function Player:checkSlimeTile()
-    if self.isSliding or self.isDashing or self.isPlunging then
+    if self.isSliding or self.isPlunging then
         return
     end
 
@@ -26,7 +26,7 @@ function Player:checkSlimeTile()
 end
 
 function Player:startSliding(direction)
-    if self.isSliding or self.isDashing then
+    if self.isSliding then
         return
     end
 
@@ -39,7 +39,7 @@ function Player:startSliding(direction)
     printDebug("💧 Slime slide started! Direction:", slideDir)
     self.isSliding = true
     self.slidingDirection = slideDir
-    self.slidingSpeed = 4 -- Slower than dash (8), faster than normal (1-2)
+    self.slidingSpeed = 4 -- Faster than normal walking (1-2)
 end
 
 function Player:updateSliding()

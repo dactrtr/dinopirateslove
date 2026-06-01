@@ -445,14 +445,14 @@ function scene:checkDanceResults()
       findAndKillEnemyById(PlayerData.lastEnemyTouched.id)
       -- health regain
       
-      PlayerData.healthPoints += PlayerData.healedHP
+      PlayerData.healthPoints = math.min(PlayerData.healthPoints + PlayerData.healedHP, Config.Player.maxHealthPoints)
       -- captures player position and goes back to the original room
       PlayerData.playerSpawn.x = PlayerData.playerExit.x
       PlayerData.playerSpawn.y = PlayerData.playerExit.y
       
       -- Sets the power level of the enemies
       PlayerData.amountDances += 1
-      PlayerData.calories += 60
+      PlayerData.calories = math.min((PlayerData.calories or 0) + 60, Config.Dance.caloriesMax)
       
       -- transition to the original room
       self.returnRoom = RoomTranslate(PlayerData.saveLevel)

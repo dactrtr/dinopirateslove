@@ -28,13 +28,14 @@ PlayerData = deepcopy(DefaultPlayerData) -- resets to default values (without re
 
 | Field | Lua type | Default | Valid range | Who writes | Who reads | Persisted |
 |---|---|---|---|---|---|---|
-| `healthPoints` | number | `3` | 0 – N (no hard max) | `collisions.lua` (Brocorat damage), `DanceScene` (healing on victory) | `collisions.lua` (combat threshold), `HealthIndicator` (HUD) | Yes |
+| `healthPoints` | number | `3` | 0 – `Config.Player.maxHealthPoints` (10, hard cap) | `collisions.lua` (Brocorat damage), `DanceScene` (healing on victory, clamped), `MazeScene.cranked` (microwave cooking, clamped) | `collisions.lua` (combat threshold), `HealthIndicator` (HUD, up to 10 dots), `Player:update()` (upper clamp) | Yes |
 | `danceThresholdHP` | number | `1` | 0 – N | — (constant, never modified at runtime) | `collisions.lua` — when `healthPoints < danceThresholdHP` triggers `fight()` | Yes |
 | `healedHP` | number | `2` | 0 – N | — (constant) | `DanceScene` win — amount of HP to restore | Yes |
-| `battery` | number | `100` | 0 – 100 (forced clamp in `update()`) | `movement.lua` (drain in darkness), `hole.lua` (drain in holes), `dash.lua` (cost), `lightburst.lua` (cost), `sanity.lua` (charging), `items.lua` (`fillBattery`) | `sanity.lua` (sanity tick), `movement.lua` (reduced speed), `enemy.lua` (AI speed), `crewmember.lua` (AI movement), `dash.lua` (validation), `lightburst.lua` (validation) | Yes |
+| `battery` | number | `100` | 0 – 100 (forced clamp in `update()`) | `movement.lua` (drain in darkness), `hole.lua` (drain in holes), `lightburst.lua` (cost), `sanity.lua` (charging), `items.lua` (`fillBattery`) | `sanity.lua` (sanity tick), `movement.lua` (reduced speed), `enemy.lua` (AI speed), `crewmember.lua` (AI movement), `lightburst.lua` (validation) | Yes |
 | `sanity` | number | `100` | 0 – 100 (clamp in `sanity.lua`) | `sanity.lua` (periodic tick every 2 s), `state.lua:focus()` (spending) | `sanityHud` (HUD), `sanity.lua` (detects 0 hit) | Yes |
 | `sanityCounter` | number | `0` | 0 – N (no hard limit; `Config.Dance.sanityMax = 100` for normalization) | `sanity.lua` (increments when `sanity` reaches 0) | `DanceScene:determineDifficultyUpgrade()` (weight 0.35), `Utilities.checkSanityAchievements()` | Yes |
-| `calories` | number | `100` | 0 – 500 (semantic; `Config.Dance.caloriesMax = 500`) | `state.lua:burnCalories()` (−10 every 200 steps) | `DanceScene:determineDifficultyUpgrade()` (weight 0.20) | Yes |
+| `calories` | number | `100` | 0 – 500 (`Config.Dance.caloriesMax = 500`, clamped on every gain) | `state.lua:burnCalories()` (−10 every 200 steps), `MazeScene.cranked` (microwave: +`Config.Microwave.caloriesPerFood` per food cooked), `DanceScene` (+60 on win) | `DanceScene:determineDifficultyUpgrade()` (weight 0.20) | Yes |
+| `food` | number | `0` | 0 – `Config.Microwave.carryMax` (10) | `items.lua:grabFood()` (+`perPickup` on pickup, clamped), `MazeScene.cranked` (−1 per food cooked) | `MazeScene.cranked` (cook loop), `state.lua:startCooking()` (entry guard) | Yes |
 | `steps` | number | `0` | 0 – `Config.Pedometer.stepsToTrigger` (200, then resets) | `state.lua:pedometer()` (+0.5 per each `move()`) | `state.lua:pedometer()` (burn threshold) | Yes |
 | `totalSteps` | number | `1000` | 0 – ∞ (lifetime, never resets) | `state.lua:pedometer()` (+0.5 per each `move()`) | — (not used in active logic, potential for achievements) | Yes |
 | `mapPercent` | number | `0` | 0 – 100 | — (no documented active writer) | `Trigger:conditionalScript()` (script conditions) | Yes |
@@ -55,6 +56,7 @@ These flags form the central state machine. **Check before any game logic.** In 
 | `isActive` | boolean | `false` | Player performed an action (turn signal for NPCs) | `player:move()` (at start), `player:chargeBattery()` | `player:update()` (at end of each frame) | No |
 | `isCharging` | boolean | `false` | Crank battery charging in progress | `chargeBattery()` (start of tick) | After completing the charge tick | No |
 | `readyToShrink` | boolean | `false` | Player overlaps minifier prop | `collisions.lua` PropItem "minifier" branch | `player:finishMinifying()`, `player:checkMinifier()` (on overlap exit) | No |
+| `readyToCook` | boolean | `false` | Player overlaps microwave prop | `collisions.lua` PropItem "microwave" branch | `player:checkMicrowave()` (on overlap exit) | Yes (transient; reset by `checkMicrowave()`) |
 | `isTiny` | boolean | `false` | Player in tiny state | `player:shrink()` | `player:grow()` | Yes |
 | `isBig` | boolean | `false` | Player in big state | `player:transformCycle()` | `player:transformCycle()` (toggle) | Yes |
 | `isInDarkness` | boolean | `false` | Current room has darkness/shadow | `MazeScene:enter()` reading `customFields.shadow` | Next `MazeScene:enter()` (always overwritten) | No |
@@ -73,7 +75,7 @@ These flags form the central state machine. **Check before any game logic.** In 
 | `x` | number | `200` | 0 – 400 (screen width) | `player:update()` — `PlayerData.x = self.x` every frame | `lightburst.lua` (cone center), `enemy.lua` (chase AI) | Yes |
 | `y` | number | `200` | 0 – 240 (screen height) | `player:update()` — `PlayerData.y = self.y` every frame | `lightburst.lua` (cone center), `enemy.lua` (chase AI) | Yes |
 | `speed` | number | `Config.Player.speed = 2` | > 0 | `PlayerDataTables.lua` (default), `player:update()` (darkness/battery multipliers) | `player:move()` (destination calculation) | Yes |
-| `direction` | string | `"idle"` | `"left"`, `"right"`, `"up"`, `"down"`, `"idle"` | `player:move()` (on movement), `player:idle()` (on stop), `player:endSliding()` | `dash.lua` (dash direction), `lightburst.lua` (cone orientation), `plunge.lua` (projectile direction), `animations.lua` | Yes |
+| `direction` | string | `"idle"` | `"left"`, `"right"`, `"up"`, `"down"`, `"idle"` | `player:move()` (on movement), `player:idle()` (on stop), `player:endSliding()` | `lightburst.lua` (cone orientation), `plunge.lua` (projectile direction), `animations.lua` | Yes |
 | `floor` | number | `1` | 1 – N (index in `levelsLDTK` array) | `MazeScene:setFloor()`, `MazeScene:enter()` | `state.lua:fallBelow()` and `riseAbove()` (navigate to neighbor room index) | Yes |
 | `room` | number | `1` | room number (`customFields.roomNumber`) | `MazeScene:setFloor()` | — | Yes |
 | `actualLevel` | number | `nil` | LDtk level number (e.g. 4) | `MazeScene:enter()` from `levelsLDTK[floor].customFields.levelNumber` | `MazeScene:enter()` (PNG background load), `state.lua:fallBelow/riseAbove()` | Yes |
@@ -99,7 +101,7 @@ The `PlayerData.items` and `PlayerData.skills` fields are subtables with boolean
 | `hasRadio` | boolean | `true` | Default in `PlayerDataTables.lua` | `dialogScreen` / `Trigger` (radio feed sources) | Story item; enables radio feed dialogs | Yes |
 | `hasDWatch` | boolean | `false` | `grabItemGift()` / LDtk grants | `inGameMenu` (open condition) | Required to open the in-game equipment menu | Yes |
 | `hasNotes` | boolean | `true` | Default in `PlayerDataTables.lua` | `dialogScreen` (notes sources) | Story item; enables note reading | Yes |
-| `hasBoots` | boolean | `false` | `player:grabBoots()` in `items.lua` | `dash.lua` (validation), `hole.lua` (hole safety) | Allows crossing holes by draining battery instead of falling; grants `canDash` | Yes |
+| `hasBoots` | boolean | `false` | `player:grabBoots()` in `items.lua` | `hole.lua` (hole safety), `inGameMenu` (skill slot 2) | Allows crossing holes by draining battery instead of falling | Yes |
 | `hasPlunger` | boolean | `false` | `player:grabPlunger()` in `items.lua` | `sliding.lua` (slime immunity), `plunge.lua` (validation) | Immunity to slime tiles; grants `canPlungerang` | Yes |
 | `hasBag` | boolean | — (not in Default) | `player:grabBag()` in `items.lua` | `crewmember.lua` (capture) | Required to capture CrewMembers | Yes |
 | `hasTools` | boolean | — (not in Default) | `player:grabTools()` in `items.lua` | Story triggers | Story item | Yes |
@@ -109,7 +111,6 @@ The `PlayerData.items` and `PlayerData.skills` fields are subtables with boolean
 | Field | Type | Default | Who sets it to `true` | Who reads it | Item that grants it | Persisted |
 |---|---|---|---|---|---|---|
 | `canFlash` | boolean | `false` | `player:grabLamp()` | `lightburst.lua` (validation) | Lamp (`hasLamp`) | Yes |
-| `canDash` | boolean | `false` | `player:grabBoots()` | `dash.lua` (validation) | Boots (`hasBoots`) | Yes |
 | `canPlungerang` | boolean | `false` | `player:grabPlunger()` | `plunge.lua` (validation) | Plunger (`hasPlunger`) | Yes |
 
 **Note on dynamic grants**: `grabItemGift(grants)` and `grabNotes(grants)` parse the `grants` string from LDtk in the format `"key:value,key2:value2"` and write them directly into `PlayerData.items` or `PlayerData.skills` respectively. This allows granting any field of these subtables from the level editor.
@@ -118,9 +119,9 @@ The `PlayerData.items` and `PlayerData.skills` fields are subtables with boolean
 
 ### Active ability selection
 
-| Field | Lua type | Default | Range / Values | Who writes | Who reads | Persisted |
-|---|---|---|---|---|---|---|
-| `activeItem` | number | `0` | 0 = none, 1 = lamp/flash, 2 = boots/dash, 3 = plunger/plunge | `inGameMenu` (on selection) | `player:useAbility()` (dispatch), `dash.lua` (validates == 2), `lightburst.lua` (validates == 1), `plunge.lua` (validates == 3) | Yes |
+There is no active-item selection. Abilities fire directly from the B button based on
+context: `useAbility()` routes to the lamp (`lightBurst`) while `isInDarkness`, otherwise
+to the plungerang (`plunge`). Each ability self-gates on its own item/skill flags.
 
 ---
 
@@ -167,7 +168,7 @@ The `PlayerData.items` and `PlayerData.skills` fields are subtables with boolean
 
 | Field | Lua type | Default | Range / Values | Who writes | Who reads | Persisted |
 |---|---|---|---|---|---|---|
-| `isTiny` | boolean | `false` | `true` \| `false` | `player:shrink()`, `player:grow()` | `movement.lua` (tiny animations), `dash.lua` (block), `plunge.lua` (block), `hole.lua` (drain rate), `sliding.lua` (animation), `collisions.lua` (tube/crewmember) | Yes |
+| `isTiny` | boolean | `false` | `true` \| `false` | `player:shrink()`, `player:grow()` | `movement.lua` (tiny animations), `plunge.lua` (block), `hole.lua` (drain rate), `sliding.lua` (animation), `collisions.lua` (tube/crewmember) | Yes |
 | `isBig` | boolean | `false` | `true` \| `false` | `player:transformCycle()` | — (no documented active reader in main logic) | Yes |
 | `playerSize` | number | `10` | 0 – 10 (semantic crank range) | `PlayerDataTables.lua` (default) | `player:startMinifying()` (target size) | Yes |
 | `actualPlayerSize` | number | `10` | 0 – `playerSize` | `player:startMinifying()` (reset), `MazeScene:cranked()` (modified by crank) | `MazeScene:cranked()` (determines shrink or grow) | Yes |
@@ -220,9 +221,9 @@ Player enters dialog trigger (Story auto, or Search/Call + A):
   → A button → dialogScreen:nextDialog()
   → last line → dialogScreen:removeAll() → isGaming=true, isTalking=false
 
-Player opens equipment menu (A held 1 s, requires hasDWatch):
+Player opens the menu (A held 1 s, requires hasDWatch):
   isGaming=false, isEquiping=true
-  → D-pad left/right cycles activeItem through available skills
+  → menu is purely visual (map + crew hats); no item selection
   → B button closes menu → isGaming=true, isEquiping=false
 
 Player hits Cutscene trigger:
