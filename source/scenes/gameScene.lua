@@ -10,6 +10,7 @@ local Door = require 'entities.Door'
 local DoorHandler = require 'DoorHandler'
 local utilities = require 'utilities'
 local InteractionHUD = require 'entities.UI.interactionHUD'
+local playerGrapple = require 'entities.player.grapple'
 local PlayerHud = require 'entities.UI.playerHud'
 local SaveSystem = require 'SaveSystem'
 local conditionEval = require 'utilities.conditionEval'
@@ -62,6 +63,7 @@ local gameScene = {
 	npcs = {},
 	-- Interaction HUD
 	interactionHUD = nil,
+	suppressInteractionHUD = false,   -- true while the grapple crankClock HUD owns the indicator
 	-- Player HUD (battery, health, sanity)
 	playerHud = nil,
 	-- True after the player has moved at least once (prevents auto-save on fresh New Game load)
@@ -1014,6 +1016,16 @@ function gameScene.update(dt)
 		gameScene.timer:update(dt)
 		gameScene.player:update(dt)
 
+		-- Grapple charge indicator (crankClock), shown once the charge is armed.
+		if gameScene.player and gameScene.player.isGrappleCharging
+			and playerGrapple.isArmed(gameScene.player) and gameScene.interactionHUD then
+			gameScene.interactionHUD:setState("crankClock")
+			gameScene.interactionHUD:setVisible(true)
+			gameScene.suppressInteractionHUD = true
+		else
+			gameScene.suppressInteractionHUD = false
+		end
+
 		-- Mark that the player has acted (unlocks auto-save for room transitions)
 		if not gameScene.hasActed and (Input.isDown("up") or Input.isDown("down") or Input.isDown("left") or Input.isDown("right")) then
 			gameScene.hasActed = true
@@ -1321,12 +1333,13 @@ function gameScene.keypressed(key)
 			gameScene.checkTriggerInteraction()
 		end
 
-		-- BButton: cancela el minifier si está bloqueado, si no activa el item equipado
+		-- BButton: cancela el minifier si está bloqueado, si no inicia la carga
+		-- del plungerang/grapple (el disparo se resuelve al soltar B).
 		if Input.is(key, "BButton") then
 			if PlayerData.isMinifying then
 				gameScene.player:finishMinifying()
-			elseif gameScene.player and gameScene.player.handleActionButton then
-				gameScene.player:handleActionButton()
+			elseif gameScene.player then
+				playerGrapple.beginCharge(gameScene.player)
 			end
 		end
 	end
@@ -1363,6 +1376,19 @@ function gameScene.keypressed(key)
 	end
 end
 
+function gameScene.keyreleased(key)
+	if not (Input.is(key, "BButton") and gameScene.player) then return end
+	-- During a blocking UI state, cancel any in-progress charge (fire nothing) so
+	-- the player can't get stuck mid-charge. Otherwise resolve normally
+	-- (endCharge fires a grapple if armed, else a tap-plunge — works in light or dark).
+	if ComicPlayer.isActive() or PlayerData.isTalking or PlayerData.isEquiping
+		or (gameScene.pauseMenu and gameScene.pauseMenu:isVisible()) then
+		playerGrapple.cancelCharge(gameScene.player)
+	else
+		playerGrapple.endCharge(gameScene.player)
+	end
+end
+
 function gameScene.gamepadInput(input)
 	-- Cutscene takes full control
 	if ComicPlayer.isActive() then
@@ -1370,10 +1396,25 @@ function gameScene.gamepadInput(input)
 		return
 	end
 
-	-- Crank via right stick
+	-- Crank via right stick → grapple charge while charging, else minifier
 	local cd = Input.getCrankDelta()
-	if cd ~= 0 and gameScene.player and gameScene.player.handleCrankInput then
-		gameScene.player:handleCrankInput(cd)
+	if cd ~= 0 and gameScene.player then
+		if gameScene.player.isGrappleCharging then
+			playerGrapple.addCrankDelta(gameScene.player, cd)
+		elseif gameScene.player.handleCrankInput then
+			gameScene.player:handleCrankInput(cd)
+		end
+	end
+
+	-- B release: resolve a grapple charge / tap-plunge regardless of menu/talk state
+	-- so the player can't get stuck mid-charge. Cancel (no fire) during blocking UI.
+	if Input.wasReleased("BButton") and gameScene.player and not PlayerData.isMinifying then
+		if PlayerData.isTalking or PlayerData.isEquiping or ComicPlayer.isActive()
+			or (gameScene.pauseMenu and gameScene.pauseMenu:isVisible()) then
+			playerGrapple.cancelCharge(gameScene.player)
+		else
+			playerGrapple.endCharge(gameScene.player)
+		end
 	end
 
 	-- Let pause menu handle gamepad input first
@@ -1403,12 +1444,12 @@ function gameScene.gamepadInput(input)
 			end
 		end
 
-		-- BButton: cancel minifier if locked in, otherwise fire equipped item
+		-- BButton: cancel minifier if locked in, otherwise begin charge (fires on release)
 		if Input.wasPressed("BButton") then
 			if PlayerData.isMinifying then
 				gameScene.player:finishMinifying()
 			elseif gameScene.player then
-				gameScene.player:handleActionButton()
+				playerGrapple.beginCharge(gameScene.player)
 			end
 		end
 
@@ -1477,7 +1518,7 @@ function gameScene.drawTriggerIcons()
 		foundTrigger = true
 	end
 	
-	if not foundTrigger and gameScene.interactionHUD then
+	if not foundTrigger and gameScene.interactionHUD and not gameScene.suppressInteractionHUD then
 		gameScene.interactionHUD:setVisible(false)
 	end
 end
@@ -1489,7 +1530,9 @@ function gameScene.wheelmoved(x, y)
 		return
 	end
 
-	if gameScene.player and gameScene.player.handleCrankInput then
+	if gameScene.player and gameScene.player.isGrappleCharging then
+		playerGrapple.addCrankDelta(gameScene.player, y * math.rad(30))
+	elseif gameScene.player and gameScene.player.handleCrankInput then
 		gameScene.player:handleCrankInput(y)
 	end
 end

@@ -168,6 +168,98 @@ table.insert(levelsLDTK, {
           DoorsConnection = "Down",
           KeyNumber = nil
         }
+      },
+      {
+        id = "Doors",
+        iid = "c9a6f920-48b0-11f1-b354-c9bfb305a719",
+        x = 392,
+        y = 136,
+        width = 16,
+        height = 48,
+        customFields = {
+          NeedsKey = false,
+          DoorsConnection = "Right",
+          KeyNumber = nil
+        }
+      }
+    }
+  }
+})
+	--24
+table.insert(levelsLDTK, {
+  identifier = "Room_24",
+  uniqueIdentifer = "40386700-ac70-11f0-998c-e53e1b32800c",
+  neighbourLevels = {
+    {
+      levelIid = "2a300840-ac70-11f0-998c-8f209da81536",
+      dir = "<"
+    },
+    {
+      levelIid = "dab87dc0-ac70-11f0-997a-63497867517d",
+      dir = ">"
+    },
+    {
+      levelIid = "2dc4bd30-ac70-11f0-998c-2ba6c3750080",
+      dir = "nw"
+    },
+    {
+      levelIid = "310fc980-ac70-11f0-998c-05b91a46387d",
+      dir = "n"
+    },
+    {
+      levelIid = "35082cd0-ac70-11f0-998c-d16d78429f5c",
+      dir = "ne"
+    },
+    {
+      levelIid = "3d752854-ac70-11f0-998c-5dddbfac239d",
+      dir = "w"
+    },
+    {
+      levelIid = "43980cc0-ac70-11f0-998c-a70f320b4eb0",
+      dir = "e"
+    },
+    {
+      levelIid = "4cf534a4-ac70-11f0-998c-6712312c62dc",
+      dir = "sw"
+    },
+    {
+      levelIid = "50a125a0-ac70-11f0-998c-f3b70b95a9ac",
+      dir = "s"
+    },
+    {
+      levelIid = "53674a87-ac70-11f0-998c-83aa3940da82",
+      dir = "se"
+    }
+  },
+  customFields = {
+    shadow = false,
+    light = 0,
+    visited = false,
+    comic_name = nil,
+    comic_wasPlayed = false,
+    level = 3,
+    roomNumber = 24,
+    tile = 24,
+    DoorsConnection = {
+      "Top"
+    },
+    play = nil,
+    hasForeground = true
+  },
+  entities = {
+    Doors = {
+      {
+        id = "Doors",
+        iid = "c3139fa0-48b0-11f1-b354-ffae97b5bea5",
+        x = 8,
+        y = 136,
+        width = 16,
+        height = 48,
+        customFields = {
+          NeedsKey = false,
+          DoorsConnection = "Left",
+          KeyNumber = nil
+        }
       }
     }
   }
@@ -208,7 +300,7 @@ table.insert(levelsLDTK, {
   },
   customFields = {
     shadow = true,
-    light = 0.2,
+    light = 0.15,
     visited = false,
     comic_name = nil,
     comic_wasPlayed = false,
@@ -216,7 +308,7 @@ table.insert(levelsLDTK, {
     roomNumber = 27,
     tile = 27,
     DoorsConnection = {
-      "Top"
+      "Right"
     },
     play = nil,
     hasForeground = true

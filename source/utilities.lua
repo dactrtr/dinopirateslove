@@ -249,6 +249,29 @@ end
 utilities.SLIME_TILE_IDS = {}
 utilities.SLIME_TILE_IDS[(Config and Config.Tiles and Config.Tiles.IntGrid and Config.Tiles.IntGrid.slime) or 2] = true
 
+-- Hole tiles: everyone falls in (unless wearing boots with battery).
+utilities.HOLE_TILE_IDS = {}
+utilities.HOLE_TILE_IDS[(Config and Config.Tiles and Config.Tiles.IntGrid and Config.Tiles.IntGrid.hole) or 3] = true
+
+-- Tiny-only hole tiles: only the shrunk player falls in; normal-size players
+-- walk over them as if they were floor.
+utilities.TINY_HOLE_TILE_IDS = {}
+utilities.TINY_HOLE_TILE_IDS[(Config and Config.Tiles and Config.Tiles.IntGrid and Config.Tiles.IntGrid.tinyHole) or 32] = true
+
+-- Walkable tiles (the grapple hook flies over these; anything else is a wall it bounces off).
+utilities.WALKABLE_TILE_IDS = {}
+for _, id in ipairs((Config and Config.Tiles and Config.Tiles.walkable) or {0, 2, 3, 4, 32, 33}) do
+    utilities.WALKABLE_TILE_IDS[id] = true
+end
+-- Slime tiles are also walkable (the player slides over them, not into a wall).
+utilities.WALKABLE_TILE_IDS[(Config and Config.Tiles and Config.Tiles.IntGrid and Config.Tiles.IntGrid.slime) or 2] = true
+
+-- nil (off-map) counts as NOT walkable so the hook returns at room edges.
+function utilities.isTileWalkable(tileId)
+    if tileId == nil then return false end
+    return utilities.WALKABLE_TILE_IDS[tileId] == true
+end
+
 function utilities.getTileUnderPlayer(tileData, tileSize, px, py, startX, startY)
 	-- local px, py is player pixel position in world coordinates (from player.x, player.y).
 	-- We need to offset them by the grid start coordinates

@@ -29,13 +29,14 @@ Config.CollideGroups = {
 Config.Tiles = {
     size     = 16,
     -- Tile IDs that are passable (everything else is treated as a solid wall)
-    walkable = {0, 2, 3, 4, 32},
+    walkable = {0, 2, 3, 4, 32, 33},
     IntGrid = {
-        wall     = 1,
-        slime    = 2,
-        hole     = 3,
-        floor    = 4,
-        tinyHole = 32,
+        wall         = 1,
+        slime        = 2,
+        hole         = 3,
+        floor        = 4,
+        tinyHole     = 32,
+        grapplePoint = 33,   -- hookable + walkable tile for the grappling hook
     }
 }
 
@@ -53,7 +54,21 @@ Config.Player = {
     hudOffsetYTiny   = -17,
     triggerCheckDist        = 5,   -- px moved before re-checking triggers
     movementFramesPerAction = 3,   -- movement frames distributed to NPCs/enemies per player move
+    feetOffsetY             = 12,  -- px from sprite position down to the player's feet (tile sampling / grapple landing)
+    movementTokensPerAction = 5,   -- movement tokens granted to enemies/crew when a B-ability fires
     knockbackDistance       = 2,   -- px pushed on enemy hit
+}
+
+-- Grappling hook (charged plungerang)
+Config.Grapple = {
+    holdDelay       = 400,   -- ms holding B before the charge is "armed" (tap < this = plunge)
+    minDistance     = 64,    -- px guaranteed on any armed release (~4 tiles)
+    maxDistance     = 320,   -- px cap (~20 tiles)
+    pixelsPerDegree = 0.4,   -- crank degrees -> launch distance
+    projectileSpeed = 8,     -- px/frame the hook flies out / returns
+    pullSpeed       = 8,     -- px/frame the player slides toward the tile
+    cooldown        = 500,   -- ms between uses (reserved; NOT enforced, faithful to Playdate)
+    ropeWidth       = 2,     -- px width of the rope drawn from player to hook
 }
 
 -- Dash ability

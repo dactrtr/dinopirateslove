@@ -338,37 +338,39 @@ local function findNeighborByDirection(currentRoom, direction)
 	return nil
 end
 
+-- Returns true if a fall transition was queued, false if the room can't fall
+-- (caller uses this to clear the player's isFalling latch on failure).
 function collisions.fallBelow(player)
 	if not levelsLDTK then
 		printDebug("❌ Player:fallBelow() failed: levelsLDTK is nil!")
-		return
+		return false
 	end
-	
+
 	-- Get current room data using PlayerData.floor index
 	local currentRoomIndex = PlayerData.floor
 	if not currentRoomIndex or not levelsLDTK[currentRoomIndex] then
 		printDebug("❌ Player:fallBelow() failed: Invalid room index " .. tostring(currentRoomIndex))
-		return
+		return false
 	end
-	
+
 	local currentRoom = levelsLDTK[currentRoomIndex]
-	
+
 	-- 1. Check permission: Does this room allow falling to lower floor?
 	if not canMoveVertically(currentRoom, "<") then
 		printDebug("❌ Player:fallBelow() failed: Room " .. currentRoom.identifier .. " doesn't have 'Lower' permission")
-		return
+		return false
 	end
-	
+
 	-- 2. Find the lower neighbor using direction "<"
 	local lowerNeighbor = findNeighborByDirection(currentRoom, "<")
 	if not lowerNeighbor then
 		printDebug("❌ Player:fallBelow() failed: No lower neighbor found in neighbourLevels for " .. currentRoom.identifier)
-		return
+		return false
 	end
-	
+
 	-- 3. Get the levelIid of the lower room
 	local nextLevelIid = lowerNeighbor.levelIid
-	
+
 	printDebug("🕳️ Player:fallBelow() -> " .. nextLevelIid .. " from " .. currentRoom.identifier)
 
 	-- 4. Preserve exact player position (lands at same X,Y in the lower room)
@@ -380,7 +382,9 @@ function collisions.fallBelow(player)
 	local gameScene = sceneManager.getScene("game")
 	if gameScene then
 		gameScene.changeLevel(nextLevelIid, nil, nil, nil, "animated", "transitionFall")
+		return true
 	end
+	return false
 end
 
 function collisions.riseAbove(player)

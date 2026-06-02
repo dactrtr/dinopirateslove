@@ -159,6 +159,11 @@ function Input.wasPressed(action)
     return (curState[action] == true) and not (prevState[action] == true)
 end
 
+-- Returns true only on the first frame an action goes from held to not-held.
+function Input.wasReleased(action)
+    return (prevState[action] == true) and not (curState[action] == true)
+end
+
 -- Returns accumulated right-stick crank rotation in radians (positive = clockwise).
 -- Clears the pending value; call at most once per frame.
 function Input.getCrankDelta()

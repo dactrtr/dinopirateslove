@@ -9,61 +9,16 @@ local propsGrid = nil
 local TILE_SIZE = 32
 local SHEET_COLS = 7 -- 224 / 32
 
--- State name to frame indices/animations mapping
+-- State name to frame indices/animations mapping.
+-- New props sheet layout (props-table-32-32.png, 224x32 = 7 frames, 1 row).
+-- Holes and slime are now TILE-based (see utilities HOLE/SLIME tile ids), not props.
 local propConfigs = {
-    -- Basic items
-    chair = { frame = 1 },
-    fellchair = { frame = 2 },
-    box = { frame = 3 },
-    trash = { frame = 4 },
-    toxic = { frame = 5 },
-    table = { frame = 6 },
-    fellTable = { frame = 7 },
-    blood = { frame = 8, nocollide = true },
-    blood2 = { frame = 9, nocollide = true },
-    deadrat = { frame = 10 },
-    ["xtree-1"] = { frame = 11, collideRect = {2, 30, 28, 12} },
-    ["xtree-2"] = { frame = 12, collideRect = {2, 30, 28, 12} },
-    ["xtree-3"] = { frame = 13 },
-    ["xtree-4"] = { frame = 14 },
-    microwave = { frame = 15 },
-    gifts = { frame = 16 },
-    gift = { frame = 17 },
-    smallTable = { frame = 18 },
-    fridge1 = { frame = 19 },
-    fridge2 = { frame = 20 },
-    kitchenStorage = { frame = 21 },
-    pot = { frame = 22 },
-    knifeKettle = { frame = 23 },
-    
-    -- Holes
-    holeTopLeft     = { frame = 24, isHole = true, isEdible = false, collideRect = {10, 10, 22, 22} },
-    holeLeft        = { frame = 25, isHole = true, isEdible = false, collideRect = {10, 0, 22, 32} },
-    holeBottomLeft  = { frame = 26, isHole = true, isEdible = false, collideRect = {10, 0, 22, 22} },
-    holeTop         = { frame = 27, isHole = true, isEdible = false, collideRect = {0, 10, 32, 22} },
-    holeCenter      = { frame = 28, isHole = true, isEdible = false, collideRect = {0, 0, 32, 32} },
-    holeBottom      = { frame = 29, isHole = true, isEdible = false, collideRect = {0, 0, 32, 22} },
-    holeTopRight    = { frame = 30, isHole = true, isEdible = false, collideRect = {0, 10, 22, 22} },
-    holeRight       = { frame = 31, isHole = true, isEdible = false, collideRect = {0, 0, 22, 32} },
-    holeBottomRight = { frame = 32, isHole = true, isEdible = false, collideRect = {0, 0, 22, 22} },
-    
-    debris = { frame = 33, nocollide = true },
-    
-    -- PC family
-    pcBase      = { frame = 34 },
-    pcScreen    = { frame = 35, collideRect = {2, 30, 28, 12} },
-    pcBase2     = { frame = 36 },
-    pcLoad      = { frames = {37, 38, 39}, duration = 0.2, collideRect = {2, 30, 28, 12} },
-    pcBase3     = { frame = 40 },
-    pcScreen2   = { frame = 41, collideRect = {2, 30, 28, 12} },
-    pcScreen3   = { frame = 42, collideRect = {2, 30, 28, 12} },
-    pcSiriSad   = { frame = 43, collideRect = {2, 30, 28, 12} },
-    pcSiriHappy = { frame = 44, collideRect = {2, 30, 28, 12} },
-    
-    minifier    = { frame = 45, collideRect = {0, 12, 32, 18} },
-    slime       = { frame = 46, isSlime = true, isEdible = false, collideRect = {0, 0, 32, 32} },
-    pneumaticTube = { frame = 47, isTube = true, isEdible = false, collideRect = {8, 0, 16, 32} }, -- Centered 16px wide, full height
-    Tube        = { frame = 48, nocollide = true }, -- Decorative only, no collision
+    box           = { frame = 1 },
+    pneumaticTube = { frame = 2, isTube = true, isEdible = false, collideRect = {4, 10, 24, 22} },
+    Tube          = { frame = 3, nocollide = true },   -- decorative overlay, no collision
+    TubeExit      = { frame = 4, nocollide = true },   -- decorative overlay, no collision
+    minifier      = { frames = {5, 6}, duration = 0.4, collideRect = {0, 12, 32, 18} },
+    microwave     = { frame = 7, collideRect = {0, 12, 32, 18} },
 }
 
 -- Mappings an index to col, row
@@ -153,7 +108,7 @@ function PropItem:initialize(x, y, type, zIndex, nocollide, isDestroyed, id, wor
     
     -- Z-Index logic
     self.zIndex = zIndex or (self.y + self.height)
-    if self.nocollide or self.isDestroyed or self.isHole or self.isSlime or self.isTube or self.type == 'minifier' then
+    if self.nocollide or self.isDestroyed or self.isHole or self.isSlime or self.isTube or self.type == 'minifier' or self.type == 'microwave' then
         self.zIndex = ZIndex.props  -- always below gameplay entities
     end
 end
@@ -164,7 +119,7 @@ function PropItem:update(dt)
     end
     
     -- Dynamic Z-depth update if moving or not a static background-like prop
-    if not (self.nocollide or self.isDestroyed or self.isHole or self.isSlime or self.isTube or self.type == 'minifier') then
+    if not (self.nocollide or self.isDestroyed or self.isHole or self.isSlime or self.isTube or self.type == 'minifier' or self.type == 'microwave') then
         self.zIndex = self.y + self.height
     end
 end
@@ -196,10 +151,7 @@ function PropItem:destroyProp()
     if self.world and self.world:hasItem(self) then
         self.world:remove(self)
     end
-    -- Switch to debris animation state
-    local fIdx = propConfigs.debris.frame
-    local col, row = f(fIdx)
-    self.animation = anim8.newAnimation(propsGrid(col, row), 1)
+    -- No debris frame in the new props sheet: just drop collision and depth.
     self.nocollide = true
     self.zIndex = ZIndex.props
 end

@@ -5,6 +5,7 @@ local utilities = require 'utilities'
 
 -- Load player modules
 local playerCollisions = require 'entities.player.collisions'
+local playerGrapple = require 'entities.player.grapple'
 local playerMovements = require 'entities.player.movements'
 local playerAnimations = require 'entities.player.animations'
 local playerPlunge = require 'entities.player.plunge'
@@ -57,6 +58,7 @@ function Player:initialize(x, y, world)
 	-- Plungerang state
 	self.isPlunging = false
 	self.projectile = nil
+	self.hasProjectile = true   -- owns the plungerang (set false when a CrewMember steals it)
 	
 	-- Initialize dialog system
 	self.dialogUI = DialogScreen()
@@ -67,6 +69,20 @@ function Player:initialize(x, y, world)
 	self.slideDY          = 0
 	self.slideExitFrames  = false
 	self.committedSlideDir = nil   -- latched slide direction; input can't re-steer
+
+	-- Falling state (set when dropping through a hole; blocks hole re-entry while
+	-- the room transition is in progress; cleared on moveTo into the next room)
+	self.isFalling = false
+
+	-- Grapple state
+	self.isGrappleCharging = false
+	self.isGrappling       = false
+	self.isGrapplePulling  = false
+	self.grappleCrankAccum = 0
+	self.grappleChargeStart = 0
+	self.grappleHook       = nil
+	self.grappleTargetX    = 0
+	self.grappleTargetY    = 0
 
 	-- Charge state
 	self.chargeTimer = 0
@@ -180,9 +196,14 @@ function Player:update(dt)
 	if self.projectile then
 		playerPlunge.update(self, dt)
 	end
-	
+
+	-- Update grapple hook if active
+	playerGrapple.update(self, dt)
+
 	if self.isDashing then
 		self:updateDash()
+	elseif self.isGrapplePulling then
+		playerGrapple.updatePull(self, dt)
 	elseif PlayerData.isSliding then
 		self:updateSliding(dt)
 	else
@@ -251,6 +272,11 @@ function Player:update(dt)
 		end
 	end
 
+	-- Hole tile detection (fall to the room below, or drain battery with boots).
+	-- Runs after movement so it tests the player's resolved position.
+	self:checkHoleTile()
+	self:checkTinyHoleTile()
+
 	-- Update animation
 	self.currentAnimation:update(dt)
 
@@ -258,7 +284,7 @@ function Player:update(dt)
 	if self.dialogUI then
 		self.dialogUI:update(dt)
 	end
-	
+
 	-- Check for prop interactions (e.g. Minifier)
 	self:checkPropInteractions()
 end
@@ -336,6 +362,9 @@ function Player:draw(debug)
 	if self.projectile and not self.projectile.destroyed then
 		self.projectile:draw()
 	end
+
+	-- Draw grapple hook (with rope) if active
+	playerGrapple.draw(self)
 	
 	-- Draw collision box for debugging (violet color)
 	if debug then
@@ -514,8 +543,10 @@ end
 function Player:moveTo(x, y)
 	self.x = x
 	self.y = y
+	-- Landed in a (new) position: clear the falling latch so hole detection works again.
+	self.isFalling = false
 	if self.world:hasItem(self) then
-		self:updateCollisionPosition() 
+		self:updateCollisionPosition()
 	end
 end
 
@@ -534,7 +565,9 @@ function Player:getTileCoords()
 	return utilities.getTileUnderPlayer(gameScene.tileMapData, gameScene.tileSize, feetX, feetY, startX, startY)
 end
 
-function Player:onSlime()
+-- Sample a 3×3 grid at the player's feet and return true if any sampled tile is
+-- in idSet. Shared by slime and hole detection (matches Playdate IsPlayerOn* helpers).
+function Player:feetOnTile(idSet)
 	local sceneManager = require 'sceneManager'
 	local gameScene = sceneManager.getScene("game")
 	if not gameScene or not gameScene.tileMapData then return false end
@@ -543,7 +576,6 @@ function Player:onSlime()
 	local startX = VIRTUAL_WIDTH  / 2 - (gameScene.mapWidth  * tileSize) / 2
 	local startY = VIRTUAL_HEIGHT / 2 - (gameScene.mapHeight * tileSize) / 2
 
-	-- Sample a 3×3 grid at the player's feet to catch tile-edge overlaps (matches Playdate IsPlayerOnSlime)
 	local feetY  = self.y + 12
 	local halfW  = PlayerData.isTiny and 5 or 8
 	local xOff   = { -halfW, 0, halfW }
@@ -552,11 +584,31 @@ function Player:onSlime()
 	for _, dx in ipairs(xOff) do
 		for _, dy in ipairs(yOff) do
 			local tileId = utilities.getTileUnderPlayer(gameScene.tileMapData, tileSize, self.x + dx, feetY + dy, startX, startY)
-			if tileId and utilities.SLIME_TILE_IDS[tileId] then
+			if tileId and idSet[tileId] then
 				return true
 			end
 		end
 	end
+	return false
+end
+
+function Player:onSlime()
+	return self:feetOnTile(utilities.SLIME_TILE_IDS)
+end
+
+function Player:onHole()
+	return self:feetOnTile(utilities.HOLE_TILE_IDS)
+end
+
+function Player:onTinyHole()
+	return self:feetOnTile(utilities.TINY_HOLE_TILE_IDS)
+end
+
+-- True while standing on any hole the player can fall through. Used to gate
+-- skill activation / battery recharge (the player may only walk while over a hole).
+function Player:isOnHole()
+	if self:onHole() then return true end
+	if PlayerData.isTiny and self:onTinyHole() then return true end
 	return false
 end
 
@@ -619,6 +671,50 @@ function Player:checkSlimeTile(direction)
 	if not dir or dir == "idle" then return end
 
 	playerCollisions.startSliding(self, dir)
+end
+
+-- Hole tiles (everyone falls). Wearing boots with battery lets the player walk
+-- across, draining battery while moving; otherwise they fall to the room below.
+function Player:checkHoleTile()
+	if PlayerData.isSliding or self.isPlunging or self.isFalling or self.isGrapplePulling then return end
+	if not self:onHole() then return end
+
+	if PlayerData.items.hasBoots == true and PlayerData.battery > 0 then
+		-- Only drain while actively moving ("time moves when you move").
+		if self.manualMovement then
+			local bat = Config and Config.Battery or {}
+			playerCollisions.drainBattery(self,
+				PlayerData.isTiny and (bat.drainHoleTiny or 0.2) or (bat.drainHoleNormal or 0.5))
+		end
+	else
+		-- Latch BEFORE fallBelow() so subsequent frames don't re-trigger the fall
+		-- while the transition is queued/in progress. Clear it if the fall can't
+		-- happen (room has no lower neighbor) so the player isn't stuck.
+		self.isFalling = true
+		if not playerCollisions.fallBelow(self) then
+			self.isFalling = false
+		end
+	end
+end
+
+-- Tiny-only hole tiles (IntGrid 32). Normal-size players walk over them as floor;
+-- only the shrunk player interacts.
+function Player:checkTinyHoleTile()
+	if not PlayerData.isTiny then return end
+	if PlayerData.isSliding or self.isPlunging or self.isFalling or self.isGrapplePulling then return end
+	if not self:onTinyHole() then return end
+
+	if PlayerData.items.hasBoots == true and PlayerData.battery > 0 then
+		if self.manualMovement then
+			local bat = Config and Config.Battery or {}
+			playerCollisions.drainBattery(self, bat.drainHoleTiny or 0.2)
+		end
+	else
+		self.isFalling = true
+		if not playerCollisions.fallBelow(self) then
+			self.isFalling = false
+		end
+	end
 end
 
 function Player:endSliding(hitWall)
