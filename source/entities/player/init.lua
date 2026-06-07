@@ -260,6 +260,14 @@ function Player:update(dt)
 					local DoorHandler = require 'DoorHandler'
 					DoorHandler.handleDoorCollision(other, self)
 				end
+
+				-- Specialized PortalDoor collision: only fire on newly-entered overlap
+				-- (same guard as Door). Routed through DoorHandler (which holds the
+				-- gameScene ref) to gate on Conditions and transition to the secret node.
+				if other.isPortal and other.targetNodeId and not col.overlaps then
+					local DoorHandler = require 'DoorHandler'
+					DoorHandler.handlePortalCollision(other, self)
+				end
 			end
 
 			-- Update movement state for turn-based AI

@@ -29,9 +29,10 @@ local DefaultPlayerData = {
 	steps = 0,
 	totalSteps = 1000,
 	sanityCounter = 0, -- top 100
+	deathCause = "hp",   -- "hp" | "sanity" | "void"; set on death, read by DeadScene
 	mapPercent = 0, -- Percentage of map explored (0-100)
 	keys = {}, -- Table to store collected keys by number: {[1] = true, [2] = true, ...}
-	canDance = false,
+	
 	readyToShrink = false,
 	readyToCook = false,
 	isTiny = false,
@@ -43,6 +44,8 @@ local DefaultPlayerData = {
 	isActive = false, -- makes npc moves while charges the battery
 	isTalking = false,
 	isCutscene = false,
+	seenComics = {},  -- story cutscenes already watched, keyed by comic_name (persists across runs; wiped on delete)
+	runCount = 0,     -- runs started (incremented on NewGame and on death/Retry, not on hole/tube); used by spawnConditions
 	isFocused = false,
 	isCharging = false,
 	isEquiping = false,
@@ -85,6 +88,7 @@ local DefaultPlayerData = {
 		hasPlunger = false,
 	},
 	skills ={
+		canDance = true,
 		canFlash = false,
 		canPlungerang = false,
 	},

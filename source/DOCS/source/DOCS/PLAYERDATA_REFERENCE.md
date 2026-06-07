@@ -39,6 +39,7 @@ PlayerData = deepcopy(DefaultPlayerData) -- resets to default values (without re
 | `steps` | number | `0` | 0 – `Config.Pedometer.stepsToTrigger` (200, then resets) | `state.lua:pedometer()` (+0.5 per each `move()`) | `state.lua:pedometer()` (burn threshold) | Yes |
 | `totalSteps` | number | `1000` | 0 – ∞ (lifetime, never resets) | `state.lua:pedometer()` (+0.5 per each `move()`) | — (not used in active logic, potential for achievements) | Yes |
 | `mapPercent` | number | `0` | 0 – 100 | — (no documented active writer) | `Trigger:conditionalScript()` (script conditions) | Yes |
+| `runCount` | number | `0` | 0 – ∞ | `TitleScene` NewGame (set to `1`), `DeadScene` Retry (`+1` on death) — **not** on hole/tube | `Conditions.eval` (alias `run`) for `spawnConditions` gates on items/triggers | Yes |
 
 ---
 
@@ -63,7 +64,6 @@ These flags form the central state machine. **Check before any game logic.** In 
 | `isFocused` | boolean | `false` | Focus mode (legacy, no active use) | `player:focus()` | `player:deFocus()` | No |
 | `showLightCone` | boolean | `false` | LightBurst light cone visible | `lightburst.lua:lightBurst()` | `player:update()` (timer `lightConeHideTime`) | No |
 | `sonarActive` | boolean | `false` | Enemy sonar pulse activated | `enemy:sonar()` | — (no documented cleaner) | No |
-| `canDance` | boolean | `false` | Player can enter DanceScene | — (no active writer) | — | No |
 | `fromTitle` | boolean | `false` | Player came from TitleScene (game start) | `TitleScene` when starting new game | — (used only in `initAnimations` to set `sleep` state) | No |
 
 ---
@@ -112,6 +112,7 @@ The `PlayerData.items` and `PlayerData.skills` fields are subtables with boolean
 |---|---|---|---|---|---|---|
 | `canFlash` | boolean | `false` | `player:grabLamp()` | `lightburst.lua` (validation) | Lamp (`hasLamp`) | Yes |
 | `canPlungerang` | boolean | `false` | `player:grabPlunger()` | `plunge.lua` (validation) | Plunger (`hasPlunger`) | Yes |
+| `canDance` | boolean | `false` | itemGift `grants="canDance:true"` (routed to skills by `processGrants`) | `collisions.lua` combat: if `true`, a near-death hit enters DanceScene; if `false`, enemies drain HP to 0 → `dead("hp")` → DeadScene | itemGift granting `canDance` | Yes |
 
 **Note on dynamic grants**: `grabItemGift(grants)` and `grabNotes(grants)` parse the `grants` string from LDtk in the format `"key:value,key2:value2"` and write them directly into `PlayerData.items` or `PlayerData.skills` respectively. This allows granting any field of these subtables from the level editor.
 

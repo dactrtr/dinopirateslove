@@ -67,6 +67,19 @@ Config.Microwave = {
     crankPerFood    = 1,   -- crank ticks (getCrankTicks(4)) accumulated to cook 1 food (~90 deg)
 }
 
+-- Procedural map generation (roguelike run graph)
+Config.MapGen = {
+    roomsBase         = 8,    -- minimum run size (rooms in the smallest run)
+    crewPerExtraRoom  = 1,    -- recruit this many crew to grow the run by +1 room (lower = faster growth)
+    roomsMax          = 20,   -- run size cap
+    roomsPerCrewSpawn = 4,    -- spawn ~1 crew per this many rooms in a run (crew density)
+    utilityChance     = 0.4,  -- prob. of populating a FeatureSlot with a microwave/minifier
+    totalCrew         = 12,   -- full crew roster; recruiting all of them reveals the final room
+    enemyChance       = 0.6,  -- prob. of populating an enemy marker
+    itemChance        = 0.5,  -- prob. of populating an item marker
+    darkBiasPerCrew   = 0.02, -- added probability that a room renders dark, per crew recruited (capped at 1)
+}
+
 -- Dark Reveal skill (hold B + crank in darkness)
 Config.DarkReveal = {
     minBattery            = 80,    -- minimum battery % required to start the crank charge
@@ -145,6 +158,9 @@ Config.Projectile = {
 
 -- Doors (screen positions and spawn offsets)
 Config.Doors = {
+    thickness = 8,   -- thin axis of a door's collide rect (px) — keeps doors from grabbing the player early
+    span      = 48,  -- long axis of a door's collide rect (px) — width of the doorway opening
+    spawnInset = 32, -- px the player spawns inward from the door it entered through (clears the door rect)
     positions = {
         right = {x=393, y=122},
         left  = {x=4,   y=122},
@@ -156,6 +172,20 @@ Config.Doors = {
         down  = {x=196, y=32 },
         right = {x=32,  y=116},
         left  = {x=364, y=116},
+    },
+    -- Wall plug: when the graph leaves a door side unconnected, its opening is covered
+    -- with wall brick stamped from the tilesheet, plus a collider so the player can't
+    -- walk into the void. Tune these to your wall art.
+    plug = {
+        tilesheet  = 'assets/images/tile/tile-table-16-16',
+        depthTiles = 1,    -- 16px tiles of cover depth from the screen edge (wall thickness)
+        trimTiles  = 1,    -- extra tiles beyond the door span: up for side doors, each side for top/down
+        tiles = {          -- tilesheet frame used as the wall fill, per side
+            top   = 44,
+            down  = 38,
+            left  = 42,
+            right = 40,
+        },
     },
 }
 

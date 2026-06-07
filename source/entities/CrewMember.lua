@@ -233,10 +233,23 @@ function CrewMember:taken()
 		end
 	end
 
+	-- Mark captured on the run node so this crew won't respawn on revisit within the run.
+	if self.runNode then
+		self.runNode.cleared = self.runNode.cleared or {}
+		self.runNode.cleared.crewTaken = true
+	end
+
 	-- Actualizar PlayerData
 	PlayerData.CrewMemberData.amountTaken = PlayerData.CrewMemberData.amountTaken + 1
 	if self.crewId then
 		PlayerData.CrewMemberData.idNumbers[self.crewId] = true
+	end
+
+	-- Full roster recruited → reveal the final room (attaches a Final node to a free
+	-- door side in the active run; entering it ends the run).
+	local totalCrew = (Config and Config.MapGen and Config.MapGen.totalCrew) or 12
+	if RunState and PlayerData.CrewMemberData.amountTaken >= totalCrew then
+		RunState.revealFinalRoom()
 	end
 
 	-- Restaurar plungerang SIEMPRE (doc sección 10)

@@ -12,11 +12,16 @@ local Input = {}
 local prevState          = {}
 local curState           = {}
 
--- Crank emulation state (right stick)
+-- Crank emulation via alternating L2/R2 triggers (replaces Playdate's crank
+-- rotation on gamepads). Each alternated press emits one crank "tick":
+-- R2 = + (clockwise), L2 = - (counter-clockwise). You must alternate triggers —
+-- repeating the same one does nothing. Mouse wheel still drives the crank too.
 local pendingCrankDelta  = 0
-local prevCrankAngle     = nil
-local crankAccum         = 0
-local CRANK_THRESHOLD    = math.rad(30)
+local CRANK_PER_TRIGGER  = math.rad(30)   -- per alternated press (matches a mouse-wheel notch)
+local TRIGGER_THRESHOLD  = 0.6            -- 0..1 trigger value counted as "pressed"
+local prevLTrigger       = false
+local prevRTrigger       = false
+local lastCrankTrigger   = nil            -- "L"/"R": enforces alternation
 
 -- Action → list of keyboard keys
 local keyBindings = {
@@ -130,26 +135,20 @@ function Input.update(joystick)
         if ly < -deadzone then curState["up"]    = true end
         if ly >  deadzone then curState["down"]  = true end
 
-        -- Right stick → crank accumulation
-        local rx = ControllerConfig.getAxis(joystick, "crankX")
-        local ry = ControllerConfig.getAxis(joystick, "crankY")
-        if rx * rx + ry * ry > deadzone * deadzone then
-            local angle = math.atan2(ry, rx)
-            if prevCrankAngle ~= nil then
-                local delta = angle - prevCrankAngle
-                if delta >  math.pi then delta = delta - 2 * math.pi end
-                if delta < -math.pi then delta = delta + 2 * math.pi end
-                crankAccum = crankAccum + delta
-                if math.abs(crankAccum) >= CRANK_THRESHOLD then
-                    pendingCrankDelta = pendingCrankDelta + crankAccum
-                    crankAccum = 0
-                end
-            end
-            prevCrankAngle = angle
-        else
-            prevCrankAngle = nil
-            crankAccum     = 0
+        -- L2/R2 triggers → crank. Count only the RISING edge of a trigger that
+        -- differs from the last one counted (alternation required). R2 = +, L2 = -.
+        local lOn = ControllerConfig.getTrigger(joystick, "left")  > TRIGGER_THRESHOLD
+        local rOn = ControllerConfig.getTrigger(joystick, "right") > TRIGGER_THRESHOLD
+        if lOn and not prevLTrigger and lastCrankTrigger ~= "L" then
+            pendingCrankDelta = pendingCrankDelta - CRANK_PER_TRIGGER
+            lastCrankTrigger  = "L"
         end
+        if rOn and not prevRTrigger and lastCrankTrigger ~= "R" then
+            pendingCrankDelta = pendingCrankDelta + CRANK_PER_TRIGGER
+            lastCrankTrigger  = "R"
+        end
+        prevLTrigger = lOn
+        prevRTrigger = rOn
     end
 end
 

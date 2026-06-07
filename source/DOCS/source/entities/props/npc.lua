@@ -13,13 +13,16 @@ end
 NPC = {}
 class('NPC').extends(NobleSprite)
 
-function NPC:init(x, y, npcType, iid, room, sourceFeed)
+function NPC:init(x, y, npcType, iid, room, sourceFeed, triggerScene)
     NPC.super.init(self, 'assets/images/props/npc', true)
 
-    self.npcType    = npcType
-    self.iid        = iid
-    self.room       = room
-    self.sourceFeed = sourceFeed or 0
+    self.npcType      = npcType
+    self.iid          = iid
+    self.room         = room
+    self.sourceFeed   = sourceFeed or 0
+    -- Optional: scene to transition to once this NPC's dialog ends (e.g. "Cockpit").
+    -- nil = ordinary NPC. Consumed by MazeScene's AButtonDown handler.
+    self.triggerScene = triggerScene
     self.script     = nil  -- Required: MazeScene calls grantAchievementIfNeeded(trigger.script)
     self.type       = nil  -- Required: state.lua checks self.currentTrigger.type; nil → setPressA() HUD
 
@@ -104,15 +107,21 @@ function NPC:evaluateCondition(conditionExpr)
     -- Special case: literal "true" always matches (catch-all fallback)
     if conditionExpr == "true" then return true end
 
-    -- Numerical comparison: "path>N", "path<=N", etc.
+    -- Numerical comparison: "path>N", "path<=N", etc. The alias "crew" maps to the
+    -- total crew recruited (PlayerData.CrewMemberData.amountTaken) for story gating.
     local path, op, valStr = conditionExpr:match("^([%w%.]+)%s*([<>!=]=?)%s*([%d%-%.]+)$")
     if path and op and valStr then
-        local current = PlayerData
-        for part in path:gmatch("[^%.]+") do
-            if current then current = current[part] end
+        local currentVal
+        if path == "crew" then
+            currentVal = (PlayerData.CrewMemberData and PlayerData.CrewMemberData.amountTaken) or 0
+        else
+            local current = PlayerData
+            for part in path:gmatch("[^%.]+") do
+                if current then current = current[part] end
+            end
+            currentVal = tonumber(current) or 0
         end
-        local val        = tonumber(valStr)
-        local currentVal = tonumber(current) or 0
+        local val = tonumber(valStr)
         if     op == ">"  then return currentVal > val
         elseif op == "<"  then return currentVal < val
         elseif op == ">=" then return currentVal >= val

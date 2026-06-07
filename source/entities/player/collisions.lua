@@ -141,6 +141,8 @@ function collisions.getType(player, other)
 		return 'touch'
 	elseif other.class and other.class.name == "Door" then
 		return 'cross'
+	elseif other.isPortal then
+		return 'cross'
 	end
 
 	return 'slide'
@@ -292,144 +294,40 @@ function collisions.response(player, other)
 	return collisions.getType(player, other)
 end
 
--- Helper functions for vertical navigation using neighbourLevels
-
--- Check if vertical movement is allowed based on DoorsConnection permissions
-local function canMoveVertically(currentRoom, direction)
-	if not currentRoom or not currentRoom.customFields then
+-- Procedural: vertical navigation regenerates the run. Falling through a hole starts a
+-- fresh run entering via a "startdown" room (generator falls back to Start/normal); the
+-- tube rises into a "startup" room. Meta-progression (items/skills/crew) persists in
+-- PlayerData across the regenerated run. Returns true so the caller clears its latch.
+function collisions.startVerticalRun(player, entryRole)
+	if not RunState then
+		printDebug("❌ vertical run failed: RunState unavailable")
 		return false
 	end
-	
-	local doorsConnection = currentRoom.customFields.DoorsConnection or {}
-	
-	-- Map direction symbols to permission strings
-	local directionMap = {
-		["<"] = "lower",  -- Fall downwards
-		[">"] = "upper"   -- Climb upwards
-	}
-	
-	local requiredPermission = directionMap[direction]
-	if not requiredPermission then
-		return false
-	end
-	
-	-- Check if permission exists in DoorsConnection array
-	for _, allowed in ipairs(doorsConnection) do
-		if allowed:lower() == requiredPermission then
-			return true
-		end
-	end
-	
-	return false
-end
-
--- Find a neighbor room by direction in the neighbourLevels array
-local function findNeighborByDirection(currentRoom, direction)
-	if not currentRoom or not currentRoom.neighbourLevels then
-		return nil
-	end
-	
-	for _, neighbor in ipairs(currentRoom.neighbourLevels) do
-		if neighbor.dir == direction then
-			return neighbor
-		end
-	end
-	
-	return nil
-end
-
--- Returns true if a fall transition was queued, false if the room can't fall
--- (caller uses this to clear the player's isFalling latch on failure).
-function collisions.fallBelow(player)
-	if not levelsLDTK then
-		printDebug("❌ Player:fallBelow() failed: levelsLDTK is nil!")
-		return false
-	end
-
-	-- Get current room data using PlayerData.floor index
-	local currentRoomIndex = PlayerData.floor
-	if not currentRoomIndex or not levelsLDTK[currentRoomIndex] then
-		printDebug("❌ Player:fallBelow() failed: Invalid room index " .. tostring(currentRoomIndex))
-		return false
-	end
-
-	local currentRoom = levelsLDTK[currentRoomIndex]
-
-	-- 1. Check permission: Does this room allow falling to lower floor?
-	if not canMoveVertically(currentRoom, "<") then
-		printDebug("❌ Player:fallBelow() failed: Room " .. currentRoom.identifier .. " doesn't have 'Lower' permission")
-		return false
-	end
-
-	-- 2. Find the lower neighbor using direction "<"
-	local lowerNeighbor = findNeighborByDirection(currentRoom, "<")
-	if not lowerNeighbor then
-		printDebug("❌ Player:fallBelow() failed: No lower neighbor found in neighbourLevels for " .. currentRoom.identifier)
-		return false
-	end
-
-	-- 3. Get the levelIid of the lower room
-	local nextLevelIid = lowerNeighbor.levelIid
-
-	printDebug("🕳️ Player:fallBelow() -> " .. nextLevelIid .. " from " .. currentRoom.identifier)
-
-	-- 4. Preserve exact player position (lands at same X,Y in the lower room)
-	PlayerData.playerSpawn.x = player.x
-	PlayerData.playerSpawn.y = player.y
-
-	-- 5. Trigger level transition (no enterDirection so spawn is not overridden)
 	local sceneManager = require 'sceneManager'
 	local gameScene = sceneManager.getScene("game")
-	if gameScene then
-		gameScene.changeLevel(nextLevelIid, nil, nil, nil, "animated", "transitionFall")
-		return true
+	if not gameScene then
+		printDebug("❌ vertical run failed: gameScene unavailable")
+		return false
 	end
-	return false
+	-- Fresh run; no entry-door spawn carries over, so clear the door-cross hints.
+	PlayerData.lastRoom = nil
+	PlayerData.lastDoorCross = nil
+	PlayerData.returningInPlace = false
+	RunState.startRun(entryRole)
+	gameScene.enterPendingNode()
+	return true
+end
+
+-- Returns true if a fall transition was queued, false otherwise
+-- (caller uses this to clear the player's isFalling latch on failure).
+function collisions.fallBelow(player)
+	printDebug("🕳️ Player:fallBelow() -> new run (startdown)")
+	return collisions.startVerticalRun(player, "startdown")
 end
 
 function collisions.riseAbove(player)
-	if not levelsLDTK then
-		printDebug("❌ Player:riseAbove() failed: levelsLDTK is nil!")
-		return
-	end
-	
-	-- Get current room data using PlayerData.floor index
-	local currentRoomIndex = PlayerData.floor
-	if not currentRoomIndex or not levelsLDTK[currentRoomIndex] then
-		printDebug("❌ Player:riseAbove() failed: Invalid room index " .. tostring(currentRoomIndex))
-		return
-	end
-	
-	local currentRoom = levelsLDTK[currentRoomIndex]
-	
-	-- 1. Check permission: Does this room allow climbing to upper floor?
-	if not canMoveVertically(currentRoom, ">") then
-		printDebug("❌ Player:riseAbove() failed: Room " .. currentRoom.identifier .. " doesn't have 'Upper' permission")
-		return
-	end
-	
-	-- 2. Find the upper neighbor using direction ">"
-	local upperNeighbor = findNeighborByDirection(currentRoom, ">")
-	if not upperNeighbor then
-		printDebug("❌ Player:riseAbove() failed: No upper neighbor found in neighbourLevels for " .. currentRoom.identifier)
-		return
-	end
-	
-	-- 3. Get the levelIid of the upper room
-	local nextLevelIid = upperNeighbor.levelIid
-	
-	printDebug("🚀 Player:riseAbove() -> " .. nextLevelIid .. " from " .. currentRoom.identifier)
-
-	-- 4. Preserve exact player position (appears at same X,Y in the upper room)
-	PlayerData.playerSpawn.x = player.x
-	PlayerData.playerSpawn.y = player.y
-
-	-- 5. Trigger level transition (no enterDirection so spawn is not overridden)
-	local sceneManager = require 'sceneManager'
-	local gameScene = sceneManager.getScene("game")
-	if gameScene then
-		gameScene.changeLevel(nextLevelIid, nil, nil, nil, "animated", "transitionFall")
-	end
+	printDebug("🚀 Player:riseAbove() -> new run (startup)")
+	collisions.startVerticalRun(player, "startup")
 end
 
 function collisions.drainBattery(player, amount)

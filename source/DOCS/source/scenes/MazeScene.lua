@@ -109,6 +109,90 @@ function scene:enter()
 	sequence = Sequence.new():from(0):to(50, 1.5, Ease.outBounce)
 	sequence:start()
 	
+	-- Procedural run: resolve the room from the active graph node. Fall back to
+	-- starting a fresh run if we entered with no node (stray Floor/debug transition).
+	RunState.consumePending()
+	if not RunState.currentNode() then
+		RunState.startRun()
+		RunState.consumePending()
+	end
+	local node = RunState.currentNode()
+	local template = node.poolRoom
+	-- Endgame: mark the final room (revealed once all crew are recruited). The actual
+	-- transition fires in start() — calling Noble.transition here would BONK because
+	-- enter() runs at the transition midpoint (still transitioning).
+	self.pendingEndgame = (node.content and node.content.isFinal) or false
+	-- Map the template back to its levelsLDTK index so all existing levelsLDTK[room]
+	-- reads (background, tilemap, entities, door metadata) keep working unchanged.
+	room = nil
+	for i, lvl in ipairs(levelsLDTK) do
+		if lvl == template then room = i; break end
+	end
+
+	-- Spawn at the authored door we entered through, inset inward, so the player lands
+	-- in an open doorway (never behind a wall). Entry side = opposite of the door we
+	-- left (PlayerData.lastRoom); among that side's doors, pick the one whose position
+	-- matches the door we used (PlayerData.lastDoorCross). Start room → first door.
+	local entrySide = PlayerData.lastRoom and MapGenerator.opposite(PlayerData.lastRoom) or nil
+	local spawnDoor, spawnSide
+	if entrySide then
+		local sideDoors = MapGenerator.doorsForSide(template, entrySide)
+		if #sideDoors > 0 then
+			spawnSide = entrySide
+			local cross = PlayerData.lastDoorCross
+			if cross then
+				local horizontal = (entrySide == "top" or entrySide == "down")
+				local bestDist
+				for _, de in ipairs(sideDoors) do
+					local c = horizontal and de.x or de.y
+					local dist = math.abs(c - cross)
+					if not bestDist or dist < bestDist then spawnDoor, bestDist = de, dist end
+				end
+			else
+				spawnDoor = sideDoors[1]
+			end
+		end
+	end
+	if not spawnDoor then
+		local doors = template.entities and template.entities.Doors
+		if doors and doors[1] then
+			spawnDoor = doors[1]
+			spawnSide = (spawnDoor.customFields and spawnDoor.customFields.DoorsConnection or ""):lower()
+		end
+	end
+	if spawnDoor then
+		local inset = Config.Doors.spawnInset
+		-- The player sprite is 48x48 and anchored at its centre, but its collide rect is
+		-- offset within it, so the centre is not the visual body. Compute the body offset
+		-- and align the player's body to the door's centre on the cross axis (centred),
+		-- while pushing it 'inset' away on the main axis (away from the door).
+		local cr = Config.Player.collideRect
+		local spriteHalf = 24  -- player sprite is 48x48 (see Player:init setSize)
+		local bodyDX = (cr.x + cr.w / 2) - spriteHalf
+		local bodyDY = (cr.y + cr.h / 2) - spriteHalf
+		local sx, sy = spawnDoor.x, spawnDoor.y
+		if spawnSide == "left" then
+			sx = spawnDoor.x + inset
+			sy = spawnDoor.y - bodyDY
+		elseif spawnSide == "right" then
+			sx = spawnDoor.x - inset
+			sy = spawnDoor.y - bodyDY
+		elseif spawnSide == "top" then
+			sy = spawnDoor.y + inset
+			sx = spawnDoor.x - bodyDX
+		elseif spawnSide == "down" then
+			sy = spawnDoor.y - inset
+			sx = spawnDoor.x - bodyDX
+		end
+		-- Don't override the spawn when returning in place from a fight (DanceScene set
+		-- it to the contact point). Door-spawn applies on door entries and run start.
+		if not PlayerData.returningInPlace then
+			PlayerData.playerSpawn.x = sx
+			PlayerData.playerSpawn.y = sy
+		end
+	end
+	PlayerData.returningInPlace = false
+
 	PlayerData.room = levelsLDTK[room].customFields.roomNumber
 	PlayerData.isInDarkness = levelsLDTK[room].customFields.shadow
 	PlayerData.floor = room
@@ -169,8 +253,9 @@ function scene:enter()
 			printDebug("❌ neighbourLevels is nil")
 		end
 		
-		CreateDoorsFromLDTK(currentRoom)
-		CreatePortalDoorsFromLDTK(currentRoom)
+		CreateDoorsFromNode(node)
+		CreateWallPlugsFromNode(node)
+		CreatePortalsFromNode(node)
 	else
 		printDebug("❌ ERROR: room is", room, "or levelsLDTK[room] is nil")
 	end
@@ -189,7 +274,10 @@ function scene:enter()
 				if cf.destroyed ~= nil or cf.nocollider ~= nil then
 					local x, y, id = prop.x, prop.y, prop.iid
 	
-					if cf.destroyed == false or cf.destroyed == nil then
+					local isUtility = (cf.type == "microwave" or cf.type == "minifier")
+					if isUtility and not (node.content.utilities and node.content.utilities[id]) then
+						-- utility not rolled for this run's node: skip spawning it
+					elseif cf.destroyed == false or cf.destroyed == nil then
 						PropItem(x, y, cf.type , ZIndex.props, cf.nocollider,cf.destroyed, id)
 					else
 						PropItem(x, y, "debris", ZIndex.props, true, cf.destroyed , id)
@@ -214,7 +302,10 @@ function scene:enter()
 			for _, item in ipairs(entitiesList) do
 				local cf = item.customFields or {}
 
-				if cf.isItem == true then
+				-- spawnConditions: an optional render gate (e.g. {"run>=4","items.hasLamp"}).
+				-- If present and not all met, the item is not spawned. Separate from the
+				-- ownership/collected checks below.
+				if cf.isItem == true and Conditions.met(cf.spawnConditions or cf.SpawnConditions) then
 					local x, y = item.x, item.y
 					local itemType = (cf.type or ""):lower()
 					local keyNumber = cf.KeyNumber or cf.keyNumber
@@ -276,66 +367,49 @@ function scene:enter()
 		PlayerData.isInDarkness = false
 	end
 	
+	-- Story cutscenes play once ever, tracked persistently by comic_name in PlayerData
+	-- (rooms are reused templates across runs, so a per-room flag can't persist this).
+	PlayerData.seenComics = PlayerData.seenComics or {}
 	local cf = levelsLDTK[room].customFields
 	if cf.comic_name then
 		local comicData = comics[cf.comic_name]
-		if comicData then
-			if cf.play == "Enter" and cf.comic_wasPlayed == false then
+		if comicData and not PlayerData.seenComics[cf.comic_name] then
+			if cf.play == "Enter" then
 				PlayerData.isCutscene = true
 				PlayerData.isGaming = false
 			end
-			
+
 			Panels.startCutscene(comicData, function()
 				PlayerData.isGaming = true
 				PlayerData.isCutscene = false
-				levelsLDTK[room].customFields.comic_wasPlayed = true
+				PlayerData.seenComics[cf.comic_name] = true
 				Utilities.checkStoryAchievement(cf.comic_name)
 			end)
 		end
 	end
 	
 	
-	-- MARK: Enemies
-	if entities ~= nil then
-		for entityType, entitiesList in pairs(entities) do
-			if entityType == "Brocorat" or entityType == "Bosscolli" then
-				for _, enemy in ipairs(entitiesList) do
-					local cf = enemy.customFields or {}
-					local x, y, id = enemy.x, enemy.y, enemy.iid
-					local speed = cf.speed
-					local dead = cf.dead or false
-	
-					if not dead then
-						if entityType == "Brocorat" then
-							Brocorat(x, y, speed, ZIndex.enemy, player, id)
-						elseif entityType == "Bosscolli" then
-							bosscolli(x, y, speed, ZIndex.enemy, player, id)
-						end
-					else
-						PropItem(x, y, "blood2", ZIndex.props, true)
-					end
-				end
-			end
+	-- MARK: Enemies (from node content; persistence via node.cleared within the run)
+	local clearedEnemies = node.cleared.enemies or {}
+	for _, e in ipairs(node.content.enemies or {}) do
+		local dead = clearedEnemies[e.key]
+		if dead then
+			-- killed earlier this run: show the corpse where it fell
+			local bx = (type(dead) == "table" and dead.x) or e.x
+			local by = (type(dead) == "table" and dead.y) or e.y
+			PropItem(bx, by, "blood2", ZIndex.props, true)
+		elseif e.kind == "Brocorat" then
+			Brocorat(e.x, e.y, e.speed, ZIndex.enemy, player, e.key)
+		elseif e.kind == "Bosscolli" then
+			bosscolli(e.x, e.y, e.speed, ZIndex.enemy, player, e.key)
 		end
 	end
 	
-	-- MARK: Crew members 
-	
-	local entities = levelsLDTK[room].entities
-	
-	if entities and entities.CrewMember then
-		for i, crewData in ipairs(entities.CrewMember) do
-			local cf = crewData.customFields or {}
-			local x, y = crewData.x, crewData.y
-			local speed = cf.speed
-			local crewId = cf.crewID or i
-			local crewIid = crewData.iid
-			local taken = cf.isTaken or false
-	
-			if not taken then
-				CrewMember(x, y, speed, ZIndex.enemy, player, crewIid, room, crewId)
-			end
-		end
+	-- MARK: Crew (assigned identity → correct hat + dialog; persistence via node.cleared)
+	if node.content.crewId and not node.cleared.crewTaken then
+		local cs = node.content.crewSpawn or { x = 200, y = 120 }
+		CrewMember(cs.x, cs.y, Config.CrewMember.defaultSpeed or 1.5, ZIndex.enemy,
+		           player, "node" .. node.id .. "-crew", node.id, node.content.crewId)
 	end
 	
 
@@ -344,7 +418,7 @@ function scene:enter()
 	if npcEntities and npcEntities.NPC then
 		for _, npcData in ipairs(npcEntities.NPC) do
 			local cf = npcData.customFields or {}
-			NPC(npcData.x, npcData.y, cf.type or "computer", npcData.iid, room, cf.sourceFeed or 0)
+			NPC(npcData.x, npcData.y, cf.type or "computer", npcData.iid, room, cf.sourceFeed or 0, cf.triggerScene)
 		end
 	end
 
@@ -355,8 +429,11 @@ function scene:enter()
 		for i, triggerData in ipairs(entities.Triggers) do
 			local cf = triggerData.customFields or {}
 			local used = cf.usedTrigger or false
-			
-			if not used then
+
+			-- spawnConditions: optional render gate (e.g. {"run>=4"}). The trigger is only
+			-- created when all conditions pass; its conditionalScripts (which dialog to show)
+			-- are still evaluated later, on interaction.
+			if not used and Conditions.met(cf.spawnConditions or cf.SpawnConditions) then
 				local x = triggerData.x
 				local y = triggerData.y
 				local width = triggerData.width
@@ -373,6 +450,12 @@ end
 -- This runs once a transition from another scene is complete.
 function scene:start()
 	scene.super.start(self)
+	-- Endgame: the transition is complete now, so it's safe to leave for the closing
+	-- sequence (swap CreditsScene for the real ending scene when authored).
+	if self.pendingEndgame then
+		Noble.transition(CreditsScene, 0.3, Noble.Transition.MetroNexus)
+		return
+	end
 	self:setDiagonalMovement(diagonalMovement)
 	if PlayerData.fromTitle then
 		PlayerData.fromTitle = false
@@ -475,6 +558,17 @@ function scene:exit()
 	
 end
 
+-- Capture the player's live position so Continue resumes exactly where the run was
+-- left (used together with returningInPlace in TitleScene's Continue action). Only on
+-- pause (menu/sleep) — NOT on finish(): finish() runs mid-transition and would clobber
+-- the spawn a door/portal/DanceScene just set for the destination room.
+local function captureResumePosition()
+	if player then
+		PlayerData.playerSpawn.x = player.x
+		PlayerData.playerSpawn.y = player.y
+	end
+end
+
 -- This runs once a transition to another scene completes.
 function scene:finish()
 	scene.super.finish(self)
@@ -485,6 +579,7 @@ end
 
 function scene:pause()
 	scene.super.pause(self)
+	captureResumePosition()
 	SaveSystem.save()
 end
 
@@ -507,6 +602,15 @@ end
 
 -- Define the inputHander for this scene here, or use a previously defined inputHandler.
 
+-- Maps a triggerScene name (set on an NPC/Trigger customField) to its scene class.
+-- Add entries here to let other entities launch other scenes when their dialog ends.
+local TRIGGER_SCENES = {
+	Cockpit = function() return CockpitScene end,
+}
+
+-- Scene queued by an entity with a triggerScene; fired once its dialog finishes closing.
+local pendingSceneOnDialogEnd = nil
+
 -- scene.inputHandler = someOtherInputHandler
 -- OR
 scene.inputHandler = {
@@ -517,10 +621,18 @@ scene.inputHandler = {
 		if player and player.isSleeping then return end
 		if PlayerData.isTalking == true then
 			player:displayDialog()
+			-- Dialog just closed (isTalking flipped to false in removeAll): run any queued scene.
+			if PlayerData.isTalking == false and pendingSceneOnDialogEnd then
+				local sceneGetter = pendingSceneOnDialogEnd
+				pendingSceneOnDialogEnd = nil
+				Noble.transition(sceneGetter(), 0.3, Noble.Transition.MetroNexus)
+			end
 		elseif player.currentTrigger and PlayerData.isGaming == true then
 			local trigger = player.currentTrigger
 			PlayerData.isGaming = false
 			PlayerData.isTalking = true
+			-- Queue a scene transition if this entity declares a triggerScene (e.g. "Cockpit").
+			pendingSceneOnDialogEnd = trigger.triggerScene and TRIGGER_SCENES[trigger.triggerScene] or nil
 			player.dialogUI:addScreen(trigger:returnScript(), trigger.sourceFeed)
 			Utilities.grantAchievementIfNeeded(trigger.script)
 		end

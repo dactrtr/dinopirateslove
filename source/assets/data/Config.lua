@@ -146,11 +146,33 @@ Config.Doors = {
         right = {x=32,  y=116},
         left  = {x=364, y=116},
     },
+    spawnInset = 32,   -- px the player spawns inward from the door it entered
+    thickness  = 10,   -- generic thin-door depth (fallback door)
+    span       = 56,   -- generic thin-door length (fallback door)
+    plug = {           -- closed-door wall covers (§11)
+        tilesheet  = 'assets/images/tile/tile-table-16-16',
+        depthTiles = 1,
+        trimTiles  = 1,
+        tiles = { top = 44, down = 38, left = 42, right = 40 },
+    },
 }
 
 -- Portal Doors
 Config.Portals = {
     collideRect = {x=0, y=0, w=24, h=24},
+}
+
+-- Procedural run generation (see DOCS/PROCEDURAL_GENERATION.md §16)
+Config.MapGen = {
+    roomsBase         = 8,
+    crewPerExtraRoom  = 1,
+    roomsMax          = 20,
+    roomsPerCrewSpawn = 4,
+    utilityChance     = 0.4,
+    totalCrew         = 12,
+    enemyChance       = 0.6,
+    itemChance        = 0.5,
+    darkBiasPerCrew   = 0.02,
 }
 
 -- CrewMember AI

@@ -8,10 +8,6 @@ table.insert(levelsLDTK, {
       dir = "<"
     },
     {
-      levelIid = "d8b90440-ac70-11f0-997a-77d867841568",
-      dir = ">"
-    },
-    {
       levelIid = "abdd36b0-ac70-11f0-998c-673887a050e6",
       dir = "nw"
     },
@@ -54,9 +50,14 @@ table.insert(levelsLDTK, {
     roomNumber = 23,
     tile = 23,
     DoorsConnection = {
+      "Right",
       "Upper"
     },
     play = nil,
+    procGen = true,
+    roomRole = "Normal",
+    requiredItems = {},
+    requiredSkills = {},
     hasForeground = true
   },
   entities = {
@@ -172,9 +173,9 @@ table.insert(levelsLDTK, {
       {
         id = "Doors",
         iid = "c9a6f920-48b0-11f1-b354-c9bfb305a719",
-        x = 392,
+        x = 396,
         y = 136,
-        width = 16,
+        width = 8,
         height = 48,
         customFields = {
           NeedsKey = false,
@@ -193,10 +194,6 @@ table.insert(levelsLDTK, {
     {
       levelIid = "2a300840-ac70-11f0-998c-8f209da81536",
       dir = "<"
-    },
-    {
-      levelIid = "dab87dc0-ac70-11f0-997a-63497867517d",
-      dir = ">"
     },
     {
       levelIid = "2dc4bd30-ac70-11f0-998c-2ba6c3750080",
@@ -219,14 +216,6 @@ table.insert(levelsLDTK, {
       dir = "e"
     },
     {
-      levelIid = "4cf534a4-ac70-11f0-998c-6712312c62dc",
-      dir = "sw"
-    },
-    {
-      levelIid = "50a125a0-ac70-11f0-998c-f3b70b95a9ac",
-      dir = "s"
-    },
-    {
       levelIid = "53674a87-ac70-11f0-998c-83aa3940da82",
       dir = "se"
     }
@@ -241,9 +230,13 @@ table.insert(levelsLDTK, {
     roomNumber = 24,
     tile = 24,
     DoorsConnection = {
-      "Top"
+      "Left"
     },
     play = nil,
+    procGen = true,
+    roomRole = "Normal",
+    requiredItems = {},
+    requiredSkills = {},
     hasForeground = true
   },
   entities = {
@@ -251,9 +244,9 @@ table.insert(levelsLDTK, {
       {
         id = "Doors",
         iid = "c3139fa0-48b0-11f1-b354-ffae97b5bea5",
-        x = 8,
+        x = 4,
         y = 136,
-        width = 16,
+        width = 8,
         height = 48,
         customFields = {
           NeedsKey = false,
@@ -274,7 +267,7 @@ table.insert(levelsLDTK, {
       dir = "<"
     },
     {
-      levelIid = "6cc9d510-ac70-11f0-997a-191299f9209c",
+      levelIid = "68b425c0-ac70-11f0-997a-7732cd72a5cc",
       dir = ">"
     },
     {
@@ -311,6 +304,10 @@ table.insert(levelsLDTK, {
       "Right"
     },
     play = nil,
+    procGen = true,
+    roomRole = "Normal",
+    requiredItems = {},
+    requiredSkills = {},
     hasForeground = true
   },
   entities = {
@@ -341,7 +338,7 @@ table.insert(levelsLDTK, {
       dir = "<"
     },
     {
-      levelIid = "715b4410-ac70-11f0-997a-156adb22b715",
+      levelIid = "6cc9d510-ac70-11f0-997a-191299f9209c",
       dir = ">"
     },
     {
@@ -375,9 +372,14 @@ table.insert(levelsLDTK, {
     roomNumber = 28,
     tile = 28,
     DoorsConnection = {
-      "Top"
+      "Top",
+      "Right"
     },
     play = nil,
+    procGen = true,
+    roomRole = "Normal",
+    requiredItems = {},
+    requiredSkills = {},
     hasForeground = true
   },
   entities = {
@@ -385,10 +387,10 @@ table.insert(levelsLDTK, {
       {
         id = "Triggers",
         iid = "6d20e240-21a0-11f1-9039-c1a6c9bc4d54",
-        x = 364,
-        y = 116,
+        x = 356,
+        y = 180,
         width = 40,
-        height = 72,
+        height = 16,
         customFields = {
           script = "whereDoor",
           usedTrigger = false,
@@ -434,6 +436,118 @@ table.insert(levelsLDTK, {
         y = 176,
         width = 8,
         height = 32,
+        customFields = {
+          NeedsKey = false,
+          DoorsConnection = "Left",
+          KeyNumber = nil
+        }
+      },
+      {
+        id = "Doors",
+        iid = "68641230-48b0-11f1-98a2-5d0e3e234060",
+        x = 396,
+        y = 120,
+        width = 8,
+        height = 48,
+        customFields = {
+          NeedsKey = false,
+          DoorsConnection = "Right",
+          KeyNumber = nil
+        }
+      }
+    }
+  }
+})
+	--29
+table.insert(levelsLDTK, {
+  identifier = "Room_29",
+  uniqueIdentifer = "50a125a0-ac70-11f0-998c-f3b70b95a9ac",
+  neighbourLevels = {
+    {
+      levelIid = "c60e1220-ac70-11f0-998c-cbe47e589876",
+      dir = "<"
+    },
+    {
+      levelIid = "3d752854-ac70-11f0-998c-5dddbfac239d",
+      dir = "nw"
+    },
+    {
+      levelIid = "40386700-ac70-11f0-998c-e53e1b32800c",
+      dir = "n"
+    },
+    {
+      levelIid = "43980cc0-ac70-11f0-998c-a70f320b4eb0",
+      dir = "ne"
+    },
+    {
+      levelIid = "4cf534a4-ac70-11f0-998c-6712312c62dc",
+      dir = "w"
+    },
+    {
+      levelIid = "53674a87-ac70-11f0-998c-83aa3940da82",
+      dir = "e"
+    }
+  },
+  customFields = {
+    shadow = false,
+    light = 0,
+    visited = false,
+    comic_name = nil,
+    comic_wasPlayed = false,
+    level = 3,
+    roomNumber = 29,
+    tile = 29,
+    DoorsConnection = {
+      "Top",
+      "Left",
+      "Upper"
+    },
+    play = nil,
+    procGen = true,
+    roomRole = "Normal",
+    requiredItems = {},
+    requiredSkills = {},
+    hasForeground = true
+  },
+  entities = {
+    PneumaticTube = {
+      {
+        id = "PneumaticTube",
+        iid = "54f05d80-48b0-11f1-98a2-9144d3325134",
+        x = 356,
+        y = 44,
+        width = 32,
+        height = 32,
+        customFields = {
+          type = "pneumaticTube",
+          nocollider = false,
+          destroyed = false
+        }
+      }
+    },
+    Tube = {
+      {
+        id = "Tube",
+        iid = "56578ea0-48b0-11f1-98a2-eba865553314",
+        x = 356,
+        y = 12,
+        width = 32,
+        height = 32,
+        customFields = {
+          type = "Tube",
+          nocollider = false,
+          destroyed = false
+        }
+      }
+    },
+    Doors = {
+      {
+        id = "Doors",
+        iid = "70db46e0-48b0-11f1-98a2-dbe717498544",
+        x = 4,
+        y = 120,
+        width = 8,
+        height = 48,
         customFields = {
           NeedsKey = false,
           DoorsConnection = "Left",

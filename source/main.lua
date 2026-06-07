@@ -18,6 +18,12 @@ local danceScene = require "scenes/DanceScene"
 local cockpitScene = require "scenes/CockpitScene"
 local tileMapData = require 'assets/data/tilemap'
 
+-- Procedural run-graph globals (read Config/PlayerData/tileMapData/levelsLDTK at call time).
+-- gameScene (required above) already loaded 'assets.data.levels' -> global levelsLDTK.
+require 'utilities.Conditions'    -- global Conditions
+require 'utilities.MapGenerator'  -- global MapGenerator
+require 'RunState'                -- global RunState
+
 -- Initialize Graphics compatibility layer BEFORE script data
 Graphics = require 'libraries/graphics_compat'
 Graphics.loadStrings("en.strings")
@@ -39,7 +45,7 @@ local ControllerConfig = require 'assets.data.ControllerConfig'
 
 -- Set DEBUG_CONTROLLER = true to print button/axis info when a gamepad is connected.
 -- Useful for finding raw button indices for a new controller.
-DEBUG_CONTROLLER = false
+DEBUG_CONTROLLER = true
 
 -- Global variables
 crt_effect = nil -- Made global for settings menu access
@@ -108,7 +114,11 @@ end
 
 function love.load()
 	love.graphics.setDefaultFilter("nearest", "nearest")
-	
+
+	-- Procedural runs need a fresh RNG each boot.
+	math.randomseed(os.time())
+	math.random(); math.random()  -- discard first couple (Lua 5.1 low-entropy warmup)
+
 	font = love.graphics.newFont(20)
 	love.graphics.setFont(font)
 	
@@ -144,11 +154,51 @@ function love.load()
 	initGamepads()
 end
 
+-- Pick a real controller, skipping virtual joysticks like the iOS accelerometer
+-- (which LÖVE reports as joysticks[1] on iPad). Prefers a recognized gamepad;
+-- falls back to the first non-accelerometer pad with buttons; else the first one.
+function pickBestJoystick(list)
+	if not list or #list == 0 then return nil end
+	for _, js in ipairs(list) do
+		if js:isGamepad() then return js end
+	end
+	for _, js in ipairs(list) do
+		local n = (js:getName() or ""):lower()
+		if not n:find("accelerometer", 1, true) and js:getButtonCount() > 0 then
+			return js
+		end
+	end
+	return list[1]
+end
+
 function initGamepads()
+	-- Load the SDL community controller DB so unrecognized pads (8BitDo, etc.)
+	-- get a proper gamepad mapping → isGamepad() == true and rightx/righty work.
+	local mappings = "assets/data/gamecontrollerdb.txt"
+	if love.filesystem.getInfo(mappings) then
+		local ok, err = pcall(love.joystick.loadGamepadMappings, mappings)
+		if ok then
+			printDebug("🎮 Loaded gamepad mappings from " .. mappings)
+		else
+			printDebug("⚠️ Failed to load gamepad mappings: " .. tostring(err))
+		end
+	else
+		printDebug("⚠️ Gamepad DB not found at " .. mappings)
+	end
+
 	joysticks = love.joystick.getJoysticks()
 
 	if #joysticks > 0 then
-		activeJoystick = joysticks[1]
+		if DEBUG_CONTROLLER then
+			print("🎮 Joysticks detected: " .. #joysticks)
+			for i, js in ipairs(joysticks) do
+				print(string.format("   [%d] %s  isGamepad=%s  buttons=%d  axes=%d",
+					i, tostring(js:getName()), tostring(js:isGamepad()),
+					js:getButtonCount(), js:getAxisCount()))
+				print("        GUID: " .. tostring(js:getGUID()))
+			end
+		end
+		activeJoystick = pickBestJoystick(joysticks)
 		local name    = activeJoystick:getName() or "unknown"
 		local isGP    = activeJoystick:isGamepad()
 		local profile = ControllerConfig.getProfile(activeJoystick)
@@ -157,6 +207,10 @@ function initGamepads()
 		if DEBUG_CONTROLLER then
 			print("🎮 DEBUG_CONTROLLER ON — press buttons to see their indices")
 			print("   Controller: " .. name .. "  |  isGamepad: " .. tostring(isGP))
+			print("   GUID: " .. tostring(activeJoystick:getGUID()) .. "  |  raw axes: " .. activeJoystick:getAxisCount())
+			if not isGP then
+				print("   ⚠️ Not recognized as a gamepad — right stick will use RAW axes 3/4.")
+			end
 		end
 	end
 end
@@ -219,6 +273,17 @@ function handleGamepadInput(dt)
 	local js       = activeJoystick
 	local deadzone = cc.getDeadzone(js)
 
+	-- Live diagnostic: print any axis that moves past the deadzone so you can see
+	-- which physical axis the right stick is actually on for this controller.
+	if DEBUG_CONTROLLER then
+		for i = 1, js:getAxisCount() do
+			local v = js:getAxis(i)
+			if math.abs(v) > deadzone then
+				print(string.format("   axis[%d] = %.2f", i, v))
+			end
+		end
+	end
+
 	local leftX = cc.getAxis(js, "horizontal")
 	local leftY = cc.getAxis(js, "vertical")
 
@@ -277,6 +342,15 @@ end
 
 function love.keypressed(key)
 	if CRTDebugMenu.keypressed(key) then return end
+	if key == "f9" then
+		-- Procedural generator self-check across a range of progress values.
+		for progress = 0, (Config.MapGen.totalCrew or 12) do
+			local ok, err = pcall(MapGenerator.selfCheck, progress)
+			if not ok then print("❌ selfCheck FAILED at progress " .. progress .. ": " .. tostring(err)) end
+		end
+		print("🎲 gen-test complete")
+		return
+	end
 	if Input.is(key, "toggleCRT") then
 		crtEnabled = not crtEnabled
 	elseif Input.is(key, "fullscreen") then
@@ -324,22 +398,30 @@ function love.gamepadreleased(joystick, button)
 end
 
 function love.joystickadded(joystick)
-	if not activeJoystick then
-		activeJoystick = joystick
-	end
 	table.insert(joysticks, joystick)
+	printDebug("🎮 joystickadded: " .. tostring(joystick:getName())
+		.. "  isGamepad=" .. tostring(joystick:isGamepad())
+		.. "  GUID=" .. tostring(joystick:getGUID()))
+	-- A real gamepad showing up (e.g. the 8BitDo after the iOS accelerometer)
+	-- should take over from a virtual/accelerometer joystick.
+	if not activeJoystick or (joystick:isGamepad() and not activeJoystick:isGamepad()) then
+		activeJoystick = pickBestJoystick(joysticks)
+		printDebug("🎮 Active controller: " .. tostring(activeJoystick:getName())
+			.. "  isGamepad=" .. tostring(activeJoystick:isGamepad())
+			.. "  GUID=" .. tostring(activeJoystick:getGUID()))
+	end
 end
 
 function love.joystickremoved(joystick)
-	if activeJoystick == joystick then
-		activeJoystick = joysticks[1] -- Switch to next available gamepad
-	end
-	
 	for i, j in ipairs(joysticks) do
 		if j == joystick then
 			table.remove(joysticks, i)
 			break
 		end
+	end
+
+	if activeJoystick == joystick then
+		activeJoystick = pickBestJoystick(joysticks) -- prefer a real gamepad
 	end
 end
 

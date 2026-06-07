@@ -73,9 +73,9 @@ function scene:init()
 		Noble.transition(TitleScene) 
 	end)
 	menu:addItem("Retry", function()
-		
-		Noble.transition(RoomTranslate(PlayerData.saveLevel))
-		--resetData()
+		PlayerData.runCount = (PlayerData.runCount or 0) + 1  -- a death starts a new run
+		RunState.startRun()
+		Noble.transition(MazeScene)
 	 end)
 	menu:select("Exit")
 	
@@ -98,13 +98,23 @@ end
 -- This runs once per frame.
 function scene:update()
 	scene.super.update(self)
-	Graphics.lockFocus(bg)
-		-- Graphics.setColor(Graphics.kColorBlack)
-		-- Graphics.fillRect(0, 0, 120,20)
+	local msg = "they caught you"
+	if PlayerData.deathCause == "sanity" then
+		msg = "you lost your mind"
+	elseif PlayerData.deathCause == "void" then
+		msg = "you fell into the void"
+	end
+	if bg then
+		Graphics.lockFocus(bg)
+			Graphics.setImageDrawMode(Graphics.kDrawModeFillBlack)
+			Graphics.drawText(msg, 2, 220)
+		Graphics.unlockFocus()
+		bg:draw(0, 0)
+	else
+		-- No dead-screen art yet: draw the message directly on the scene background.
 		Graphics.setImageDrawMode(Graphics.kDrawModeFillBlack)
-		Graphics.drawText("てき に さわらせないで", 2, 220, Graphics.font.kLanguageJapanese)
-	Graphics.unlockFocus()
-	bg:draw(0,0)
+		Graphics.drawText(msg, 2, 220)
+	end
 	menu:draw(400, 60)
 end
 

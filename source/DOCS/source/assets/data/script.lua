@@ -511,4 +511,51 @@ script = {
     
         }
     },
+    {
+        name = "noCM",
+        dialog = {
+            {
+        video = 'playerWorry',
+        text = "nocm-01",
+    },
+                    {
+        video = 'playerAngry',
+        text = "nocm-02",
+    }
+    
+        }
+    },
+    {
+        name = "oneCM",
+        dialog = {
+            {
+        video = 'player',
+        text = "onecm-01",
+    }
+    
+        }
+    },
+    {
+        name = "twoCM",
+        dialog = {
+            {
+        video = 'playerCry',
+        text = "twocm-01",
+    }
+
+        }
+    },
+    {
+        name = "finalTerminal",
+        dialog = {
+            {
+                video = 'playerSurprise',
+                text = "finalterminal-01",
+            },
+            {
+                video = 'player',
+                text = "finalterminal-02",
+            }
+        }
+    },
 }

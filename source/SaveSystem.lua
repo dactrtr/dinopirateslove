@@ -23,172 +23,6 @@ end
 levelsLDTKOriginal = nil
 
 -------------------------------------------------------------
--- Extract necessary level data
--------------------------------------------------------------
-function SaveSystem.getLevelState()
-    local levelState = {}
-
-    if not levelsLDTK then return levelState end
-
-    for i, level in ipairs(levelsLDTK) do
-        levelState[i] = {
-            identifier = level.identifier,
-            uniqueIdentifer = level.uniqueIdentifer,
-            visited = level.customFields and level.customFields.visited or false,
-            comic_wasPlayed = level.customFields and level.customFields.comic_wasPlayed or false,
-            entities = {}
-        }
-
-        if level.entities then
-            for entityType, entitiesList in pairs(level.entities) do
-                levelState[i].entities[entityType] = {}
-
-                for _, entity in ipairs(entitiesList) do
-                    local entityState = {
-                        iid = entity.iid
-                    }
-
-                    if entity.customFields then
-                        -- Enemies
-                        if entityType == "Brocorat" or entityType == "Bosscolli" then
-                            entityState.dead = entity.customFields.dead or false
-                            entityState.speed = entity.customFields.speed
-                            entityState.x = entity.x
-                            entityState.y = entity.y
-                        end
-
-                        -- Props
-                        if entity.customFields.destroyed ~= nil then
-                            entityState.destroyed = entity.customFields.destroyed
-                        end
-
-                        -- CrewMembers
-                        if entityType == "CrewMember" then
-                            entityState.isTaken = entity.customFields.isTaken or false
-                            entityState.crewID = entity.customFields.crewID
-                        end
-
-                        -- Doors
-                        if entityType == "Doors" then
-                            entityState.isOpen   = entity.customFields.isOpen   or false
-                            entityState.isLocked = entity.customFields.isLocked or false
-                        end
-
-                        -- Items
-                        if entity.layer == "Items" then
-                            entityState.collected = entity.customFields.collected or false
-                        end
-
-                        -- Triggers
-                        if entity.customFields.type or entity.customFields.script or entity.customFields.usedTrigger ~= nil then
-                            entityState.type = entity.customFields.type
-                            entityState.script = entity.customFields.script
-                            entityState.usedTrigger = entity.customFields.usedTrigger or false
-                        end
-
-                        -- NPCs
-                        if entityType == "NPC" then
-                            entityState.hasGranted = entity.customFields.hasGranted or false
-                        end
-                    end
-
-                    table.insert(levelState[i].entities[entityType], entityState)
-                end
-            end
-        end
-    end
-
-    return levelState
-end
-
--------------------------------------------------------------
--- Restore level state
--------------------------------------------------------------
-function SaveSystem.restoreLevelState(levelState)
-    if not levelState or not levelsLDTK then return end
-
-    for _, state in ipairs(levelState) do
-        local targetIdx = nil
-        
-        -- Find level by uniqueIdentifer
-        for j, level in ipairs(levelsLDTK) do
-            if level.uniqueIdentifer == state.uniqueIdentifer then
-                targetIdx = j
-                break
-            end
-        end
-
-        if targetIdx then
-            local level = levelsLDTK[targetIdx]
-            
-            -- Restore simple fields
-            if level.customFields then
-                level.customFields.visited = state.visited
-                level.customFields.comic_wasPlayed = state.comic_wasPlayed
-            end
-
-            if state.entities and level.entities then
-                for entityType, savedEntities in pairs(state.entities) do
-                    local targetList = level.entities[entityType]
-
-                    -- Fallback for triggers
-                    if not targetList and (entityType == "Triggers") then
-                        for _, list in pairs(level.entities) do
-                            if list[1] and list[1].layer == "Triggers" then
-                                targetList = list
-                                break
-                            end
-                        end
-                    end
-
-                    if targetList then
-                        for _, savedEntity in ipairs(savedEntities) do
-                            for _, currentEntity in ipairs(targetList) do
-                                if currentEntity.iid == savedEntity.iid then
-                                    if currentEntity.customFields then
-                                        -- Enemies
-                                        if savedEntity.dead ~= nil then currentEntity.customFields.dead = savedEntity.dead end
-                                        if savedEntity.speed then currentEntity.customFields.speed = savedEntity.speed end
-                                        if savedEntity.x and savedEntity.y then
-                                            currentEntity.x = savedEntity.x
-                                            currentEntity.y = savedEntity.y
-                                        end
-
-                                        -- Props
-                                        if savedEntity.destroyed ~= nil then currentEntity.customFields.destroyed = savedEntity.destroyed end
-
-                                        -- CrewMembers
-                                        if savedEntity.isTaken ~= nil then currentEntity.customFields.isTaken = savedEntity.isTaken end
-
-                                        -- Triggers
-                                        if savedEntity.usedTrigger ~= nil then currentEntity.customFields.usedTrigger = savedEntity.usedTrigger end
-                                        if savedEntity.type then currentEntity.customFields.type = savedEntity.type end
-                                        if savedEntity.script then currentEntity.customFields.script = savedEntity.script end
-                                        
-                                        -- Doors
-                                        if savedEntity.isOpen ~= nil then currentEntity.customFields.isOpen = savedEntity.isOpen end
-                                        if savedEntity.isLocked ~= nil then currentEntity.customFields.isLocked = savedEntity.isLocked end
-
-                                        -- Items
-                                        if savedEntity.collected ~= nil then currentEntity.customFields.collected = savedEntity.collected end
-
-                                        -- NPCs
-                                        if savedEntity.hasGranted ~= nil then
-                                            currentEntity.customFields.hasGranted = savedEntity.hasGranted
-                                        end
-                                    end
-                                    break
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-end
-
--------------------------------------------------------------
 -- Save logic for Love2D
 -------------------------------------------------------------
 function SaveSystem.save()
@@ -197,11 +31,20 @@ function SaveSystem.save()
         return false
     end
 
+    -- Capture the player's live position so Continue resumes exactly where the run was
+    -- left (mirrors MazeScene captureResumePosition). Together with returningInPlace in
+    -- titleScene's Continue, computeSpawn honours this position instead of a door spawn.
+    local gs = require('sceneManager').getScene("game")
+    if gs and gs.player and PlayerData.playerSpawn then
+        PlayerData.playerSpawn.x = gs.player.x
+        PlayerData.playerSpawn.y = gs.player.y
+    end
+
     local saveData = {
-        player = PlayerData,
-        levelState = SaveSystem.getLevelState(),
+        version = "3.0-PROCGEN",
+        player  = PlayerData,
+        run     = (RunState and RunState.serialize()) or nil,
         timestamp = os.time(),
-        version = "2.0-LDTK"
     }
 
     local content = "return " .. SaveSystem.serializeTable(saveData)
@@ -235,9 +78,14 @@ function SaveSystem.load()
     end
 
     local saveData = chunk()
-    if saveData and saveData.version == "2.0-LDTK" then
-        -- Update global PlayerData fields instead of replacing the reference
-        -- This ensures other modules holding the reference stay in sync
+    if not saveData or saveData.version ~= "3.0-PROCGEN" then
+        printDebug("⚠️ SaveSystem: rejecting non-3.0 save (offer New Game)")
+        return false, nil
+    end
+
+    -- Update global PlayerData fields instead of replacing the reference, so other
+    -- modules holding the reference stay in sync.
+    if saveData.player then
         if not PlayerData then
             PlayerData = saveData.player
         else
@@ -245,14 +93,19 @@ function SaveSystem.load()
                 PlayerData[k] = v
             end
         end
-        
-        SaveSystem.restoreLevelState(saveData.levelState)
-        printDebug("📖 SaveSystem: Game loaded successfully")
-        return true, PlayerData.saveLevel
     end
 
-    printDebug("⚠️ SaveSystem: Old save format detected or corrupted save")
-    return false, nil
+    -- Rebuild the active run; deserialize stages currentNodeId as pending so the next
+    -- gameScene.enter lands on the saved room.
+    if RunState and saveData.run then
+        if not RunState.deserialize(saveData.run) then
+            printDebug("⚠️ SaveSystem: RunState.deserialize failed (run unrecoverable)")
+            return false, nil
+        end
+    end
+
+    printDebug("📖 SaveSystem: Game loaded successfully (3.0-PROCGEN)")
+    return true, PlayerData.saveLevel
 end
 
 -------------------------------------------------------------

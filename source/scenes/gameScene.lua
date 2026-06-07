@@ -7,6 +7,9 @@ local Items = require 'entities.Items'
 local Brocorat = require 'entities.Brocorat'
 local CrewMember = require 'entities.CrewMember'
 local Door = require 'entities.Door'
+local ProcDoor = require 'entities.props.Door'
+local PortalDoor = require 'entities.props.PortalDoor'
+local WallPlug = require 'entities.props.WallPlug'
 local DoorHandler = require 'DoorHandler'
 local utilities = require 'utilities'
 local InteractionHUD = require 'entities.UI.interactionHUD'
@@ -51,6 +54,10 @@ local gameScene = {
 	crewMembers = {},
 	-- Doors
 	doors = {},
+	-- Portal doors (link host rooms to paired secret rooms by PortalID)
+	portals = {},
+	-- Wall plugs (covers for unconnected door openings in procedural rooms)
+	wallPlugs = {},
 	-- Walls
 	walls = {},
 	-- Props
@@ -126,7 +133,23 @@ function gameScene.clearCurrentRoom()
 		end
 	end
 	gameScene.doors = {}
-	
+
+	-- Clear portal doors
+	for _, portal in ipairs(gameScene.portals or {}) do
+		if gameScene.world and gameScene.world:hasItem(portal) then
+			gameScene.world:remove(portal)
+		end
+	end
+	gameScene.portals = {}
+
+	-- Clear wall plugs
+	for _, plug in ipairs(gameScene.wallPlugs or {}) do
+		if gameScene.world and gameScene.world:hasItem(plug) then
+			gameScene.world:remove(plug)
+		end
+	end
+	gameScene.wallPlugs = {}
+
 	-- Clear walls
 	for _, wall in ipairs(gameScene.walls or {}) do
 		if gameScene.world and gameScene.world:hasItem(wall) then
@@ -329,6 +352,104 @@ function gameScene.load()
 	InGameMenu:load()
 end
 
+-- MARK: Procedural run-graph helpers
+
+-- Point gameScene.currentRoom/currentLevelData at the template for a graph node.
+function gameScene.bindNode(node)
+	local template = node and node.poolRoom
+	if not template then return false end
+	for i, lvl in ipairs(levelsLDTK) do
+		if lvl == template then
+			gameScene.currentRoom = i
+			gameScene.currentLevelData = lvl
+			PlayerData.floor = i  -- Sync for collisions.lua
+			PlayerData.saveLevel  = lvl.customFields.roomNumber
+			PlayerData.actualRoom = lvl.customFields.roomNumber
+			PlayerData.actualLevel = lvl.customFields.level
+			lvl.customFields.visited = true
+			return true
+		end
+	end
+	return false
+end
+
+-- Compute the player spawn for the room being entered, based on the door we left
+-- through (PlayerData.lastRoom = exit side, PlayerData.lastDoorCross = which door on
+-- that side). Ported from DOCS MazeScene.lua:132-194. Writes PlayerData.playerSpawn
+-- unless PlayerData.returningInPlace is set (portal/fight return keeps its own spawn).
+function gameScene.computeSpawn(node)
+	local template = node and node.poolRoom
+	if not template then return end
+
+	-- Entry side = opposite of the door we left. Among that side's doors, pick the one
+	-- whose cross-axis center matches the door we used. Fresh run → first authored door.
+	local entrySide = PlayerData.lastRoom and MapGenerator.opposite(PlayerData.lastRoom) or nil
+	local spawnDoor, spawnSide
+	if entrySide then
+		local sideDoors = MapGenerator.doorsForSide(template, entrySide)
+		if #sideDoors > 0 then
+			spawnSide = entrySide
+			local cross = PlayerData.lastDoorCross
+			if cross then
+				local horizontal = (entrySide == "top" or entrySide == "down")
+				local bestDist
+				for _, de in ipairs(sideDoors) do
+					local c = horizontal and de.x or de.y
+					local dist = math.abs(c - cross)
+					if not bestDist or dist < bestDist then spawnDoor, bestDist = de, dist end
+				end
+			else
+				spawnDoor = sideDoors[1]
+			end
+		end
+	end
+	if not spawnDoor then
+		local doors = template.entities and template.entities.Doors
+		if doors and doors[1] then
+			spawnDoor = doors[1]
+			spawnSide = (spawnDoor.customFields and spawnDoor.customFields.DoorsConnection or ""):lower()
+		end
+	end
+
+	if spawnDoor and not PlayerData.returningInPlace then
+		local inset = Config.Doors.spawnInset
+		-- The player sprite is 48x48 anchored at its centre, but its collide rect is
+		-- offset within it. Align the player's body to the door's centre on the cross
+		-- axis, pushing it 'inset' inward on the main axis (away from the door).
+		local cr = Config.Player and Config.Player.collideRect or { x = 12, y = 24, w = 24, h = 24 }
+		local spriteHalf = 24
+		local bodyDX = (cr.x + cr.w / 2) - spriteHalf
+		local bodyDY = (cr.y + cr.h / 2) - spriteHalf
+		local sx, sy = spawnDoor.x, spawnDoor.y
+		if spawnSide == "left" then
+			sx = spawnDoor.x + inset
+			sy = spawnDoor.y - bodyDY
+		elseif spawnSide == "right" then
+			sx = spawnDoor.x - inset
+			sy = spawnDoor.y - bodyDY
+		elseif spawnSide == "top" then
+			sy = spawnDoor.y + inset
+			sx = spawnDoor.x - bodyDX
+		elseif spawnSide == "down" then
+			sy = spawnDoor.y - inset
+			sx = spawnDoor.x - bodyDX
+		end
+		PlayerData.playerSpawn.x = sx
+		PlayerData.playerSpawn.y = sy
+	end
+	PlayerData.returningInPlace = false
+end
+
+-- Door/portal crossing entry point: consume the pending node, bind it, and run the
+-- same-scene transition. sceneManager.startTransition("game","game",...) re-runs
+-- gameScene.enter() at its midpoint (sceneManager.lua:147-148), which re-binds the
+-- node and rebuilds the room via reloadCurrentRoom — so the room is rebuilt exactly
+-- once, after the transition swaps. We set a flag so enter() takes the node path.
+function gameScene.enterPendingNode()
+	gameScene.pendingNodeTransition = true
+	sceneManager.startTransition("game", "game", "slide")
+end
+
 function gameScene.enter()
 	-- Garantizar estado limpio de diálogo al entrar (safety net para transiciones abruptas)
 	if gameScene.player and gameScene.player.dialogUI then
@@ -339,30 +460,43 @@ function gameScene.enter()
 	PlayerData.isGaming = true
 	gameScene.hasActed = false  -- reset so first room load won't auto-save
 
-	-- Full reload of current floor state
-	if gameScene.transitionData then
-		local td = gameScene.transitionData
-		gameScene.transitionData = nil
-		printDebug("Performing deferred level change during transition enter")
-		gameScene.performChangeLevel(td.iid, td.dir, td.px, td.py)
-	else
-		-- Normal entry (e.g. from Title) - Load from save or defaults
-		-- Room 407 = level 4, room 7 (the starting room, same as Playdate Floor407)
-		local startRoom = PlayerData.saveLevel or 7
-		local startLevel = PlayerData.actualLevel or 4
-		
-		-- Restore player position (playerSpawn is source of truth, x/y is fallback for old saves)
+	gameScene.pendingNodeTransition = nil
+	gameScene.endgameTriggered = false
+
+	-- Procedural: resolve the room from the active run graph. Consume the node a door/
+	-- portal (or title NewGame / save Continue) staged as pending, bind it, spawn at the
+	-- entry door, then rebuild the room. Falls back to starting a fresh run if no node.
+	if RunState then
+		RunState.consumePending()
+		if not RunState.currentNode() then
+			RunState.startRun()
+			RunState.consumePending()
+		end
+		gameScene.bindNode(RunState.currentNode())
+		gameScene.computeSpawn(RunState.currentNode())
+
+		-- Endgame: entering the final room (revealed once all crew are recruited) ends the
+		-- run. We flag it here and fire the transition from update() once the room is active
+		-- — firing now would clobber the in-progress scene transition.
+		local curNode = RunState.currentNode()
+		gameScene.pendingEndgame = (curNode and curNode.content and curNode.content.isFinal) or false
+
 		local spawnX = (PlayerData.playerSpawn and PlayerData.playerSpawn.x) or PlayerData.x or 200
 		local spawnY = (PlayerData.playerSpawn and PlayerData.playerSpawn.y) or PlayerData.y or 120
 		gameScene.player:moveTo(spawnX, spawnY)
-
-		-- Force sync player dimensions
 		gameScene.player:syncDimensions()
 
-		gameScene.setFloor(startLevel, startRoom)
-
-		printDebug("gameScene: Entered (Normal Load)")
+		gameScene.reloadCurrentRoom()
+		PlayerData.x = gameScene.player.x
+		PlayerData.y = gameScene.player.y
+		PlayerData.direction = 'idle'
+		printDebug("gameScene: Entered (procedural node " .. tostring(RunState.currentNodeId) .. ")")
+		return
 	end
+
+	-- No RunState available — should never happen (RunState is a global module loaded
+	-- at boot). Start a fresh run as a safety net rather than the removed fixed-map path.
+	printDebug("⚠️ gameScene.enter: RunState unavailable — cannot load a procedural room")
 end
 
 function gameScene.exit()
@@ -458,64 +592,66 @@ function gameScene.updateRoomInfo()
 	end
 end
 
+-- Enemies and crew are rolled per-run by the generator and live on the current node:
+--   node.content.enemies  — which enemies are active this run (already rolled)
+--   node.cleared.enemies  — enemies killed earlier this run (don't respawn on revisit)
+--   node.content.crewId    — the crew identity assigned to this room this run
+--   node.cleared.crewTaken — true once captured this run
 function gameScene.loadEnemies()
-	-- Ensure we have a level loaded
-	if not gameScene.currentLevelData then
-		printDebug("❌ ERROR: No level data loaded for enemies.")
-		return
-	end
-	
-	-- Clear existing enemies
 	gameScene.enemies = {}
-	
-	local entities = gameScene.currentLevelData.entities
-	
-	if not entities then
-		printDebug("ℹ️ No entities in this level")
+	gameScene.crewMembers = {}
+
+	local node = RunState and RunState.currentNode()
+	if not node then
+		printDebug("ℹ️ loadEnemies: no current run node")
 		return
 	end
-	
-	-- Load Brocorat enemies
-	if entities.Brocorat then
-		for _, enemy in ipairs(entities.Brocorat) do
-			local cf = enemy.customFields or {}
-			local x = enemy.x - (enemy.width or 32) / 2
-			local y = enemy.y - (enemy.height or 32) / 2
-			local speed = cf.speed or 1
-			local dead = cf.dead or false
-			local id = enemy.iid
 
-			if not dead then
-				printDebug("🥦 Creating Brocorat at (" .. x .. ", " .. y .. ")")
-				local brocorat = Brocorat(x, y, nil, nil, gameScene.player, id, gameScene.world)
-				brocorat.sourceData = enemy -- Link to levelsLDTK entry
-				table.insert(gameScene.enemies, brocorat)
-			else
-				printDebug("💀 Brocorat at (" .. x .. ", " .. y .. ") is dead, skipping")
-			end
-		end
-	end
-	
-	-- Load CrewMembers
-	if entities.CrewMember then
-		for _, crewData in ipairs(entities.CrewMember) do
-			local cf = crewData.customFields or {}
-			local x, y = crewData.x, crewData.y
-			local id = crewData.iid
-			local crewID = cf.crewID   -- "CM001", "CM002", etc.
+	node.cleared = node.cleared or {}
+	node.cleared.enemies = node.cleared.enemies or {}
+	node.content = node.content or {}
 
-			-- Check if already captured (keyed by crewID string, not iid)
-			if not PlayerData.CrewMemberData.idNumbers[crewID] then
-				printDebug("🏴‍☠️ Creating CrewMember at (" .. x .. ", " .. y .. ")")
-				local crewMember = CrewMember(x, y, gameScene.world, gameScene.player, id, crewData)
-				table.insert(gameScene.crewMembers, crewMember)
-			else
-				printDebug("✅ CrewMember at (" .. x .. ", " .. y .. ") already captured, skipping")
-			end
+	-- Enemies from node content. The generator gives center coords (LDtk); Brocorat
+	-- expects top-left, so convert by half the 32px sprite. e.key is the stable id used
+	-- to mark the kill in node.cleared (so it stays dead on revisit within the run).
+	for _, e in ipairs(node.content.enemies or {}) do
+		if node.cleared.enemies[e.key] then
+			-- Killed earlier this run: leave the slot empty (no corpse sprite in this
+			-- port's props sheet — see Phase 2 report note).
+			printDebug("💀 Enemy " .. tostring(e.key) .. " already cleared this run, skipping")
+		elseif e.kind == "Brocorat" then
+			local x = e.x - 16
+			local y = e.y - 16
+			local brocorat = Brocorat(x, y, e.speed, nil, gameScene.player, e.key, gameScene.world)
+			brocorat.runNode = node
+			table.insert(gameScene.enemies, brocorat)
+		else
+			-- Bosscolli and other kinds not yet ported to the LÖVE build.
+			printDebug("ℹ️ loadEnemies: skipping unported enemy kind " .. tostring(e.kind))
 		end
 	end
 
-	-- TODO: Add support for other enemy types (Bosscolli, etc.)
+	-- Crew: spawn the assigned identity if not already captured this run (or meta).
+	if node.content.crewId and not (node.cleared and node.cleared.crewTaken) then
+		local cs = node.content.crewSpawn or { x = 200, y = 120 }
+		local crewId = node.content.crewId
+		if not PlayerData.CrewMemberData.idNumbers[crewId] then
+			-- Synthesize a marker carrying the assigned identity so CrewMember picks the
+			-- right hat/dialog (it reads data.customFields.crewID / roomNumber).
+			local data = {
+				customFields = {
+					crewID = crewId,
+					roomNumber = gameScene.currentLevelData
+						and gameScene.currentLevelData.customFields.roomNumber or nil,
+				},
+			}
+			local iid = "node" .. tostring(node.id) .. "-crew"
+			local crewMember = CrewMember(cs.x, cs.y, gameScene.world, gameScene.player, iid, data)
+			crewMember.runNode = node
+			table.insert(gameScene.crewMembers, crewMember)
+			printDebug("🏴‍☠️ Spawned crew " .. crewId .. " for node " .. tostring(node.id))
+		end
+	end
 
 	printDebug("✅ Loaded " .. #gameScene.enemies .. " enemies, " .. #gameScene.crewMembers .. " crewmembers")
 end
@@ -526,6 +662,13 @@ function gameScene.findAndKillEnemyById(id)
 	if not id then return end
 	for i, enemy in ipairs(gameScene.enemies) do
 		if enemy.id == id then
+			-- Record the kill on the run node so it stays dead on revisit within the run.
+			local node = enemy.runNode or (RunState and RunState.currentNode())
+			if node then
+				node.cleared = node.cleared or {}
+				node.cleared.enemies = node.cleared.enemies or {}
+				node.cleared.enemies[id] = { x = enemy.x, y = enemy.y }
+			end
 			if gameScene.world and gameScene.world.hasItem and gameScene.world:hasItem(enemy) then
 				gameScene.world:remove(enemy)
 			end
@@ -537,87 +680,32 @@ function gameScene.findAndKillEnemyById(id)
 	printDebug("⚠️ findAndKillEnemyById: enemy id=" .. tostring(id) .. " not found")
 end
 
+-- Doors & wall plugs are driven by the active run-graph node: a door is created only
+-- on sides the graph connected (node.edges); every other authored door opening is
+-- sealed with a WallPlug. Crossing a door transitions to its target node.
 function gameScene.loadDoors()
-	-- Ensure we have a level loaded
-	if not gameScene.currentLevelData then
-		printDebug("❌ ERROR: No level data loaded for doors.")
-		return
-	end
-
 	-- Clear existing doors
-	for _, door in ipairs(gameScene.doors) do
-		door:remove()
-	end
+	for _, d in ipairs(gameScene.doors or {}) do d:remove() end
 	gameScene.doors = {}
+	-- Clear existing wall plugs
+	for _, p in ipairs(gameScene.wallPlugs or {}) do p:remove() end
+	gameScene.wallPlugs = {}
+	-- Clear existing portal doors
+	for _, p in ipairs(gameScene.portals or {}) do p:remove() end
+	gameScene.portals = {}
 
-	printDebug("🔍 DEBUG: Loading doors for " .. gameScene.currentLevelData.identifier)
-
-	if not gameScene.currentLevelData.entities or not gameScene.currentLevelData.entities.Doors then
-		printDebug("ℹ️ No Doors entities in this level")
+	local node = RunState and RunState.currentNode()
+	if not node then
+		printDebug("ℹ️ loadDoors: no current run node")
 		return
 	end
 
-	-- Calculate tile-map offsets (same formula used everywhere else)
-	local startX = VIRTUAL_WIDTH  / 2 - (gameScene.mapWidth  * gameScene.tileSize) / 2
-	local startY = VIRTUAL_HEIGHT / 2 - (gameScene.mapHeight * gameScene.tileSize) / 2
+	ProcDoor.createFromNode(node, gameScene.world, gameScene.doors)
+	WallPlug.createFromNode(node, gameScene.world, gameScene.wallPlugs)
+	PortalDoor.createFromNode(node, gameScene.world, gameScene.portals)
 
-	-- Build door parameter tables via utility (handles IID lookup + leadsTo resolution)
-	local doorParams = utilities.CreateDoorsFromLDTK(
-		gameScene.currentLevelData, startX, startY, gameScene.world
-	)
-
-	-- Instantiate Door objects from the parameter tables
-	for _, p in ipairs(doorParams) do
-		-- Resolve nextLevelIid from neighbourLevels using the original connection direction
-		local connectionToDir = { Top = "n", Down = "s", Left = "w", Right = "e" }
-		local cardinalDir = connectionToDir[p.direction]
-		local nextLevelIid = nil
-		local neighbourLevels = gameScene.currentLevelData.neighbourLevels
-		if cardinalDir and neighbourLevels then
-			for _, neighbour in ipairs(neighbourLevels) do
-				if neighbour.dir == cardinalDir then
-					nextLevelIid = neighbour.levelIid
-					break
-				end
-			end
-		end
-
-		-- Resolve human-readable destination room number (for debug display)
-		local nextRoomNumber = nil
-		if nextLevelIid and levelsLDTK then
-			local destIdx = gameScene.roomsByIid[nextLevelIid]
-			if destIdx and levelsLDTK[destIdx] and levelsLDTK[destIdx].customFields then
-				nextRoomNumber = levelsLDTK[destIdx].customFields.roomNumber
-			end
-		end
-
-		local door = Door.new(
-			p.x,
-			p.y,
-			p.width,
-			p.height,
-			p.direction,    -- DoorsConnection string; Door.new converts it internally
-			"open",
-			nextLevelIid,
-			gameScene.world,
-			nextRoomNumber,
-			p.leadsTo       -- resolved levelsLDTK index
-		)
-		-- Carry lock metadata onto the door instance
-		door.isLocked  = p.isLocked
-		door.keyNumber = p.keyNumber
-		door.iid       = p.iid
-		table.insert(gameScene.doors, door)
-
-		printDebug("🚪 Created door: " .. tostring(p.direction) ..
-			" -> " .. tostring(nextLevelIid) ..
-			" (Room " .. tostring(nextRoomNumber) .. ")" ..
-			" leadsTo[" .. tostring(p.leadsTo) .. "]" ..
-			" at (" .. door.x .. ", " .. door.y .. ")" ..
-			" [" .. door.width .. "x" .. door.height .. "]")
-	end
-
-	printDebug("✅ Loaded " .. #gameScene.doors .. " doors from entities")
+	printDebug("🚪 doors:" .. #gameScene.doors .. " plugs:" .. #gameScene.wallPlugs ..
+		" portals:" .. #gameScene.portals)
 end
 
 -- MARK: Wall Creation
@@ -666,7 +754,12 @@ function gameScene.loadProps()
 	
 	local entities = gameScene.currentLevelData.entities
 	if not entities then return end
-	
+
+	-- Utilities (microwave/minifier) only appear if the generator rolled them for this
+	-- run's node (keyed by the authored entity iid).
+	local node = RunState and RunState.currentNode()
+	local utilities = (node and node.content and node.content.utilities) or nil
+
 	-- Iterate over all entity types
 	for typeName, entityList in pairs(entities) do
 		for _, entity in ipairs(entityList) do
@@ -679,11 +772,15 @@ function gameScene.loadProps()
 				local isDestroyed = cf.destroyed or false
 				local id = entity.iid
 
-				local prop = PropItem(x, y, propType, nil, nocollide, isDestroyed, id, gameScene.world)
-				prop.sourceData = entity
-				prop.zIndex = prop.y + prop.height
+				-- Gate utilities by the per-run roll: skip minifier/microwave not selected.
+				local isUtility = (propType == "minifier" or propType == "microwave")
+				if not (isUtility and not (utilities and utilities[id])) then
+					local prop = PropItem(x, y, propType, nil, nocollide, isDestroyed, id, gameScene.world)
+					prop.sourceData = entity
+					prop.zIndex = prop.y + prop.height
 
-				table.insert(gameScene.props, prop)
+					table.insert(gameScene.props, prop)
+				end
 			end
 		end
 	end
@@ -853,98 +950,6 @@ function gameScene.loadNPCs()
 end
 
 
--- MARK: Level Transition
-function gameScene.performChangeLevel(nextLevelIid, enterDirection, capturedX, capturedY)
-	printDebug("🔄 Changing level to IID: " .. nextLevelIid .. " (dir: " .. tostring(enterDirection) .. ", capturedX: " .. tostring(capturedX) .. ", capturedY: " .. tostring(capturedY) .. ")")
-	
-	-- Find the level by IID
-	local nextRoomIndex = nil
-	for i, levelData in ipairs(levelsLDTK) do
-		if levelData.uniqueIdentifer == nextLevelIid then
-			nextRoomIndex = i
-			break
-		end
-	end
-	
-	if not nextRoomIndex then
-		printDebug("❌ ERROR: Level with IID " .. nextLevelIid .. " not found!")
-		return
-	end
-	
-	-- Update state
-	gameScene.currentRoom = nextRoomIndex
-	PlayerData.floor = nextRoomIndex  -- Sync for collisions.lua
-	gameScene.currentLevelData = levelsLDTK[nextRoomIndex]
-	
-	-- Save progress
-	PlayerData.saveLevel = gameScene.currentLevelData.customFields.roomNumber
-	PlayerData.actualRoom = PlayerData.saveLevel
-	PlayerData.actualLevel = gameScene.currentLevelData.customFields.level
-	if gameScene.player then
-		PlayerData.x = gameScene.player.x
-		PlayerData.y = gameScene.player.y
-	end
-	SaveSystem.save()
-	
-	printDebug("✅ Switched to: " .. gameScene.currentLevelData.identifier)
-	
-	-- Reload level components (this also clears old ones)
-	gameScene.reloadCurrentRoom()
-	
-	-- Update room info in pause menu
-
-	gameScene.updateRoomInfo()
-	
-	
-	-- Reposition player based on entry direction (prevRoom logic)
-	-- Lateral (left/right): preserve Y from previous room, fix X to opposite edge
-	-- Vertical (top/down):  preserve X from previous room, fix Y to opposite edge
-	if enterDirection and gameScene.player then
-		local sc = (Config and Config.Doors and Config.Doors.spawnCoords) or {
-			top   = {x=196, y=196},
-			down  = {x=196, y=32 },
-			right = {x=32,  y=116},
-			left  = {x=364, y=116},
-		}
-		local spawnX, spawnY
-		if     enterDirection == "top"   then
-			spawnX = capturedX or sc.top.x
-			spawnY = sc.top.y
-		elseif enterDirection == "down"  then
-			spawnX = capturedX or sc.down.x
-			spawnY = sc.down.y
-		elseif enterDirection == "right" then
-			spawnX = sc.right.x
-			spawnY = capturedY or sc.right.y
-		elseif enterDirection == "left"  then
-			spawnX = sc.left.x
-			spawnY = capturedY or sc.left.y
-		end
-
-		if spawnX and spawnY then
-			PlayerData.playerSpawn.x = spawnX
-			PlayerData.playerSpawn.y = spawnY
-			PlayerData.lastRoom = enterDirection
-			gameScene.player:moveTo(spawnX, spawnY)
-			printDebug("📍 Player spawn: (" .. spawnX .. ", " .. spawnY .. ") entering from " .. enterDirection)
-		end
-	end
-end
-
-function gameScene.changeLevel(nextLevelIid, enterDirection, px, py, transitionType, animationName)
-	-- Defer the level change to avoid breaking BUMP physics loops
-	gameScene.pendingLevelChange = {
-		iid = nextLevelIid,
-		dir = enterDirection,
-		px  = px,
-		py  = py,
-		transitionType = transitionType or "fade",
-		animationName = animationName
-	}
-	printDebug("⏳ Level change queued for: " .. nextLevelIid .. " (Transition: " .. tostring(transitionType) .. ")")
-end
-
-
 function gameScene.loadFloor()
 	if not gameScene.currentLevelData then
 		printDebug("❌ ERROR: No level data loaded. Call setFloor() first.")
@@ -999,6 +1004,19 @@ function gameScene.drawForeground()
 end
 
 function gameScene.update(dt)
+	-- Endgame: the player has entered the final room (full crew recruited). End the run.
+	-- NOTE: there is no CreditsScene registered in this LÖVE port (only title/game/dance/
+	-- cockpit). Transition back to title as the run-complete endpoint.
+	-- TODO: CreditsScene — swap this title transition for a real ending/credits scene.
+	if gameScene.pendingEndgame and not gameScene.endgameTriggered then
+		gameScene.endgameTriggered = true
+		gameScene.pendingEndgame = false
+		printDebug("🏁 Run complete — endgame")
+		if RunState then RunState.clear() end
+		sceneManager.startTransition("game", "title", "slide")
+		return
+	end
+
 	-- Comic cutscene takes full control while active
 	if ComicPlayer.isActive() then
 		ComicPlayer.update(dt)
@@ -1106,24 +1124,6 @@ function gameScene.update(dt)
 		-- Sanity tick (every 2s)
 		SanitySystem.update(dt)
 
-	-- Check for pending level changes (safe to do here)
-		if gameScene.pendingLevelChange then
-			local plc = gameScene.pendingLevelChange
-			gameScene.pendingLevelChange = nil
-			
-			-- Store data for the enter() call that will come mid-transition
-			gameScene.transitionData = {
-				iid = plc.iid,
-				dir = plc.dir,
-				px  = plc.px,
-				py  = plc.py,
-			}
-			
-			-- Start the transition via sceneManager
-			printDebug("🎬 Starting scene transition: " .. tostring(plc.transitionType))
-			sceneManager.startTransition("game", "game", plc.transitionType, plc.animationName)
-		end
-		
 		-- Check for pending trigger removals
 		if gameScene.pendingTriggerRemovals then
 			for _, trigger in ipairs(gameScene.pendingTriggerRemovals) do
@@ -1195,6 +1195,21 @@ function gameScene.draw()
 	-- Add NPCs
 	for _, npc in ipairs(gameScene.npcs or {}) do
 		table.insert(drawables, { obj = npc, y = npc.zIndex or (npc.spriteY + npc.spriteH), type = "npc" })
+	end
+
+	-- Add wall plugs (baked brick canvas, depth-sorted as props)
+	for _, plug in ipairs(gameScene.wallPlugs or {}) do
+		table.insert(drawables, { obj = plug, y = plug.zIndex or (plug.y + plug.height), type = "plug" })
+	end
+
+	-- Add doors (invisible except in debug; drawn last so debug rects overlay)
+	for _, door in ipairs(gameScene.doors or {}) do
+		table.insert(drawables, { obj = door, y = door.zIndex or (door.y + door.height), type = "door" })
+	end
+
+	-- Add portal doors (invisible except in debug, like doors)
+	for _, portal in ipairs(gameScene.portals or {}) do
+		table.insert(drawables, { obj = portal, y = portal.zIndex or (portal.y + portal.height), type = "portal" })
 	end
 
 	-- Sort by Y position (back to front)

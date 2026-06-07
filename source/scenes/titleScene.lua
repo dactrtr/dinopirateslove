@@ -122,6 +122,9 @@ function titleScene.enter()
 			action = function()
 				local success, savedLevel = SaveSystem.load()
 				if success then
+					-- Resume in place: honour the saved player position instead of a
+					-- door spawn (computeSpawn skips repositioning when this is set).
+					PlayerData.returningInPlace = true
 					sceneManager.startTransition("title", "game", "animated", "transitionFall")
 				end
 			end
@@ -137,6 +140,7 @@ function titleScene.enter()
 			bgState = "deleteGame",
 			action = function()
 				SaveSystem.delete()
+				if RunState then RunState.clear() end  -- wipe the in-memory run too
 				titleScene.enter() -- Refresh menu
 			end
 		})
@@ -158,6 +162,11 @@ function titleScene.enter()
 			PlayerData.battery = 100
 			PlayerData.isGaming   = true
 			PlayerData.fromTitle  = true
+			-- Procedural: generate a FRESH run graph (stages startId as pending).
+			-- Without this, RunState still points at the last room from a prior play
+			-- and gameScene.enter() reuses it instead of starting over.
+			PlayerData.runCount = 1
+			if RunState then RunState.startRun() end
 			sceneManager.startTransition("title", "game", "animated", "transitionFall")
 		end
 	})

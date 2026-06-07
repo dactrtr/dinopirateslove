@@ -136,164 +136,26 @@ function RoomTranslate(roomNumber)
 end
 -- Door utilities have been moved to entities/props/door.lua
 
---- Finds a neighbor by direction
--- @param currentRoom table Current room data
--- @param direction string Direction to search for
--- @return table|nil Neighbor data or nil
-function FindNeighborByDirection(currentRoom, direction)
-	printDebug("🔍 Searching for neighbor with direction:", direction)
-	
-	if not currentRoom.neighbourLevels then
-		printDebug("❌ No neighbourLevels")
-		return nil
-	end
-	
-	for _, neighbor in ipairs(currentRoom.neighbourLevels) do
-		if neighbor.dir == direction then
-			printDebug("✅ Neighbor found with dir:", direction)
-			return neighbor
-		end
-	end
-	
-	printDebug("❌ Neighbor not found with dir:", direction)
-	return nil
-end
-
---- Validates if you can fall/climb in a direction
--- @param currentRoom table Current room data
--- @param direction string Direction: "<" to fall (down), ">" to climb (up)
--- @return boolean true if movement is allowed
-function CanMoveVertically(currentRoom, direction)
-	-- direction: "<" to fall (down), ">" to climb (up)
-	local doorsConnection = currentRoom.customFields.DoorsConnection or {}
-	
-	-- Mapping of vertical directions to names in DoorsConnection
-	local directionMap = {
-		["<"] = "lower",  -- Fall downwards
-		[">"] = "upper"   -- Climb upwards
-	}
-	
-	local requiredConnection = directionMap[direction]
-	if not requiredConnection then
-		printDebug("⚠️  Vertical direction not recognized:", direction)
-		return false
-	end
-	
-	-- Check if it's allowed in DoorsConnection
-	for _, allowed in ipairs(doorsConnection) do
-		if allowed:lower() == requiredConnection:lower() then
-			return true
-		end
-	end
-	
-	return false
-end
-
---- Gets the lower room (fall)
--- @param currentRoomIndex number Current room index in levelsLDTK
--- @return number|nil, table|nil Room number and room data
-function GetLowerRoom(currentRoomIndex)
-	printDebug("⬇️  === SEARCHING FOR LOWER ROOM ===")
-	local currentRoom = levelsLDTK[currentRoomIndex]
-	
-	if not currentRoom then
-		printDebug("❌ currentRoom not valid")
-		return nil
-	end
-	
-	-- Validate if you can fall
-	if not CanMoveVertically(currentRoom, "<") then
-		printDebug("🚫 Cannot fall from this room (doesn't have 'lower' in DoorsConnection)")
-		return nil
-	end
-	
-	-- Search for neighbor with direction "<" (lower floor)
-	local lowerNeighbor = FindNeighborByDirection(currentRoom, "<")
-	
-	if not lowerNeighbor then
-		printDebug("❌ No lower room defined in neighbourLevels")
-		return nil
-	end
-	
-	-- Search for room by its iid
-	local lowerRoom = FindRoomByIid(lowerNeighbor.levelIid)
-	
-	if lowerRoom then
-		local level = lowerRoom.customFields.level or 0
-		local roomNum = lowerRoom.customFields.roomNumber or 0
-		local roomNumber = level * 100 + roomNum
-		
-		printDebug("✅ Lower room found:")
-		printDebug("   identifier:", lowerRoom.identifier)
-		printDebug("   level:", level)
-		printDebug("   roomNumber:", roomNum)
-		printDebug("   fullRoomNumber:", roomNumber)
-		
-		return roomNumber, lowerRoom
-	else
-		printDebug("⚠️  Lower room is not loaded in levelsLDTK")
-		-- Calculate expected number even if not loaded
-		local currentLevel = currentRoom.customFields.level or 1
-		local currentRoomNum = currentRoom.customFields.roomNumber or 0
-		local expectedRoom = (currentLevel - 1) * 100 + currentRoomNum
-		
-		printDebug("📊 Expected room (calculated):", expectedRoom)
-		return expectedRoom, nil
-	end
-end
-
---- Gets the upper room (climb)
--- @param currentRoomIndex number Current room index in levelsLDTK
--- @return number|nil, table|nil Room number and room data
-function GetUpperRoom(currentRoomIndex)
-	printDebug("⬆️  === SEARCHING FOR UPPER ROOM ===")
-	local currentRoom = levelsLDTK[currentRoomIndex]
-	
-	if not currentRoom then
-		printDebug("❌ currentRoom not valid")
-		return nil
-	end
-	
-	-- Validate if you can climb
-	if not CanMoveVertically(currentRoom, ">") then
-		printDebug("🚫 Cannot climb from this room (doesn't have 'upper' in DoorsConnection)")
-		return nil
-	end
-	
-	-- Search for neighbor with direction ">" (upper floor)
-	local upperNeighbor = FindNeighborByDirection(currentRoom, ">")
-	
-	if not upperNeighbor then
-		printDebug("❌ No upper room defined in neighbourLevels")
-		return nil
-	end
-	
-	-- Search for room by its iid
-	local upperRoom = FindRoomByIid(upperNeighbor.levelIid)
-	
-	if upperRoom then
-		local level = upperRoom.customFields.level or 0
-		local roomNum = upperRoom.customFields.roomNumber or 0
-		local roomNumber = level * 100 + roomNum
-		
-		printDebug("✅ Upper room found:")
-		printDebug("   identifier:", upperRoom.identifier)
-		printDebug("   level:", level)
-		printDebug("   roomNumber:", roomNum)
-		printDebug("   fullRoomNumber:", roomNumber)
-		
-		return roomNumber, upperRoom
-	else
-		printDebug("⚠️  Upper room is not loaded in levelsLDTK")
-		-- Calculate expected number even if not loaded
-		local currentLevel = currentRoom.customFields.level or 1
-		local currentRoomNum = currentRoom.customFields.roomNumber or 0
-		local expectedRoom = (currentLevel + 1) * 100 + currentRoomNum
-		
-		printDebug("📊 Expected room (calculated):", expectedRoom)
-		return expectedRoom, nil
-	end
-end
+-- ============================================================================
+-- LEGACY (removed): vertical navigation by neighbourLevels
+-- ----------------------------------------------------------------------------
+-- BEFORE: the world was a fixed grid of authored rooms. Falling through a hole
+-- or rising through a tube looked up a specific neighbour room:
+--   FindNeighborByDirection(room, "<"/">")  -- scanned room.neighbourLevels for dir
+--   CanMoveVertically(room, dir)            -- gated on customFields.DoorsConnection
+--   GetLowerRoom / GetUpperRoom             -- resolved the neighbour iid → roomNumber
+-- Player:fallBelow()/riseAbove() then transitioned to that exact room.
+--
+-- NOW: vertical movement starts a NEW procedural run instead of going to a fixed
+-- neighbour. Player:fallBelow()/riseAbove() (entities/player/state.lua) call
+-- RunState.startRun("startdown"/"startup"), which regenerates the whole graph via
+-- MapGenerator and enters at a random room whose customFields.roomRole matches
+-- "Startdown"/"Startup" (falling back to "Start"→"normal"). neighbourLevels and
+-- DoorsConnection are no longer read at runtime.
+--
+-- LOVE2D PORT: if a port wants classic fixed-floor descent instead of a new run,
+-- the old neighbour-lookup logic above is the reference implementation to restore.
+-- ============================================================================
 
 --- Gets a room by its number
 -- @param roomNumber number Complete room number (e.g. 220 = level 2, room 20)
@@ -342,39 +204,19 @@ function drawVersionNumber(x, y, alignment)
 end 
 
 -- Finds and kills an enemy by its unique ID (LDtk version)
+-- Procedural runs: an enemy's id is its per-node key. Mark it cleared on the active
+-- node so it stays dead when the player revisits the room within the same run (the
+-- run graph is ephemeral, so this never leaks across runs or shared templates).
 function findAndKillEnemyById(enemyId)
-	local room = PlayerData.floor
-	if not levelsLDTK or not levelsLDTK[room] then
-		printDebug("⚠️ findAndKillEnemyById: invalid room:", room)
+	local node = RunState and RunState.currentNode()
+	if not node then
+		printDebug("⚠️ findAndKillEnemyById: no active node")
 		return
 	end
-	local entities = levelsLDTK[room].entities
-
-	if not entities then
-		printDebug("⚠️ No entities found in room:", room)
-		return
-	end
-
-	for entityType, entitiesList in pairs(entities) do
-		-- Buscar dentro de tipos de enemigos conocidos
-		if entityType == "Brocorat" or entityType == "Bosscolli" then
-			for _, enemy in ipairs(entitiesList) do
-				if enemy.iid == enemyId then
-					local cf = enemy.customFields or {}
-					if cf.dead == false or cf.dead == nil then
-						cf.dead = true
-						-- Actualizamos su posición a donde fue derrotado
-						if PlayerData.lastEnemyTouched then
-							enemy.x = PlayerData.lastEnemyTouched.x
-							enemy.y = PlayerData.lastEnemyTouched.y
-						end
-						printDebug("💀 Enemy killed:", enemyId, "in", entityType)
-					end
-					return
-				end
-			end
-		end
-	end
+	node.cleared.enemies = node.cleared.enemies or {}
+	local pos = PlayerData.lastEnemyTouched
+	node.cleared.enemies[enemyId] = { x = pos and pos.x, y = pos and pos.y }
+	printDebug("💀 Enemy cleared (node " .. tostring(node.id) .. "):", enemyId)
 end
 
 -- finds and destroys a prop
