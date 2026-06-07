@@ -867,7 +867,11 @@ function gameScene.loadItems()
 				local keyNumber = cf.KeyNumber or cf.keyNumber
 				local grants    = cf.grants
 
-				if shouldSpawnItem(itemType, keyNumber, grants) then
+				-- spawnConditions: a per-run render gate (e.g. {"run>=4","items.hasLamp"}).
+				-- nil/empty = always allowed, so authored items without it are unaffected.
+				local conditionsOk = Conditions.met(cf.spawnConditions or cf.SpawnConditions)
+
+				if conditionsOk and shouldSpawnItem(itemType, keyNumber, grants) then
 					local worldX = entity.x + startX
 					local worldY = entity.y + startY
 
@@ -904,7 +908,14 @@ function gameScene.loadTriggers()
 		if cf.usedTrigger then
 			goto continue
 		end
-		
+
+		-- spawnConditions: per-run render gate (same as items). nil/empty = allowed.
+		-- The trigger's conditionalScripts (which dialog to show) are still evaluated
+		-- later on interaction; this only gates whether the trigger is created at all.
+		if not Conditions.met(cf.spawnConditions or cf.SpawnConditions) then
+			goto continue
+		end
+
 		local trigger = {
 			iid = triggerEntity.iid,
 			x = triggerEntity.x + startX - triggerEntity.width / 2,
@@ -1005,15 +1016,13 @@ end
 
 function gameScene.update(dt)
 	-- Endgame: the player has entered the final room (full crew recruited). End the run.
-	-- NOTE: there is no CreditsScene registered in this LÖVE port (only title/game/dance/
-	-- cockpit). Transition back to title as the run-complete endpoint.
-	-- TODO: CreditsScene — swap this title transition for a real ending/credits scene.
+	-- Run complete (full roster → final room): play the end credits, then title.
 	if gameScene.pendingEndgame and not gameScene.endgameTriggered then
 		gameScene.endgameTriggered = true
 		gameScene.pendingEndgame = false
-		printDebug("🏁 Run complete — endgame")
+		printDebug("🏁 Run complete — endgame → credits")
 		if RunState then RunState.clear() end
-		sceneManager.startTransition("game", "title", "slide")
+		sceneManager.startTransition("game", "credits", "slide")
 		return
 	end
 

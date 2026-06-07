@@ -180,7 +180,7 @@ function titleScene.enter()
 		selectedAnim = titleScene.menuAnimations.selCredits,
 		bgState = "achievements",
 		action = function()
-			printDebug("Viewing credits...")
+			sceneManager.startTransition("title", "credits", "slide")
 		end
 	})
 	currentY = currentY + spacing

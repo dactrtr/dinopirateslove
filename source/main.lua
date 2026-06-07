@@ -16,6 +16,7 @@ local titleScene = require "scenes/titleScene"
 local gameScene = require "scenes/gameScene"
 local danceScene = require "scenes/DanceScene"
 local cockpitScene = require "scenes/CockpitScene"
+local creditsScene = require "scenes/CreditsScene"
 local tileMapData = require 'assets/data/tilemap'
 
 -- Procedural run-graph globals (read Config/PlayerData/tileMapData/levelsLDTK at call time).
@@ -140,14 +141,16 @@ function love.load()
 	-- Load all scenes first
 	titleScene.load()
 	gameScene.load()
+	creditsScene.load()
 
-	
+
 	-- Initialize scenes
 	sceneManager.init()
 	sceneManager.registerScene("title", titleScene)
 	sceneManager.registerScene("game", gameScene)
 	sceneManager.registerScene("dance", danceScene)
 	sceneManager.registerScene("cockpit", cockpitScene)
+	sceneManager.registerScene("credits", creditsScene)
 	sceneManager.setCurrentScene("title")
 	
 	-- Initialize gamepad support
