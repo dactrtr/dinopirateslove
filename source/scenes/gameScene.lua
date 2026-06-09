@@ -6,7 +6,6 @@ local PropItem = require 'entities.props.propItem'
 local Items = require 'entities.Items'
 local Brocorat = require 'entities.Brocorat'
 local CrewMember = require 'entities.CrewMember'
-local Door = require 'entities.Door'
 local ProcDoor = require 'entities.props.Door'
 local PortalDoor = require 'entities.props.PortalDoor'
 local WallPlug = require 'entities.props.WallPlug'
@@ -445,9 +444,11 @@ end
 -- gameScene.enter() at its midpoint (sceneManager.lua:147-148), which re-binds the
 -- node and rebuilds the room via reloadCurrentRoom — so the room is rebuilt exactly
 -- once, after the transition swaps. We set a flag so enter() takes the node path.
-function gameScene.enterPendingNode()
+-- transitionType/animationName default to a fade-to-black. Vertical entries (falling
+-- through a hole) pass the custom "animated"/"transitionFall" so only holes use it.
+function gameScene.enterPendingNode(transitionType, animationName)
 	gameScene.pendingNodeTransition = true
-	sceneManager.startTransition("game", "game", "slide")
+	sceneManager.startTransition("game", "game", transitionType or "fade", animationName)
 end
 
 function gameScene.enter()
@@ -1022,7 +1023,7 @@ function gameScene.update(dt)
 		gameScene.pendingEndgame = false
 		printDebug("🏁 Run complete — endgame → credits")
 		if RunState then RunState.clear() end
-		sceneManager.startTransition("game", "credits", "slide")
+		sceneManager.startTransition("game", "credits", "fade")
 		return
 	end
 
@@ -1502,7 +1503,7 @@ function gameScene.handleMenuAction(action)
 		-- Keep menu open so user can see the change
 		gameScene.pauseMenu:show()
 	elseif action == "title" then
-		sceneManager.startTransition("game", "title", "slide")
+		sceneManager.startTransition("game", "title", "fade")
 	elseif action == "quit" then
 		love.event.quit()
 	end

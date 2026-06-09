@@ -50,9 +50,6 @@ function Items:initialize(x, y, itemType, keyNumber, grants, world)
 
 	-- Set current animation based on type
 	self.currentAnimation = self.animations[self.type] or self.animations.keycard
-	
-	-- Sonar effect (commented out as in original)
-	-- self.sonar = FXsonar(self.x, self.y)
 end
 
 function Items:update(dt)
@@ -60,11 +57,6 @@ function Items:update(dt)
 	if self.currentAnimation then
 		self.currentAnimation:update(dt)
 	end
-	
-	-- Sonar effect (commented out)
-	-- if PlayerData.sonarActive == true then
-	-- 	self:sonar('key')
-	-- end
 end
 
 function Items:draw()
@@ -84,11 +76,6 @@ function Items:draw()
 	-- love.graphics.setColor(1, 1, 1, 1)
 end
 
-function Items:sonar(x, y)
-	-- Sonar effect (commented out)
-	-- self.sonar:activate(self.x, self.y, 'key')
-end
-
 function Items:removeAll()
 	-- Mark as collected in levelsLDTK so SaveSystem persists the state
 	if self.sourceData and self.sourceData.customFields then
@@ -101,11 +88,6 @@ function Items:removeAll()
 	end
 
 	self.removed = true
-	
-	-- Disable sonar effect (commented out)
-	-- if self.sonar then
-	-- 	self.sonar:disableFX()
-	-- end
 end
 
 function Items:getCollisionRect()

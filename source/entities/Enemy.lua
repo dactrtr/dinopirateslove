@@ -2,6 +2,7 @@
 -- Ported from Playdate to Love2D
 local Class = require 'libraries/middleclass'
 local anim8 = require 'libraries/anim8'
+local playerCollisions = require 'entities.player.collisions'
 
 local Enemy = Class('Enemy')
 
@@ -43,15 +44,6 @@ function Enemy:initialize(x, y, world, enemyType)
 		world:add(self, self.x + self.collisionOffsetX, self.y + self.collisionOffsetY, self.width, self.height)
 	end
 	
-	-- Animation setup (placeholder - customize per enemy type)
-	-- self.spritesheet = love.graphics.newImage("assets/images/enemies/" .. enemyType .. ".png")
-	-- local grid = anim8.newGrid(32, 32, self.spritesheet:getWidth(), self.spritesheet:getHeight())
-	-- self.animations = {
-	-- 	idle = anim8.newAnimation(grid('1-2', 1), 0.5),
-	-- 	walk = anim8.newAnimation(grid('3-4', 1), 0.3),
-	-- 	shine = anim8.newAnimation(grid('5-6', 1), 0.2)
-	-- }
-	-- self.currentAnimation = self.animations.idle
 end
 
 -- Returns a speed multiplier (0.25–1.0) based on the player's current battery level.
@@ -130,8 +122,7 @@ function Enemy:blindSearch(player, dt)
 	dt = dt or 1/60 -- Default to 60fps if dt not provided
 	local movementX = self.player.x <= self.x and self.x - self.moveSpeed * dt or self.x + self.moveSpeed * dt
 	local movementY = self.player.y <= self.y and self.y - self.moveSpeed * dt or self.y + self.moveSpeed * dt
-	
-	-- self.currentAnimation = self.animations.walk
+
 	self:moveCollision(movementX, movementY, self.player)
 end
 
@@ -163,8 +154,12 @@ function Enemy:moveCollision(movementX, movementY, player)
 	local newCollisionX = movementX + self.collisionOffsetX
 	local newCollisionY = movementY + self.collisionOffsetY
 	
-	-- Move with BUMP collision detection
-	local actualX, actualY, cols, length = self.world:move(self, newCollisionX, newCollisionY)
+	-- Move with BUMP collision detection. The filter is essential: without it bump
+	-- defaults to 'slide' and the enemy treats the player as a solid wall (so it
+	-- bounces off and never registers a hit). Enemy:filter returns 'cross' for the
+	-- Player → the enemy overlaps and we can run the hit logic below.
+	local actualX, actualY, cols, length = self.world:move(self, newCollisionX, newCollisionY,
+		function(item, other) return self:filter(other) end)
 	
 	-- Convert back to sprite position
 	self.x = actualX - self.collisionOffsetX
@@ -178,17 +173,12 @@ function Enemy:moveCollision(movementX, movementY, player)
 			local collideObject = collision.other
 			local collideType = collideObject.class and collideObject.class.name or "unknown"
 			
-			-- Player collision (commented out as in original)
-			-- if collideType == "Player" and self.player.isAlive then
-			-- 	PlayerData.lastEnemyTouched = {
-			-- 		type = self.enemyType,
-			-- 		id = self.id,
-			-- 		x = self.x,
-			-- 		y = self.y
-			-- 	}
-			-- 	self.player:fight()
-			-- end
-			
+			-- Player collision: run the centralized hit handler (HP drain → dance or
+			-- death, gated by canDance/threshold). Handles invincibility internally.
+			if collideType == "Player" then
+				playerCollisions.handleEnemyContact(collideObject, self)
+			end
+
 			-- Bounce effect on collision with boxes, props, or other enemies
 			if collideType == "Box" or collideType == "PropItem" or collideType == "Enemy" then
 				

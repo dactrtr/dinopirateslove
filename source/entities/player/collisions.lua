@@ -151,21 +151,9 @@ end
 -- Side-effect and logic handling
 function collisions.resolve(player, other)
 	if other.class and (other.class.name == "Enemy" or other.class.name == "Brocorat") then
-		local enemy = other
-		PlayerData.lastEnemyTouched.type = "Brocorat"
-		PlayerData.lastEnemyTouched.id = enemy.id
-		PlayerData.lastEnemyTouched.x = enemy.x
-		PlayerData.lastEnemyTouched.y = enemy.y
-		
-		if not player.isInvincible then
-			PlayerData.healthPoints = math.max(0, PlayerData.healthPoints - (enemy.damage or 1))
-			printDebug("💥 Player hit! HP:", PlayerData.healthPoints)
-			if PlayerData.healthPoints < (PlayerData.danceThresholdHP or 5) then
-				collisions.fight(player)
-			else
-				collisions.startInvincibility(player, (Config and Config.Invincibility and Config.Invincibility.duration) or 1000)
-			end
-		end
+		-- Centralized so the enemy-side collision (Enemy:moveCollision) and the
+		-- player-side collision (here) both run identical hit/dance/death logic.
+		collisions.handleEnemyContact(player, other)
 
 	elseif other.class and other.class.name == "CrewMember" then
 		-- Tiny mode: just set as current trigger
@@ -314,7 +302,13 @@ function collisions.startVerticalRun(player, entryRole)
 	PlayerData.lastDoorCross = nil
 	PlayerData.returningInPlace = false
 	RunState.startRun(entryRole)
-	gameScene.enterPendingNode()
+	-- Falling through a hole uses the custom fall animation; everything else
+	-- (tube/rise, doors, portals) uses the default fade-to-black.
+	if entryRole == "startdown" then
+		gameScene.enterPendingNode("animated", "transitionFall")
+	else
+		gameScene.enterPendingNode()
+	end
 	return true
 end
 
@@ -351,7 +345,74 @@ function collisions.fight(player)
 	PlayerData.playerExit.x = PlayerData.x
 	PlayerData.playerExit.y = PlayerData.y
 	printDebug("⚔️ fight() → transitioning to DanceScene")
-	sceneManager.startTransition("game", "dance", "slide")
+	sceneManager.startTransition("game", "dance", "fade")
+end
+
+-- Centralized enemy-contact handler. Called from BOTH directions:
+--   • player walks into an enemy  → collisions.resolve()
+--   • enemy walks into the player → Enemy:moveCollision()
+-- Faithful to the Playdate original: the rhythm Dance is a last-stand mechanic,
+-- gated behind the canDance skill and a low-HP threshold. Without the skill,
+-- enemies drain HP to death → DeadScene.
+function collisions.handleEnemyContact(player, enemy)
+	if player.isInvincible then return end
+
+	PlayerData.lastEnemyTouched.type = enemy.enemyType or "Brocorat"
+	PlayerData.lastEnemyTouched.id   = enemy.id
+	PlayerData.lastEnemyTouched.x    = enemy.x
+	PlayerData.lastEnemyTouched.y    = enemy.y
+
+	PlayerData.healthPoints = math.max(0, PlayerData.healthPoints - (enemy.damage or 1))
+
+	-- canDance is granted by the floor-4 Notes pickup (grabNotes → PlayerData.skills).
+	local canDance = PlayerData.skills and PlayerData.skills.canDance
+	enemyLog(string.format("contact id=%s dmg=%d → HP=%d  canDance=%s thr=%d",
+		tostring(enemy.id), (enemy.damage or 1), PlayerData.healthPoints,
+		tostring(canDance and true or false), (PlayerData.danceThresholdHP or 1)))
+	if canDance and PlayerData.healthPoints < (PlayerData.danceThresholdHP or 1) then
+		-- Near death and able to dance: enter the rhythm battle instead of dying.
+		enemyLog("→ DANCE (fight)")
+		collisions.fight(player)
+	elseif PlayerData.healthPoints <= 0 then
+		-- No dance skill (or threshold not reached): drained to death → game over.
+		PlayerData.healthPoints = 0
+		enemyLog("→ DEAD (caught)")
+		collisions.dead(player, "caught")
+	else
+		enemyLog("→ knockback + invincibility")
+		collisions.startInvincibility(player, (Config and Config.Invincibility and Config.Invincibility.duration) or 1000)
+		collisions.applyKnockback(player, enemy.x, enemy.y)
+	end
+end
+
+-- Push the player away from an enemy hit (ported from Player:applyKnockback).
+function collisions.applyKnockback(player, enemyX, enemyY)
+	local k = (Config and Config.Player and Config.Player.knockbackDistance) or 2
+	local dx, dy = 0, 0
+	if player.x ~= enemyX then dx = (player.x > enemyX) and k or -k end
+	if player.y ~= enemyY then dy = (player.y > enemyY) and k or -k end
+	if dx == 0 and dy == 0 then return end
+
+	if player.world and player.world:hasItem(player) then
+		local newCX = player.x + dx + (player.collisionOffsetX or 0)
+		local newCY = player.y + dy + (player.collisionOffsetY or 0)
+		local ax, ay = player.world:move(player, newCX, newCY, function() return 'slide' end)
+		player.x = ax - (player.collisionOffsetX or 0)
+		player.y = ay - (player.collisionOffsetY or 0)
+	else
+		player.x = player.x + dx
+		player.y = player.y + dy
+	end
+end
+
+-- Player death → game-over screen. Sets the cause shown by DeadScene.
+function collisions.dead(player, cause)
+	PlayerData.deathCause = cause or "caught"
+	PlayerData.isGaming = false
+	if player then player.isInvincible = true end  -- block further hits during transition
+	local sceneManager = require 'sceneManager'
+	printDebug("☠️ dead(" .. tostring(cause) .. ") → DeadScene")
+	sceneManager.startTransition("game", "dead", "fade")
 end
 
 function collisions.startSliding(player, direction)

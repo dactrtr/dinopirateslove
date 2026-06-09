@@ -125,7 +125,7 @@ function titleScene.enter()
 					-- Resume in place: honour the saved player position instead of a
 					-- door spawn (computeSpawn skips repositioning when this is set).
 					PlayerData.returningInPlace = true
-					sceneManager.startTransition("title", "game", "animated", "transitionFall")
+					sceneManager.startTransition("title", "game", "fade")
 				end
 			end
 		})
@@ -166,8 +166,9 @@ function titleScene.enter()
 			-- Without this, RunState still points at the last room from a prior play
 			-- and gameScene.enter() reuses it instead of starting over.
 			PlayerData.runCount = 1
+			PlayerData.deathCause = nil
 			if RunState then RunState.startRun() end
-			sceneManager.startTransition("title", "game", "animated", "transitionFall")
+			sceneManager.startTransition("title", "game", "fade")
 		end
 	})
 	currentY = currentY + spacing
@@ -180,7 +181,7 @@ function titleScene.enter()
 		selectedAnim = titleScene.menuAnimations.selCredits,
 		bgState = "achievements",
 		action = function()
-			sceneManager.startTransition("title", "credits", "slide")
+			sceneManager.startTransition("title", "credits", "fade")
 		end
 	})
 	currentY = currentY + spacing
@@ -196,7 +197,7 @@ function titleScene.enter()
 			action = function()
 				PlayerData.playerSpawn.x = 200
 				PlayerData.playerSpawn.y = 200
-				sceneManager.startTransition("title", "game", "animated", "transitionFall")
+				sceneManager.startTransition("title", "game", "fade")
 			end
 		})
 		currentY = currentY + spacing

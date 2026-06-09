@@ -302,11 +302,13 @@ function danceScene.checkDanceResults()
         PlayerData.amountDances = (PlayerData.amountDances or 0) + 1
         PlayerData.playerSpawn.x = PlayerData.playerExit.x
         PlayerData.playerSpawn.y = PlayerData.playerExit.y
-        sceneManager.startTransition("dance", "game", "slide")
+        sceneManager.startTransition("dance", "game", "fade")
 
     elseif state.condition == "lose" then
         state.condition = nil
-        sceneManager.startTransition("dance", "title", "slide")
+        -- Losing the fight = the enemy caught you → game over.
+        PlayerData.deathCause = "caught"
+        sceneManager.startTransition("dance", "dead", "fade")
     end
 end
 

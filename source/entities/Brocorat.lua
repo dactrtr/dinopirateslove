@@ -89,10 +89,18 @@ function Brocorat:search(player, dt)
 		   (player.y >= self.y - effectiveSight) and
 		   (player.y <= self.y + effectiveSight) then
 			-- Mark as moving, animation will be set in update()
+			if not self._chasing then
+				enemyLog("id=" .. tostring(self.id) .. " sees player → chasing")
+				self._chasing = true
+			end
 			self.isMoving = true
 			self:blindSearch(player, dt)
 		else
 			-- Player out of range, set idle
+			if self._chasing then
+				enemyLog("id=" .. tostring(self.id) .. " lost player → idle")
+				self._chasing = false
+			end
 			self.isMoving = false
 		end
 	else

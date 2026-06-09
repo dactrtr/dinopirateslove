@@ -103,7 +103,7 @@ end
 local function toTitle()
     if isDone then return end
     isDone = true
-    sceneManager.startTransition("credits", "title", "slide")
+    sceneManager.startTransition("credits", "title", "fade")
 end
 
 function creditsScene.update(dt)

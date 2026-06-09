@@ -1,9 +1,18 @@
 local moonshine = require "libraries/moonshine"
 local CRTDebugMenu = require 'entities.UI.CRTDebugMenu'
-DEBUG = true -- Set to false to disable debug prints
+DEBUG = false -- Set to true to re-enable all the general debug prints
 function printDebug(...)
 	if DEBUG then
 		print(...)
+	end
+end
+
+-- Enemy-only debug channel. Always prints (independent of DEBUG) so we can trace
+-- enemy behavior on an otherwise-clean console. Set ENEMY_DEBUG = false to mute.
+ENEMY_DEBUG = true
+function enemyLog(...)
+	if ENEMY_DEBUG then
+		print("🦖", ...)
 	end
 end
 -- Config must load before everything else (other modules read it at load time)
@@ -17,6 +26,7 @@ local gameScene = require "scenes/gameScene"
 local danceScene = require "scenes/DanceScene"
 local cockpitScene = require "scenes/CockpitScene"
 local creditsScene = require "scenes/CreditsScene"
+local deadScene = require "scenes/DeadScene"
 local tileMapData = require 'assets/data/tilemap'
 
 -- Procedural run-graph globals (read Config/PlayerData/tileMapData/levelsLDTK at call time).
@@ -46,7 +56,7 @@ local ControllerConfig = require 'assets.data.ControllerConfig'
 
 -- Set DEBUG_CONTROLLER = true to print button/axis info when a gamepad is connected.
 -- Useful for finding raw button indices for a new controller.
-DEBUG_CONTROLLER = true
+DEBUG_CONTROLLER = false
 
 -- Global variables
 crt_effect = nil -- Made global for settings menu access
@@ -142,6 +152,7 @@ function love.load()
 	titleScene.load()
 	gameScene.load()
 	creditsScene.load()
+	deadScene.load()
 
 
 	-- Initialize scenes
@@ -151,6 +162,7 @@ function love.load()
 	sceneManager.registerScene("dance", danceScene)
 	sceneManager.registerScene("cockpit", cockpitScene)
 	sceneManager.registerScene("credits", creditsScene)
+	sceneManager.registerScene("dead", deadScene)
 	sceneManager.setCurrentScene("title")
 	
 	-- Initialize gamepad support
@@ -275,17 +287,6 @@ function handleGamepadInput(dt)
 	local cc       = ControllerConfig
 	local js       = activeJoystick
 	local deadzone = cc.getDeadzone(js)
-
-	-- Live diagnostic: print any axis that moves past the deadzone so you can see
-	-- which physical axis the right stick is actually on for this controller.
-	if DEBUG_CONTROLLER then
-		for i = 1, js:getAxisCount() do
-			local v = js:getAxis(i)
-			if math.abs(v) > deadzone then
-				print(string.format("   axis[%d] = %.2f", i, v))
-			end
-		end
-	end
 
 	local leftX = cc.getAxis(js, "horizontal")
 	local leftY = cc.getAxis(js, "vertical")

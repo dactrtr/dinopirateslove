@@ -38,7 +38,6 @@ local DefaultPlayerData = {
 	playerSize = 10 ,
 	actualPlayerSize = 10,
 	activeItem = 0,
-	sonarActive = false,
 	storyCounter = 0,
 	isActive = false, -- makes npc moves while charges the battery
 	isTalking = false,
