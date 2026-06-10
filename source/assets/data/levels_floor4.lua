@@ -816,7 +816,7 @@ table.insert(levelsLDTK, {
     },
     play = "Enter",
     procGen = true,
-    roomRole = "Start",
+    roomRole = "Normal",
     requiredItems = {},
     requiredSkills = {},
     hasForeground = true
@@ -871,36 +871,6 @@ table.insert(levelsLDTK, {
         }
       }
     },
-    CrewMember = {
-      {
-        id = "CrewMember",
-        iid = "cda74b00-48b0-11f1-9b23-b3a8c60aae64",
-        x = 316,
-        y = 28,
-        width = 48,
-        height = 48,
-        customFields = {
-          isTaken = false,
-          crewID = "100",
-          forceSpawn = true
-        }
-      }
-    },
-    Brocorat = {
-      {
-        id = "Brocorat",
-        iid = "cfd77170-48b0-11f1-9b23-771fd6039f67",
-        x = 52,
-        y = 196,
-        width = 32,
-        height = 32,
-        customFields = {
-          speed = 0.5,
-          dead = false,
-          forceSpawn = true
-        }
-      }
-    },
     Box = {
       {
         id = "Box",
@@ -926,53 +896,6 @@ table.insert(levelsLDTK, {
           type = "box",
           nocollider = false,
           destroyed = false
-        }
-      }
-    },
-    Minifier = {
-      {
-        id = "Minifier",
-        iid = "ceb32040-48b0-11f1-9b23-63a2ae9565a1",
-        x = 348,
-        y = 196,
-        width = 32,
-        height = 32,
-        customFields = {
-          type = "minifier",
-          nocollider = false,
-          destroyed = false,
-          forceSpawn = true
-        }
-      }
-    },
-    Microwave = {
-      {
-        id = "Microwave",
-        iid = "d293b5d0-48b0-11f1-9b23-cb66995be0a6",
-        x = 116,
-        y = 60,
-        width = 32,
-        height = 32,
-        customFields = {
-          type = "microwave",
-          nocollider = false,
-          destroyed = false,
-          forceSpawn = true
-        }
-      }
-    },
-    Food = {
-      {
-        id = "Food",
-        iid = "e15e06b0-48b0-11f1-9b23-9df6d10565d4",
-        x = 204,
-        y = 196,
-        width = 32,
-        height = 32,
-        customFields = {
-          type = "food",
-          grants = "hasitemname:bool",
-          isItem = true
         }
       }
     },
@@ -1310,7 +1233,7 @@ table.insert(levelsLDTK, {
     },
     play = nil,
     procGen = true,
-    roomRole = "Normal",
+    roomRole = "Start",
     requiredItems = {},
     requiredSkills = {},
     hasForeground = true
@@ -1457,6 +1380,34 @@ table.insert(levelsLDTK, {
         customFields = {
           type = "plunger",
           isItem = true
+        }
+      }
+    },
+    Box = {
+      {
+        id = "Box",
+        iid = "521eb5f0-48b0-11f1-9b23-63dda7aa23ba",
+        x = 44,
+        y = 164,
+        width = 32,
+        height = 32,
+        customFields = {
+          type = "box",
+          nocollider = false,
+          destroyed = false
+        }
+      },
+      {
+        id = "Box",
+        iid = "54cf5700-48b0-11f1-9b23-8f3535d0631e",
+        x = 292,
+        y = 92,
+        width = 32,
+        height = 32,
+        customFields = {
+          type = "box",
+          nocollider = false,
+          destroyed = false
         }
       }
     },

@@ -208,50 +208,46 @@ function Enemy:moveCollision(movementX, movementY, player)
 	self.x = actualX - self.collisionOffsetX
 	self.y = actualY - self.collisionOffsetY
 	
-	local bounceFactor = 3
-	
+	local cfg = (Config and Config.Enemy) or {}
+	local bounceFactor          = cfg.bounceFactor or 3
+	local eatPropPowerThreshold = cfg.eatPropPowerThreshold or 25
+	local eatPropPowerPenalty   = cfg.eatPropPowerPenalty or 5
+
 	if length > 0 then
 		for index = 1, length do
 			local collision = cols[index]
 			local collideObject = collision.other
-			local collideType = collideObject.class and collideObject.class.name or "unknown"
-			
+			local cat = self:classifyOther(collideObject)
+
 			-- Player collision: run the centralized hit handler (HP drain → dance or
 			-- death, gated by canDance/threshold). Handles invincibility internally.
-			if collideType == "Player" then
+			if cat == "player" then
 				playerCollisions.handleEnemyContact(collideObject, self)
-			end
 
-			-- Bounce effect on collision with boxes, props, or other enemies
-			if collideType == "Box" or collideType == "PropItem" or collideType == "Enemy" then
-				
-				-- Enemy eating props
-				if collideType == "PropItem" and collideObject.isEdible == true then
+			-- Bounce off walls, props, and other enemies (matches Playdate, which
+			-- bounced on isa(Box)/isa(PropItem)/isa(Enemy)).
+			elseif cat == "wall" or cat == "prop" or cat == "enemy" then
+
+				-- Enemy eating edible props
+				if cat == "prop" and collideObject.isEdible == true then
 					self.powerLevel = self.powerLevel + 1
-					
-					-- Destroy edible props if power level is high enough
-					local notHole = collideObject.type ~= "holeLeft" and 
-					               collideObject.type ~= "holeRight" and 
-					               collideObject.type ~= "holeDown" and 
-					               collideObject.type ~= "holeTop"
-					
-					if notHole and self.powerLevel > 25 then
+					if self.powerLevel > eatPropPowerThreshold then
 						-- collideObject:destroyProp(collideObject.id)
-						self.powerLevel = self.powerLevel - 5
+						self.powerLevel = self.powerLevel - eatPropPowerPenalty
 					end
 				end
-				
-				-- Bounce back
+
+				-- Bounce back along the collision normal
 				local normal = collision.normal
 				if normal then
 					local bounceX = self.x + (normal.x * bounceFactor)
 					local bounceY = self.y + (normal.y * bounceFactor)
-					
+
 					-- Update position in world
 					local collisionX = bounceX + self.collisionOffsetX
 					local collisionY = bounceY + self.collisionOffsetY
 					self.world:update(self, collisionX, collisionY)
-					
+
 					self.x = bounceX
 					self.y = bounceY
 				end
@@ -260,21 +256,39 @@ function Enemy:moveCollision(movementX, movementY, player)
 	end
 end
 
--- Collision filter for BUMP (replaces Playdate's collisionResponse)
+-- Classify a collided object into a Playdate collision category. Robust where the
+-- old class.name checks were not:
+--   • walls are plain {isWall=true} tables with no `.class` (utilities.lua),
+--   • Brocorat/CrewMember are SUBCLASSES of Enemy (isInstanceOf respects that,
+--     class.name == "Enemy" never matched them),
+--   • triggers/props are identified by flags, not class names.
+function Enemy:classifyOther(other)
+	if other.isWall then return "wall" end
+	if other.isInstanceOf and other:isInstanceOf(Enemy) then return "enemy" end
+	if other.class and other.class.name == "Player" then return "player" end
+	if other.isProp then return "prop" end
+	if other.isTrigger then return "trigger" end
+	if other.class and other.class.name == "Items" then return "item" end
+	return "unknown"
+end
+
+-- Collision filter for BUMP (replaces Playdate's collisionResponse).
+-- Playdate mapping: Items/Trigger → overlap, Box/Prop/Enemy → freeze, Player → overlap.
 function Enemy:filter(other)
-	local otherType = other.class and other.class.name or "unknown"
-	
-	if otherType == "Items" or otherType == "Trigger" then
-		return 'cross' -- BUMP equivalent to 'overlap'
-	elseif otherType == "Box" or otherType == "PropItem" then
-		return 'slide' -- BUMP equivalent to 'freeze'
-	elseif otherType == "Player" then
+	local cat = self:classifyOther(other)
+
+	if cat == "item" or cat == "trigger" then
+		return 'cross' -- overlap: pass through (and don't get blocked by triggers)
+	elseif cat == "player" then
 		-- 'touch' stops the enemy at the moment of contact and STILL reports the
 		-- collision (moveCollision reads it from the returned list and runs the hit
 		-- logic). 'cross' was used before but let the enemy slide through and
 		-- overshoot, so on contact it looked like it lunged onto/past the player.
 		return 'touch'
 	else
+		-- wall / prop / enemy / unknown: solid. 'slide' keeps real-time navigation
+		-- smooth (rounds corners); the 3 px bounce is applied in moveCollision,
+		-- matching the Playdate "bounce off surfaces" feel on head-on contact.
 		return 'slide'
 	end
 end
