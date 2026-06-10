@@ -69,6 +69,14 @@ local MENU_HOLD_THRESHOLD = 0.5  -- segundos para abrir menú
 
 -- Settings table for moonshine effects
 moonshinSettings = {
+	onebit = {
+		enabled   = true,
+		dark      = {46, 46, 46},     -- "black"  -> dark grey
+		light     = {200, 166, 92},   -- "white"  -> ochre
+		threshold = 0.5,
+		dither    = true,
+		virtual   = {400, 240},
+	},
 	scanlines = {
 		width = 0.5,
 		frequency = 240,
@@ -105,7 +113,28 @@ local activeJoystick = nil
 
 function applyCRTSettings()
 	if not crt_effect then return end
-	
+
+	-- 1-bit Playdate-style duotone (independent of the CRT group)
+	local ob = moonshinSettings.onebit
+	if ob.enabled then
+		crt_effect.enable("onebit")
+		crt_effect.onebit.dark      = ob.dark
+		crt_effect.onebit.light     = ob.light
+		crt_effect.onebit.threshold = ob.threshold
+		crt_effect.onebit.dither    = ob.dither and 1 or 0
+		crt_effect.onebit.virtual   = ob.virtual
+	else
+		crt_effect.disable("onebit")
+	end
+
+	-- CRT group (scanlines + crt + chromasep + glow) toggled as one block,
+	-- separately from onebit.
+	if crtEnabled then
+		crt_effect.enable("scanlines", "crt", "chromasep", "glow")
+	else
+		crt_effect.disable("scanlines", "crt", "chromasep", "glow")
+	end
+
 	crt_effect.scanlines.width = moonshinSettings.scanlines.width
 	crt_effect.scanlines.frequency = moonshinSettings.scanlines.frequency
 	crt_effect.scanlines.phase = moonshinSettings.scanlines.phase
@@ -138,8 +167,11 @@ function love.load()
 	-- Calculate initial scaling
 	updateScale()
 	
-	-- Configure CRT effect with moonshine (let moonshine handle scaling)
-	crt_effect = moonshine(moonshine.effects.scanlines)
+	-- Configure CRT effect with moonshine (let moonshine handle scaling).
+	-- onebit runs FIRST so the image is reduced to the Playdate-style 2-tone
+	-- (dark grey + ochre) before scanlines/CRT/glow act on it.
+	crt_effect = moonshine(moonshine.effects.onebit)
+		.chain(moonshine.effects.scanlines)
 		.chain(moonshine.effects.crt)
 		.chain(moonshine.effects.chromasep)
 		.chain(moonshine.effects.glow)
@@ -325,7 +357,7 @@ function love.draw()
 	-- Draw scaled game
 	love.graphics.setColor(1, 1, 1, 1)
 	
-	if crtEnabled then
+	if crtEnabled or moonshinSettings.onebit.enabled then
 		crt_effect(function()
 			love.graphics.push()
 			love.graphics.translate(offsetX, offsetY)
@@ -357,6 +389,7 @@ function love.keypressed(key)
 	end
 	if Input.is(key, "toggleCRT") then
 		crtEnabled = not crtEnabled
+		applyCRTSettings()
 	elseif Input.is(key, "fullscreen") then
 		local wasFullscreen = love.window.getFullscreen()
 		love.window.setFullscreen(not wasFullscreen)

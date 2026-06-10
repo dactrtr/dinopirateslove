@@ -8,6 +8,7 @@ local cursor  = 1
 
 local DEFAULTS = {
     crtEnabled = true,
+    onebit     = { enabled=true, threshold=0.5, dither=true, dark={46,46,46}, light={200,166,92} },
     scanlines  = { opacity=0.4, thickness=0.5, frequency=240, phase=1,   width=0.5  },
     crt        = { distortionFactor=1.02, feather=0.02 },
     chromasep  = { radius=2.0, angle=0 },
@@ -15,7 +16,17 @@ local DEFAULTS = {
 }
 
 local ITEMS = {
-    { label="CRT Enabled",  type="toggle" },
+    { label="CRT Enabled",  type="toggle", toggleId="crt" },
+    { section="1-BIT (PLAYDATE)" },
+    { label="1-Bit Enabled", type="toggle", toggleId="onebit" },
+    { label="Dither",        type="toggle", toggleId="dither" },
+    { label="Threshold",  group="onebit",  key="threshold",       min=0,   max=1,    step=0.05, big=0.1  },
+    { label="Dark R",     group="onebitC", key="dark",  idx=1,    min=0,   max=255,  step=5,    big=25   },
+    { label="Dark G",     group="onebitC", key="dark",  idx=2,    min=0,   max=255,  step=5,    big=25   },
+    { label="Dark B",     group="onebitC", key="dark",  idx=3,    min=0,   max=255,  step=5,    big=25   },
+    { label="Light R",    group="onebitC", key="light", idx=1,    min=0,   max=255,  step=5,    big=25   },
+    { label="Light G",    group="onebitC", key="light", idx=2,    min=0,   max=255,  step=5,    big=25   },
+    { label="Light B",    group="onebitC", key="light", idx=3,    min=0,   max=255,  step=5,    big=25   },
     { section="SCANLINES" },
     { label="Opacity",    group="scanlines", key="opacity",         min=0,   max=1,    step=0.05, big=0.1  },
     { label="Thickness",  group="scanlines", key="thickness",       min=0,   max=5,    step=0.1,  big=0.5  },
@@ -40,13 +51,27 @@ for _, item in ipairs(ITEMS) do
 end
 
 local function getValue(item)
-    if item.type == "toggle" then return crtEnabled end
+    if item.type == "toggle" then
+        if item.toggleId == "crt"    then return crtEnabled end
+        if item.toggleId == "onebit" then return moonshinSettings.onebit.enabled end
+        if item.toggleId == "dither" then return moonshinSettings.onebit.dither end
+    end
+    if item.group == "onebitC" then
+        return moonshinSettings.onebit[item.key][item.idx]
+    end
     return moonshinSettings[item.group][item.key]
 end
 
 local function setValue(item, v)
-    if item.type == "toggle" then crtEnabled = v
-    else moonshinSettings[item.group][item.key] = v end
+    if item.type == "toggle" then
+        if     item.toggleId == "crt"    then crtEnabled = v
+        elseif item.toggleId == "onebit" then moonshinSettings.onebit.enabled = v
+        elseif item.toggleId == "dither" then moonshinSettings.onebit.dither = v end
+    elseif item.group == "onebitC" then
+        moonshinSettings.onebit[item.key][item.idx] = v
+    else
+        moonshinSettings[item.group][item.key] = v
+    end
     applyCRTSettings()
 end
 
@@ -106,7 +131,7 @@ function CRTDebugMenu.draw()
 
     -- title
     love.graphics.setColor(0.4, 0.85, 1, 1)
-    love.graphics.print("CRT DEBUG", x, y)
+    love.graphics.print("POST-FX DEBUG", x, y)
     love.graphics.setColor(0.45, 0.45, 0.55, 1)
     love.graphics.print("[N] cerrar", px + PANEL_W - PAD - 62, y)
     y = y + LINE_H
@@ -199,7 +224,14 @@ function CRTDebugMenu.keypressed(key)
         for group, params in pairs(DEFAULTS) do
             if type(params) == "table" and moonshinSettings[group] then
                 for k, v in pairs(params) do
-                    moonshinSettings[group][k] = v
+                    if type(v) == "table" then
+                        -- clone (e.g. color {r,g,b}) so live edits don't mutate DEFAULTS
+                        local copy = {}
+                        for i, c in ipairs(v) do copy[i] = c end
+                        moonshinSettings[group][k] = copy
+                    else
+                        moonshinSettings[group][k] = v
+                    end
                 end
             end
         end
@@ -217,6 +249,13 @@ function CRTDebugMenu.saveToDisk()
         "-- Guardado: " .. os.date("%Y-%m-%d %H:%M:%S"),
         "return {",
         string.format("    crtEnabled = %s,",              tostring(crtEnabled)),
+        "    onebit = {",
+        string.format("        enabled = %s,",             tostring(s.onebit.enabled)),
+        string.format("        threshold = %.4f,",          s.onebit.threshold),
+        string.format("        dither = %s,",              tostring(s.onebit.dither)),
+        string.format("        dark = {%d, %d, %d},",       s.onebit.dark[1],  s.onebit.dark[2],  s.onebit.dark[3]),
+        string.format("        light = {%d, %d, %d}",       s.onebit.light[1], s.onebit.light[2], s.onebit.light[3]),
+        "    },",
         "    scanlines = {",
         string.format("        opacity = %.4f,",            s.scanlines.opacity),
         string.format("        thickness = %.4f,",          s.scanlines.thickness),
