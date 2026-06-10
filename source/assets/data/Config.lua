@@ -53,7 +53,8 @@ Config.Player = {
     hudOffsetY       = -40,
     hudOffsetYTiny   = -17,
     triggerCheckDist        = 5,   -- px moved before re-checking triggers
-    movementFramesPerAction = 3,   -- movement frames distributed to NPCs/enemies per player move
+    movementFramesPerAction = 3,   -- movement frames distributed to enemies/crew per discrete step
+    movementStepDistance    = 3,   -- px the player must actually displace to count as one step/action
     feetOffsetY             = 12,  -- px from sprite position down to the player's feet (tile sampling / grapple landing)
     movementTokensPerAction = 5,   -- movement tokens granted to enemies/crew when a B-ability fires
     knockbackDistance       = 2,   -- px pushed on enemy hit
@@ -231,6 +232,28 @@ Config.Enemy = {
     eatPropPowerThreshold   = 25,   -- min powerLevel required for an enemy to eat an edible prop
     eatPropPowerPenalty     = 5,    -- powerLevel lost after eating a prop (cost of feeding)
     stunProcMultiplier      = 20,   -- multiplied by moveSpeed to compute stun threshold (enemy stops if below result)
+
+    damage                  = 1,    -- HP removed from the player per contact
+    knockbackDistance       = 16,   -- px the enemy is pushed back when hit by the plungerang
+
+    -- Chase tuning (Love2D port). The enemy moves in real time at a fixed fraction
+    -- of the player's own speed so the pursuit ratio stays constant regardless of
+    -- how Config.Player.speed is tuned (classic Playdate feel: only catches you if
+    -- you corner yourself or stop).
+    chaseSpeedRatio         = 0.70, -- enemy chase speed as a fraction of the player's speed
+    ldtkSpeedBaseline       = 0.5,  -- legacy Playdate px/frame value treated as 100% (LDtk `speed` customField)
+    maxStepDt               = 1/30, -- dt clamp per tick; stops a frame-hitch spike from teleporting the enemy
+
+    -- Turn-based token budget. The player feeds movementFramesPerAction frames per
+    -- step (see Config.Player.movementStepDistance); the enemy spends 1/frame while
+    -- pursuing. A SMALL cap is what makes the enemy stop almost immediately when the
+    -- player stops (cap frames = residual chase, e.g. 6 frames ≈ 0.1 s at 60 fps).
+    movementFramesCap       = 6,    -- max frames an enemy can bank (residual movement after the player stops)
+
+    -- Hole detection (holes are tiles, not bump colliders, so the enemy probes them
+    -- directly to avoid walking across gaps the player would fall into).
+    holeProbeFeetInset      = 6,    -- px up from the sprite bottom where the "feet" are sampled
+    holeProbeHalfWidth      = 8,    -- half-width of the 3-point feet sample (left / center / right)
 }
 
 -- Dance (rhythm combat)

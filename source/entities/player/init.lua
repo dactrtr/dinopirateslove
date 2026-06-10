@@ -240,6 +240,7 @@ function Player:update(dt)
 			playerAnimations.updateAnimation(self, dx, dy)
 
 			-- Move player with collision detection
+			local stepPrevX, stepPrevY = self.x, self.y
 			local cols, len = playerMovements.move(self, dx, dy, function(item, other)
 				return playerCollisions.response(self, other)
 			end)
@@ -273,9 +274,13 @@ function Player:update(dt)
 			-- Update movement state for turn-based AI
 			playerMovements.updateMovementState(self, dx, dy)
 
-			-- Distribute movement frames to all enemies after player moves
-			if self.manualMovement then
-				self:distributeMovementFrames(3) -- 3 frames per player move
+			-- Turn-based token feed: enemies/crew earn movement frames in proportion to
+			-- how far the player ACTUALLY displaced (per discrete step), not per game
+			-- frame. Pressing into a wall (no displacement) feeds nothing, and the enemy
+			-- stops shortly after the player does (bounded by Config.Enemy.movementFramesCap).
+			local moved = math.abs(self.x - stepPrevX) + math.abs(self.y - stepPrevY)
+			if moved > 0 then
+				self:distributeMovementFramesForStep(moved)
 			end
 		end
 	end
@@ -870,6 +875,22 @@ function Player:updateDash()
 	elseif self.dashDistanceTraveled >= self.dashMaxDistance then
 		self.isDashing = false
 		self:idle()
+	end
+end
+
+-- Turn-based contract from the Playdate port, translated to real time: accumulate
+-- the player's displacement and emit one "action" (movementFramesPerAction frames
+-- handed to every enemy/crew) per movementStepDistance pixels moved. The enemy's
+-- movement budget therefore mirrors the player's actual displacement instead of the
+-- frame rate, so it tracks you while you move and freezes when you stop.
+function Player:distributeMovementFramesForStep(distance)
+	local cfg = (Config and Config.Player) or {}
+	local stepDist  = cfg.movementStepDistance    or 3
+	local perAction = cfg.movementFramesPerAction  or 3
+	self.stepAccumulator = (self.stepAccumulator or 0) + distance
+	while self.stepAccumulator >= stepDist do
+		self.stepAccumulator = self.stepAccumulator - stepDist
+		self:distributeMovementFrames(perAction)
 	end
 end
 

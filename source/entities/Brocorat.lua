@@ -24,9 +24,11 @@ function Brocorat:initialize(x, y, moveSpeed, zIndex, player, id, world)
 	-- yourself or stop). The LDtk `speed` customField (0.5) is a legacy Playdate
 	-- px/frame value; we treat it as a relative scalar where 0.5 == 100% baseline,
 	-- so per-enemy variation in the level data still works.
+	local cfg = (Config and Config.Enemy) or {}
 	local playerSpeedPxS = (PlayerData.speed or 1.7) * 60
-	local relSpeed = (moveSpeed and moveSpeed > 0) and (moveSpeed / 0.5) or 1
-	self.initialSpeed = playerSpeedPxS * 0.70 * relSpeed
+	local baseline = cfg.ldtkSpeedBaseline or 0.5
+	local relSpeed = (moveSpeed and moveSpeed > 0) and (moveSpeed / baseline) or 1
+	self.initialSpeed = playerSpeedPxS * (cfg.chaseSpeedRatio or 0.70) * relSpeed
 	self.moveSpeed = self.initialSpeed
 	self.stunProc = self.moveSpeed * 20 -- if speed is near 0 the enemy doesn't move
 	self.damage   = (Config and Config.Enemy and Config.Enemy.damage) or 1
@@ -38,7 +40,7 @@ function Brocorat:initialize(x, y, moveSpeed, zIndex, player, id, world)
 	-- Turn-based token budget (initialized explicitly; also set in Enemy base but repeated here
 	-- to survive the sync block below which re-uses the Enemy.initialize values)
 	self.movementFrames    = 0
-	self.maxMovementFrames = 90
+	self.maxMovementFrames = (Config and Config.Enemy and Config.Enemy.movementFramesCap) or 6
 
 	-- Performance: frame counter for throttling AI (runs every 3 frames)
 	self.updateFrameCounter = math.random(0, 2)

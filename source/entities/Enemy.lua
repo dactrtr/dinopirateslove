@@ -27,9 +27,10 @@ function Enemy:initialize(x, y, world, enemyType)
 	self.moveSpeed = self.initialSpeed
 	self.viewRange = 100
 
-	-- Turn-based token budget
+	-- Turn-based token budget. The cap is small on purpose: it bounds how long the
+	-- enemy keeps moving after the player stops feeding it frames (see Config).
 	self.movementFrames    = 0
-	self.maxMovementFrames = 90
+	self.maxMovementFrames = (Config and Config.Enemy and Config.Enemy.movementFramesCap) or 6
 
 	-- Enemy properties
 	self.powerLevel = 0
@@ -130,9 +131,12 @@ function Enemy:isOverHole(spriteX, spriteY)
 	local startY = VIRTUAL_HEIGHT / 2 - (gameScene.mapHeight * tileSize) / 2
 
 	-- Sample the lower-center of the 32×32 sprite (the "feet").
+	local cfg = (Config and Config.Enemy) or {}
+	local inset = cfg.holeProbeFeetInset or 6
+	local half  = cfg.holeProbeHalfWidth or 8
 	local feetX = spriteX + (self.spriteWidth  or 32) / 2
-	local feetY = spriteY + (self.spriteHeight or 32) - 6
-	for _, dx in ipairs({ -8, 0, 8 }) do
+	local feetY = spriteY + (self.spriteHeight or 32) - inset
+	for _, dx in ipairs({ -half, 0, half }) do
 		local tileId = utilities.getTileUnderPlayer(gameScene.tileMapData, tileSize, feetX + dx, feetY, startX, startY)
 		if tileId and utilities.HOLE_TILE_IDS[tileId] then
 			return true
@@ -148,8 +152,9 @@ function Enemy:blindSearch(player, dt)
 	self.player = player
 	-- Clamp dt so a frame hitch (e.g. the big delta right after a scene transition
 	-- or room load) can't multiply into a huge step and teleport the enemy onto the
-	-- player. Capped at 1/30 s → at most moveSpeed/30 px in a single tick.
-	dt = math.min(dt or 1/60, 1/30)
+	-- player. Capped at Config.Enemy.maxStepDt → at most moveSpeed*maxStepDt px/tick.
+	local maxStepDt = (Config and Config.Enemy and Config.Enemy.maxStepDt) or 1/30
+	dt = math.min(dt or 1/60, maxStepDt)
 
 	local step = self.moveSpeed * dt
 	local targetX = self.player.x <= self.x and self.x - step or self.x + step

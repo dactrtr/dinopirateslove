@@ -279,6 +279,19 @@ table.insert(levelsLDTK, {
           DoorsConnection = "Down",
           KeyNumber = nil
         }
+      },
+      {
+        id = "Doors",
+        iid = "5b7f4760-48b0-11f1-8344-5388973b6c72",
+        x = 396,
+        y = 216,
+        width = 8,
+        height = 16,
+        customFields = {
+          NeedsKey = false,
+          DoorsConnection = "Right",
+          KeyNumber = nil
+        }
       }
     }
   }
@@ -504,6 +517,19 @@ table.insert(levelsLDTK, {
           DoorsConnection = "Down",
           KeyNumber = nil
         }
+      },
+      {
+        id = "Doors",
+        iid = "49b942b0-48b0-11f1-8344-c3ad89410636",
+        x = 4,
+        y = 216,
+        width = 8,
+        height = 16,
+        customFields = {
+          NeedsKey = false,
+          DoorsConnection = "Left",
+          KeyNumber = nil
+        }
       }
     },
     PortalDoors = {
@@ -560,6 +586,51 @@ table.insert(levelsLDTK, {
     hasForeground = true
   },
   entities = {
+    Minifier = {
+      {
+        id = "Minifier",
+        iid = "2925e110-48b0-11f1-8344-6fb57014178b",
+        x = 332,
+        y = 204,
+        width = 32,
+        height = 32,
+        customFields = {
+          type = "minifier",
+          nocollider = false,
+          destroyed = false,
+          forceSpawn = true
+        }
+      },
+      {
+        id = "Minifier",
+        iid = "324d52f0-48b0-11f1-8344-29cd947bea73",
+        x = 348,
+        y = 44,
+        width = 32,
+        height = 32,
+        customFields = {
+          type = "minifier",
+          nocollider = false,
+          destroyed = false,
+          forceSpawn = true
+        }
+      }
+    },
+    Food = {
+      {
+        id = "Food",
+        iid = "2eaba5b0-48b0-11f1-8344-1b3639a78649",
+        x = 284,
+        y = 36,
+        width = 32,
+        height = 32,
+        customFields = {
+          type = "food",
+          grants = "hasitemname:bool",
+          isItem = true
+        }
+      }
+    },
     Doors = {
       {
         id = "Doors",
@@ -800,6 +871,36 @@ table.insert(levelsLDTK, {
         }
       }
     },
+    CrewMember = {
+      {
+        id = "CrewMember",
+        iid = "cda74b00-48b0-11f1-9b23-b3a8c60aae64",
+        x = 316,
+        y = 28,
+        width = 48,
+        height = 48,
+        customFields = {
+          isTaken = false,
+          crewID = "100",
+          forceSpawn = true
+        }
+      }
+    },
+    Brocorat = {
+      {
+        id = "Brocorat",
+        iid = "cfd77170-48b0-11f1-9b23-771fd6039f67",
+        x = 52,
+        y = 196,
+        width = 32,
+        height = 32,
+        customFields = {
+          speed = 0.5,
+          dead = false,
+          forceSpawn = true
+        }
+      }
+    },
     Box = {
       {
         id = "Box",
@@ -825,6 +926,53 @@ table.insert(levelsLDTK, {
           type = "box",
           nocollider = false,
           destroyed = false
+        }
+      }
+    },
+    Minifier = {
+      {
+        id = "Minifier",
+        iid = "ceb32040-48b0-11f1-9b23-63a2ae9565a1",
+        x = 348,
+        y = 196,
+        width = 32,
+        height = 32,
+        customFields = {
+          type = "minifier",
+          nocollider = false,
+          destroyed = false,
+          forceSpawn = true
+        }
+      }
+    },
+    Microwave = {
+      {
+        id = "Microwave",
+        iid = "d293b5d0-48b0-11f1-9b23-cb66995be0a6",
+        x = 116,
+        y = 60,
+        width = 32,
+        height = 32,
+        customFields = {
+          type = "microwave",
+          nocollider = false,
+          destroyed = false,
+          forceSpawn = true
+        }
+      }
+    },
+    Food = {
+      {
+        id = "Food",
+        iid = "e15e06b0-48b0-11f1-9b23-9df6d10565d4",
+        x = 204,
+        y = 196,
+        width = 32,
+        height = 32,
+        customFields = {
+          type = "food",
+          grants = "hasitemname:bool",
+          isItem = true
         }
       }
     },
@@ -1609,7 +1757,21 @@ table.insert(levelsLDTK, {
           type = "minifier",
           nocollider = false,
           destroyed = false,
-          forceSpawn = false
+          forceSpawn = true
+        }
+      },
+      {
+        id = "Minifier",
+        iid = "71aef380-48b0-11f1-8344-bbb0d3bb79bd",
+        x = 44,
+        y = 36,
+        width = 32,
+        height = 32,
+        customFields = {
+          type = "minifier",
+          nocollider = false,
+          destroyed = false,
+          forceSpawn = true
         }
       }
     },
@@ -1743,76 +1905,6 @@ table.insert(levelsLDTK, {
     hasForeground = true
   },
   entities = {
-    Brocorat = {
-      {
-        id = "Brocorat",
-        iid = "457e3be0-48b0-11f1-98a2-892d415ae591",
-        x = 356,
-        y = 108,
-        width = 32,
-        height = 32,
-        customFields = {
-          speed = 0.5,
-          dead = false,
-          forceSpawn = false
-        }
-      },
-      {
-        id = "Brocorat",
-        iid = "45c30d10-48b0-11f1-98a2-1f8cc54b7188",
-        x = 164,
-        y = 164,
-        width = 32,
-        height = 32,
-        customFields = {
-          speed = 0.5,
-          dead = false,
-          forceSpawn = false
-        }
-      },
-      {
-        id = "Brocorat",
-        iid = "13612f10-48b0-11f1-89a8-a96cd1fd0c52",
-        x = 260,
-        y = 44,
-        width = 32,
-        height = 32,
-        customFields = {
-          speed = 0.5,
-          dead = false,
-          forceSpawn = false
-        }
-      },
-      {
-        id = "Brocorat",
-        iid = "1453a560-48b0-11f1-89a8-9ffcad6aca86",
-        x = 132,
-        y = 84,
-        width = 32,
-        height = 32,
-        customFields = {
-          speed = 0.5,
-          dead = false,
-          forceSpawn = false
-        }
-      }
-    },
-    Microwave = {
-      {
-        id = "Microwave",
-        iid = "9b3b20b0-48b0-11f1-98a2-21bdc9e81275",
-        x = 44,
-        y = 44,
-        width = 32,
-        height = 32,
-        customFields = {
-          type = "microwave",
-          nocollider = false,
-          destroyed = false,
-          forceSpawn = false
-        }
-      }
-    },
     TubeExit = {
       {
         id = "TubeExit",
@@ -1825,21 +1917,6 @@ table.insert(levelsLDTK, {
           type = "TubeExit",
           nocollider = false,
           destroyed = false
-        }
-      }
-    },
-    Food = {
-      {
-        id = "Food",
-        iid = "0fde22d0-48b0-11f1-89a8-f9bfd4710570",
-        x = 44,
-        y = 76,
-        width = 32,
-        height = 32,
-        customFields = {
-          type = "food",
-          grants = "hasitemname:bool",
-          isItem = true
         }
       }
     },
