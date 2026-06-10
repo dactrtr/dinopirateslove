@@ -100,7 +100,7 @@ function titleScene.enter()
 	titleScene.menuItems = {}
 	local startY = 120
 	local startX = 88
-	local spacing = 24 -- Adjusted spacing
+	local spacing = 20 -- matches Playdate TitleScene spacing
 	local currentY = startY
 
 	-- Check for save
@@ -232,10 +232,14 @@ function titleScene.draw()
 		love.graphics.print("ERROR: No menu items found", 20, 20)
 	end
 
+	-- Draw menu items CENTERED on (item.x, item.y). The Playdate used NobleSprite,
+	-- which anchors at the sprite centre; anim8 anchors at the top-left, so without
+	-- the (ox, oy) = half-frame offset every item is shifted +90,+28 px (the desfase).
+	local ox, oy = 180 / 2, 56 / 2
 	for i, item in ipairs(titleScene.menuItems) do
 		local anim = (i == titleScene.currentOption) and item.selectedAnim or item.defaultAnim
 		if anim then
-			anim:draw(titleScene.menuImage, item.x, item.y)
+			anim:draw(titleScene.menuImage, item.x, item.y, 0, 1, 1, ox, oy)
 		end
 	end
 

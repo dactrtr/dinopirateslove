@@ -329,12 +329,14 @@ function collisions.drainBattery(player, amount)
 	PlayerData.battery = math.max(batteryFloor, PlayerData.battery - amount)
 end
 
+-- Grant post-hit invincibility for durationMs. The countdown runs in Player:update
+-- (dt-based, like the Playdate). NOTE: we deliberately do NOT use hump's Timer.after
+-- here — it would schedule on the module's global timer, which the game loop never
+-- updates (gameScene only updates its own Timer.new() instance), so the callback
+-- never fired and the player stayed invincible forever after the first hit.
 function collisions.startInvincibility(player, durationMs)
-	player.isInvincible = true
-	local Timer = require 'libraries/hump/timer'
-	Timer.after(durationMs / 1000, function()
-		player.isInvincible = false
-	end)
+	player.isInvincible       = true
+	player.invincibilityTimer = durationMs or 1000  -- ms, counted down in Player:update
 end
 
 function collisions.fight(player)
@@ -394,11 +396,33 @@ function collisions.applyKnockback(player, enemyX, enemyY)
 	if dx == 0 and dy == 0 then return end
 
 	if player.world and player.world:hasItem(player) then
-		local newCX = player.x + dx + (player.collisionOffsetX or 0)
-		local newCY = player.y + dy + (player.collisionOffsetY or 0)
-		local ax, ay = player.world:move(player, newCX, newCY, function() return 'slide' end)
-		player.x = ax - (player.collisionOffsetX or 0)
-		player.y = ay - (player.collisionOffsetY or 0)
+		-- Apply the knockback per-axis, but ONLY if the destination doesn't land on a
+		-- wall. We can't use world:move here: the player is overlapping the enemy (it
+		-- crossed into it), and if the enemy sits against a wall the player's box also
+		-- grazes the wall — bump's slide-resolution would then eject the player out the
+		-- far side of the wall. A non-mutating queryRect at the target avoids that: if
+		-- the target overlaps a wall we simply skip that axis (no knockback rather than
+		-- a teleport). The displacement is tiny (knockbackDistance px), so skipping an
+		-- axis next to a wall is invisible.
+		local function wallAt(spriteX, spriteY)
+			local cx = spriteX + (player.collisionOffsetX or 0)
+			local cy = spriteY + (player.collisionOffsetY or 0)
+			local items, len = player.world:queryRect(cx, cy, player.width, player.height)
+			for i = 1, len do
+				local it = items[i]
+				if it ~= player and (it.isWall or (it.class and it.class.name == "Box")) then
+					return true
+				end
+			end
+			return false
+		end
+
+		local newX, newY = player.x, player.y
+		if dx ~= 0 and not wallAt(player.x + dx, player.y) then newX = player.x + dx end
+		if dy ~= 0 and not wallAt(player.x, player.y + dy) then newY = player.y + dy end
+
+		player.x, player.y = newX, newY
+		collisions.updateCollisionPosition(player)
 	else
 		player.x = player.x + dx
 		player.y = player.y + dy

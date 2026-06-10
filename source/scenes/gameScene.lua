@@ -487,6 +487,14 @@ function gameScene.enter()
 		gameScene.player:moveTo(spawnX, spawnY)
 		gameScene.player:syncDimensions()
 
+		-- Entering a new room clears any post-hit invincibility so it can't carry over.
+		-- Otherwise, getting hit (→ ~1s invincible) and then falling into a hole would
+		-- leave the player invincible on arrival, so the new room's enemy contact would
+		-- deal no damage until the timer happened to expire.
+		gameScene.player.isInvincible       = false
+		gameScene.player.invincibilityTimer = nil
+		gameScene.player.visible            = true
+
 		gameScene.reloadCurrentRoom()
 		PlayerData.x = gameScene.player.x
 		PlayerData.y = gameScene.player.y

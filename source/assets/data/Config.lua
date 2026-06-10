@@ -240,7 +240,7 @@ Config.Enemy = {
     -- of the player's own speed so the pursuit ratio stays constant regardless of
     -- how Config.Player.speed is tuned (classic Playdate feel: only catches you if
     -- you corner yourself or stop).
-    chaseSpeedRatio         = 0.70, -- enemy chase speed as a fraction of the player's speed
+    chaseSpeedRatio         = 0.15, -- enemy chase speed as a fraction of the player's speed (Playdate-faithful: enemy moved moveSpeed/3 px per frame ≈ 15% of the player)
     ldtkSpeedBaseline       = 0.5,  -- legacy Playdate px/frame value treated as 100% (LDtk `speed` customField)
     maxStepDt               = 1/30, -- dt clamp per tick; stops a frame-hitch spike from teleporting the enemy
 

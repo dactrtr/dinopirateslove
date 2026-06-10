@@ -73,8 +73,7 @@ Numeric IDs for the Playdate sprite collision system. Each sprite calls `:setGro
 | Player | `hudOffsetY` | -40 | px | playerHud Y offset (normal size) |
 | Player | `hudOffsetYTiny` | -17 | px | playerHud Y offset (tiny mode) |
 | Player | `triggerCheckDist` | 5 | px | Pixels moved before re-checking trigger overlap |
-| Player | `movementFramesPerAction` | 3 | frames | Movement frames distributed to enemies/crew per discrete step |
-| Player | `movementStepDistance` | 3 | px | Pixels the player must actually displace to count as one step/action (turn-based feed) |
+| Player | `movementFramesPerAction` | 3 | frames | Movement frames distributed to NPCs/enemies per move |
 | Player | `knockbackDistance` | 2 | px | Push distance when colliding with an enemy |
 | Player | `maxHealthPoints` | 10 | HP | Hard cap on `healthPoints`; HUD draws up to 10 dots. Enforced in `Player:update()`, the cook loop, and the DanceScene win heal |
 
@@ -262,14 +261,6 @@ See `MICROWAVE_AND_FOOD.md` for the full system.
 | Enemy | `eatPropPowerThreshold` | 25 | level | Minimum powerLevel for an enemy to eat an edible prop |
 | Enemy | `eatPropPowerPenalty` | 5 | pts | powerLevel lost after eating a prop |
 | Enemy | `stunProcMultiplier` | 20 | factor | Multiplied by moveSpeed to calculate stun threshold |
-| Enemy | `damage` | 1 | HP | HP removed from the player per contact |
-| Enemy | `knockbackDistance` | 16 | px | Push distance when the enemy is hit by the plungerang |
-| Enemy | `chaseSpeedRatio` | 0.70 | fraction | Chase speed as a fraction of the player's speed (Love2D port) |
-| Enemy | `ldtkSpeedBaseline` | 0.5 | px/frame | Legacy Playdate `speed` value treated as 100% (LDtk relative scalar) |
-| Enemy | `maxStepDt` | 1/30 | s | dt clamp per tick; prevents a frame-hitch spike from teleporting the enemy |
-| Enemy | `holeProbeFeetInset` | 6 | px | Up from the sprite bottom where the "feet" are sampled for hole detection |
-| Enemy | `holeProbeHalfWidth` | 8 | px | Half-width of the 3-point feet sample (left / center / right) |
-| Enemy | `movementFramesCap` | 6 | frames | Max banked frames; bounds residual chase after the player stops (~0.1 s) |
 
 ---
 

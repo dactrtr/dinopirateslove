@@ -26,8 +26,11 @@ function Player:initialize(x, y, world)
 	self:syncDimensions(true) -- Pass true to skip BUMP update during init (manual add follows)
 	
 	-- Use speed from PlayerData (convert from Playdate speed to Love2D pixels/second)
-	-- Playdate speed 1.7 ~= 100 pixels/second in Love2D
-	self.speed = (PlayerData.speed or 1.7) * 60 -- Convert to pixels per second
+	-- Playdate speed 1.7 ~= 100 pixels/second in Love2D.
+	-- initialSpeed is the unmodified base; self.speed is recomputed each frame in
+	-- updateSpeedModifiers() (darkness / low-battery slowdowns, ported from Playdate).
+	self.initialSpeed = (PlayerData.speed or 1.7) * 60 -- Convert to pixels per second
+	self.speed = self.initialSpeed
 	
 	-- BUMP physics - use collision dimensions and offset position
 	self.world = world
@@ -168,7 +171,52 @@ function Player:getObjectsInRadius(radius)
 end
 
 -- Update function
+-- Recalculate self.speed from self.initialSpeed based on darkness and battery,
+-- ported faithfully from the Playdate (player/state.lua):
+--   • in darkness WITHOUT a lamp        → ×speedDarkNoLamp (0.7)
+--   • in darkness WITH a lamp + low batt → ×speedLowBattery (0.8)
+--   • otherwise                          → full initialSpeed
+-- (The port also resets cleanly to full speed once out of darkness, which the
+-- original Playdate code did not always do.)
+function Player:updateSpeedModifiers()
+	local cfgP = (Config and Config.Player) or {}
+	local thresholdLow = (Config and Config.Battery and Config.Battery.thresholdLow) or 20
+	local darkNoLamp   = cfgP.speedDarkNoLamp or 0.7
+	local lowBattery   = cfgP.speedLowBattery or 0.8
+
+	local hasLamp = PlayerData.items and PlayerData.items.hasLamp
+
+	if PlayerData.isInDarkness and not hasLamp then
+		self.speed = darkNoLamp * self.initialSpeed
+	elseif PlayerData.isInDarkness and hasLamp and PlayerData.battery < thresholdLow then
+		self.speed = lowBattery * self.initialSpeed
+	else
+		self.speed = self.initialSpeed
+	end
+end
+
 function Player:update(dt)
+	-- Recompute walk speed from the current lighting/battery state (Playdate parity).
+	self:updateSpeedModifiers()
+
+	-- Post-hit invincibility countdown (ms), ported from the Playdate (state.lua).
+	-- Replaces the old hump Timer.after, whose module-global timer the game loop
+	-- never updated — so the player stayed invincible forever after one hit and
+	-- stopped taking damage. dt-based here, so it always ticks.
+	-- Only count down a timed invincibility. collisions.dead() sets isInvincible
+	-- without a timer to block hits permanently during the death transition; that
+	-- case is left untouched (no timer → no countdown, no flicker).
+	if self.isInvincible and self.invincibilityTimer then
+		self.invincibilityTimer = self.invincibilityTimer - dt * 1000
+		local flickerRate = (Config and Config.Invincibility and Config.Invincibility.flickerRate) or 100
+		self.visible = (math.floor(self.invincibilityTimer / flickerRate) % 2 == 0)
+		if self.invincibilityTimer <= 0 then
+			self.isInvincible       = false
+			self.invincibilityTimer = nil
+			self.visible            = true
+		end
+	end
+
 	-- Tick charge timer
 	if self.chargeTimer > 0 then
 		self.chargeTimer = math.max(0, self.chargeTimer - dt)
@@ -357,19 +405,24 @@ end
 -- Draw function
 function Player:draw(debug)
 	-- Draw the sprite at sprite position, using center as origin
-	-- ox, oy parameters set the origin to the center of the sprite
-	self.outlineEffect(function()
-		self.currentAnimation:draw(
-			self.spritesheet, 
-			self.x, 
-			self.y, 
-			0, -- rotation
-			1, -- scaleX
-			1, -- scaleY
-			self.spriteWidth / 2, -- ox: origin X (center)
-			self.spriteHeight / 2  -- oy: origin Y (center)
-		)
-	end)
+	-- ox, oy parameters set the origin to the center of the sprite.
+	-- Skipped while flickering (invincibility blink); self.visible is toggled in
+	-- Player:update, nil means visible. Only the player sprite blinks — the
+	-- projectile/grapple below keep drawing.
+	if self.visible ~= false then
+		self.outlineEffect(function()
+			self.currentAnimation:draw(
+				self.spritesheet,
+				self.x,
+				self.y,
+				0, -- rotation
+				1, -- scaleX
+				1, -- scaleY
+				self.spriteWidth / 2, -- ox: origin X (center)
+				self.spriteHeight / 2  -- oy: origin Y (center)
+			)
+		end)
+	end
 	
 	-- Draw projectile if active
 	if self.projectile and not self.projectile.destroyed then

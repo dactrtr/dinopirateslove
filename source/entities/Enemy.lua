@@ -237,19 +237,21 @@ function Enemy:moveCollision(movementX, movementY, player)
 					end
 				end
 
-				-- Bounce back along the collision normal
+				-- Bounce back along the collision normal. Use world:move (collision-
+				-- checked) rather than world:update (a raw teleport of the bump rect):
+				-- a teleport let the 3 px push land the enemy inside/through a wall when
+				-- bouncing in a corner. With world:move + the enemy filter, walls block
+				-- the bounce so it can never cross them.
 				local normal = collision.normal
 				if normal then
 					local bounceX = self.x + (normal.x * bounceFactor)
 					local bounceY = self.y + (normal.y * bounceFactor)
-
-					-- Update position in world
-					local collisionX = bounceX + self.collisionOffsetX
-					local collisionY = bounceY + self.collisionOffsetY
-					self.world:update(self, collisionX, collisionY)
-
-					self.x = bounceX
-					self.y = bounceY
+					local ax, ay = self.world:move(self,
+						bounceX + self.collisionOffsetX,
+						bounceY + self.collisionOffsetY,
+						function(item, other) return self:filter(other) end)
+					self.x = ax - self.collisionOffsetX
+					self.y = ay - self.collisionOffsetY
 				end
 			end
 		end
@@ -286,10 +288,10 @@ function Enemy:filter(other)
 		-- overshoot, so on contact it looked like it lunged onto/past the player.
 		return 'touch'
 	else
-		-- wall / prop / enemy / unknown: solid. 'slide' keeps real-time navigation
-		-- smooth (rounds corners); the 3 px bounce is applied in moveCollision,
-		-- matching the Playdate "bounce off surfaces" feel on head-on contact.
-		return 'slide'
+		-- wall / prop / enemy / unknown: solid. 'touch' is BUMP's equivalent of the
+		-- Playdate 'freeze' response — the enemy stops dead at contact (no sliding),
+		-- then the 3 px bounce in moveCollision pushes it back along the normal.
+		return 'touch'
 	end
 end
 
