@@ -17,11 +17,18 @@ function Brocorat:initialize(x, y, moveSpeed, zIndex, player, id, world)
 	self.powerLevel = (PlayerData.EnemiesData and PlayerData.EnemiesData.powerLevel or 0) + 
 	                  (PlayerData.sanityCounter or 0)
 	
-	-- Use speed from EnemyData table (fallback to parameter or default)
-	local baseSpeed = 40
-	self.moveSpeed = moveSpeed or baseSpeed
-	self.initialSpeed = self.moveSpeed
-	self.stunProc = self.moveSpeed * 20 -- if speed is below 0.5 the enemy doesn't move
+	-- Chase speed in px/SECOND (the movement code multiplies by dt every frame).
+	-- We derive it from the player's own speed so the pursuit ratio stays constant
+	-- regardless of how PlayerData.speed is tuned: the enemy chases at ~70% of the
+	-- player, giving the classic Playdate feel (it only catches you if you corner
+	-- yourself or stop). The LDtk `speed` customField (0.5) is a legacy Playdate
+	-- px/frame value; we treat it as a relative scalar where 0.5 == 100% baseline,
+	-- so per-enemy variation in the level data still works.
+	local playerSpeedPxS = (PlayerData.speed or 1.7) * 60
+	local relSpeed = (moveSpeed and moveSpeed > 0) and (moveSpeed / 0.5) or 1
+	self.initialSpeed = playerSpeedPxS * 0.70 * relSpeed
+	self.moveSpeed = self.initialSpeed
+	self.stunProc = self.moveSpeed * 20 -- if speed is near 0 the enemy doesn't move
 	self.damage   = (Config and Config.Enemy and Config.Enemy.damage) or 1
 	self.player = player
 	self.Zindex = zIndex or ZIndex.enemy
@@ -75,37 +82,40 @@ function Brocorat:initialize(x, y, moveSpeed, zIndex, player, id, world)
 	self.lastY = y
 end
 
+-- Decision only (no movement). Throttled to run every 3 frames from update();
+-- the actual pursuit step happens every frame so the throttle never slows the
+-- chase down — it only limits how often we re-evaluate line of sight.
 function Brocorat:search(player, dt)
-	if self.stunProc > 1 then -- stun idea
-		-- Tiny players are harder to see: halve the sight radius
-		local effectiveSight = self.sightRadius
-		if PlayerData.isTiny then
-			effectiveSight = effectiveSight * 0.5
-		end
+	if self.stunProc <= 1 then
+		-- Effectively immobile (speed near 0): stop chasing.
+		self.isMoving  = false
+		self._chasing  = false
+		return
+	end
 
-		-- Check if player is within sight radius (AABB square check)
-		if (player.x >= self.x - effectiveSight) and
-		   (player.x <= self.x + effectiveSight) and
-		   (player.y >= self.y - effectiveSight) and
-		   (player.y <= self.y + effectiveSight) then
-			-- Mark as moving, animation will be set in update()
-			if not self._chasing then
-				enemyLog("id=" .. tostring(self.id) .. " sees player → chasing")
-				self._chasing = true
-			end
-			self.isMoving = true
-			self:blindSearch(player, dt)
-		else
-			-- Player out of range, set idle
-			if self._chasing then
-				enemyLog("id=" .. tostring(self.id) .. " lost player → idle")
-				self._chasing = false
-			end
-			self.isMoving = false
+	-- Tiny players are harder to see: halve the sight radius
+	local effectiveSight = self.sightRadius
+	if PlayerData.isTiny then
+		effectiveSight = effectiveSight * 0.5
+	end
+
+	-- Check if player is within sight radius (AABB square check)
+	local inSight =
+		(player.x >= self.x - effectiveSight) and
+		(player.x <= self.x + effectiveSight) and
+		(player.y >= self.y - effectiveSight) and
+		(player.y <= self.y + effectiveSight)
+
+	if inSight then
+		if not self._chasing then
+			enemyLog("id=" .. tostring(self.id) .. " sees player → chasing")
+			self._chasing = true
 		end
 	else
-		-- Stunned, set idle
-		self.isMoving = false
+		if self._chasing then
+			enemyLog("id=" .. tostring(self.id) .. " lost player → idle")
+			self._chasing = false
+		end
 	end
 end
 
@@ -114,7 +124,7 @@ function Brocorat:empty()
 end
 
 function Brocorat:onHitByProjectile(projectile)
-	printDebug("Brocorat blinded for 60 frames!")
+	enemyLog("id=" .. tostring(self.id) .. " blinded for 60 frames")
 	self:blind(60)
 
 	-- Apply knockback away from the projectile's travel direction
@@ -152,16 +162,28 @@ function Brocorat:update(dt)
 	local prevX, prevY = self.x, self.y
 
 	-- [2] Movement frame budget (turn-based token system)
-	if self.movementFrames > 0 then
+	if self.movementFrames > 0 and self.player then
 		self.movementFrames = self.movementFrames - 1
-		-- AI throttle: only run search() every 3 frames
+		self:updateMoveSpeed()
+
+		-- AI throttle: re-evaluate line of sight only every 3 frames (cheap).
 		if self.updateFrameCounter == 0 then
-			self:updateMoveSpeed()
 			self:search(self.player, dt)
+		end
+
+		-- Pursuit step runs EVERY frame while chasing so the throttle above
+		-- doesn't divide the effective speed by 3. blindSearch moves moveSpeed*dt
+		-- toward the player, so the real speed is moveSpeed px/s (see init).
+		if self._chasing then
+			self.isMoving = true
+			self:blindSearch(self.player, dt)
+		else
+			self.isMoving = false
 		end
 	else
 		-- No frames available — go idle
 		self.isMoving = false
+		self._chasing = false
 	end
 
 	-- Check if enemy actually moved this frame

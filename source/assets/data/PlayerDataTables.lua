@@ -30,7 +30,7 @@ local DefaultPlayerData = {
 	sanityCounter = 0, -- top 100
 	mapPercent = 0, -- Percentage of map explored (0-100)
 	keys = {}, -- Table to store collected keys by number: {[1] = true, [2] = true, ...}
-	canDance = false,
+	canDance = true,
 	readyToShrink = false,
 	isMinifying = false,
 	isTiny = false,
@@ -78,7 +78,7 @@ local DefaultPlayerData = {
 	items={
 		hasLamp = false,
 		hasRadio = true,
-		hasDWatch = false,
+		hasDWatch = true,
 		hasNotes = true,
 		hasBoots = false,
 		hasPlunger = false,

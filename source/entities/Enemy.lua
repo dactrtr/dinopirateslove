@@ -114,16 +114,55 @@ function Enemy:knockback(dx, dy, distance)
 	self.y = actualY - (self.collisionOffsetY or 0)
 end
 
+-- Holes are TILE-based, not bump colliders (see propItem.lua note), so without an
+-- explicit tile probe the enemy would walk straight across any gap the player
+-- falls into. Returns true if the enemy's feet at sprite position (spriteX, spriteY)
+-- would rest on a hole tile. Mirrors Player:feetOnTile sampling. Tiny-holes are
+-- ignored: they only swallow the shrunk player, a full-size enemy walks over them.
+function Enemy:isOverHole(spriteX, spriteY)
+	local utilities    = require 'utilities'
+	local sceneManager = require 'sceneManager'
+	local gameScene    = sceneManager.getScene("game")
+	if not gameScene or not gameScene.tileMapData then return false end
+
+	local tileSize = gameScene.tileSize
+	local startX = VIRTUAL_WIDTH  / 2 - (gameScene.mapWidth  * tileSize) / 2
+	local startY = VIRTUAL_HEIGHT / 2 - (gameScene.mapHeight * tileSize) / 2
+
+	-- Sample the lower-center of the 32×32 sprite (the "feet").
+	local feetX = spriteX + (self.spriteWidth  or 32) / 2
+	local feetY = spriteY + (self.spriteHeight or 32) - 6
+	for _, dx in ipairs({ -8, 0, 8 }) do
+		local tileId = utilities.getTileUnderPlayer(gameScene.tileMapData, tileSize, feetX + dx, feetY, startX, startY)
+		if tileId and utilities.HOLE_TILE_IDS[tileId] then
+			return true
+		end
+	end
+	return false
+end
+
 -- Blind search: enemy moves towards player regardless of obstacles
 function Enemy:blindSearch(player, dt)
 	-- Expects updateMoveSpeed() to have been called this tick.
 	-- "blind" here means no obstacle avoidance, unrelated to the blindFrames status effect.
 	self.player = player
-	dt = dt or 1/60 -- Default to 60fps if dt not provided
-	local movementX = self.player.x <= self.x and self.x - self.moveSpeed * dt or self.x + self.moveSpeed * dt
-	local movementY = self.player.y <= self.y and self.y - self.moveSpeed * dt or self.y + self.moveSpeed * dt
+	-- Clamp dt so a frame hitch (e.g. the big delta right after a scene transition
+	-- or room load) can't multiply into a huge step and teleport the enemy onto the
+	-- player. Capped at 1/30 s → at most moveSpeed/30 px in a single tick.
+	dt = math.min(dt or 1/60, 1/30)
 
-	self:moveCollision(movementX, movementY, self.player)
+	local step = self.moveSpeed * dt
+	local targetX = self.player.x <= self.x and self.x - step or self.x + step
+	local targetY = self.player.y <= self.y and self.y - step or self.y + step
+
+	-- Block any axis whose step would carry the enemy over a hole tile (gaps act
+	-- like walls for enemies). Checked per-axis so it can still slide along an edge.
+	local finalX = self:isOverHole(targetX, self.y) and self.x or targetX
+	local finalY = self:isOverHole(self.x, targetY) and self.y or targetY
+
+	if finalX ~= self.x or finalY ~= self.y then
+		self:moveCollision(finalX, finalY, self.player)
+	end
 end
 
 -- Lineal search: enemy only moves when aligned with player (horizontal or vertical)
@@ -154,10 +193,9 @@ function Enemy:moveCollision(movementX, movementY, player)
 	local newCollisionX = movementX + self.collisionOffsetX
 	local newCollisionY = movementY + self.collisionOffsetY
 	
-	-- Move with BUMP collision detection. The filter is essential: without it bump
-	-- defaults to 'slide' and the enemy treats the player as a solid wall (so it
-	-- bounces off and never registers a hit). Enemy:filter returns 'cross' for the
-	-- Player → the enemy overlaps and we can run the hit logic below.
+	-- Move with BUMP collision detection. Enemy:filter returns 'touch' for the
+	-- Player: the enemy stops exactly at contact (no overshoot/lunge) and the
+	-- collision is still reported in the list below so the hit logic runs.
 	local actualX, actualY, cols, length = self.world:move(self, newCollisionX, newCollisionY,
 		function(item, other) return self:filter(other) end)
 	
@@ -226,7 +264,11 @@ function Enemy:filter(other)
 	elseif otherType == "Box" or otherType == "PropItem" then
 		return 'slide' -- BUMP equivalent to 'freeze'
 	elseif otherType == "Player" then
-		return 'cross' -- BUMP equivalent to 'overlap'
+		-- 'touch' stops the enemy at the moment of contact and STILL reports the
+		-- collision (moveCollision reads it from the returned list and runs the hit
+		-- logic). 'cross' was used before but let the enemy slide through and
+		-- overshoot, so on contact it looked like it lunged onto/past the player.
+		return 'touch'
 	else
 		return 'slide'
 	end
