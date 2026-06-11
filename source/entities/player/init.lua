@@ -530,8 +530,10 @@ function Player:handleCrankInput(delta)
 	-- The player must press A (startMinifying) to begin transforming.
 	if PlayerData.readyToShrink then return end
 
-	-- Normal gameplay: clockwise (positive delta) charges battery (not while tiny)
-	if PlayerData.isGaming and not PlayerData.isTiny and delta > 0 and PlayerData.battery < 100 then
+	-- Normal gameplay: clockwise (positive delta) charges battery (not while tiny).
+	-- Blocked for a few seconds after a dark reveal (rechargeBlocked).
+	if PlayerData.isGaming and not PlayerData.isTiny and not PlayerData.rechargeBlocked
+		and delta > 0 and PlayerData.battery < 100 then
 		PlayerData.battery = math.min(100, PlayerData.battery + 3)
 		PlayerData.isActive   = true
 		PlayerData.isCharging = true
@@ -809,52 +811,191 @@ function Player:endSliding(hitWall)
 	printDebug("🛑 Player:endSliding(hitWall=" .. tostring(hitWall) .. ")")
 end
 
-local LIGHTBURST_COST     = 10      -- battery units
-local LIGHTBURST_COOLDOWN = 1.0     -- seconds
-local LIGHTBURST_DURATION = 1.0     -- seconds showLightCone stays true
 local lightburstCooldownEnd = 0
 
+-- Schedule a callback on the room timer instance (gameScene.timer), which IS
+-- ticked each frame — unlike the hump module-global Timer, which the game loop
+-- never updates (see the invincibility note above). Falls back to running the
+-- callback immediately if the timer isn't available.
+local function scheduleOnRoomTimer(seconds, fn)
+    local sceneManager = require 'sceneManager'
+    local gameScene = sceneManager.getScene("game")
+    if gameScene and gameScene.timer then
+        gameScene.timer:after(seconds, fn)
+    else
+        fn()
+    end
+end
+
+-- ── Light Burst (lamp flash) ────────────────────────────────────────────────
+-- Directional flash that blinds enemies/crew inside the light cone. Ported from
+-- the Playdate lightburst.lua. Costs battery (and optionally HP via selfDamage).
 function Player:lightBurst()
-    -- Guards
-    if not PlayerData.skills.canFlash        then return end
-    if PlayerData.activeItem ~= 1            then return end  -- lamp must be selected
-    if PlayerData.battery < LIGHTBURST_COST  then return end
-    if love.timer.getTime() < lightburstCooldownEnd then return end
+    local cfg = Config.LightBurst
+    abilityLog(string.format("lightBurst: alive=%s gaming=%s lamp=%s flash=%s cooldownOK=%s dir=%s lastDir=%s battery=%.0f",
+        tostring(self.isAlive), tostring(PlayerData.isGaming), tostring(PlayerData.items.hasLamp),
+        tostring(PlayerData.skills.canFlash), tostring(love.timer.getTime() >= lightburstCooldownEnd),
+        tostring(PlayerData.direction), tostring(PlayerData.lastDirection), PlayerData.battery))
 
-    -- Activate
-    PlayerData.battery = PlayerData.battery - LIGHTBURST_COST
+    -- Guards (the port gates gameplay with isGaming; there is no self.isAlive)
+    if PlayerData.isGaming ~= true then abilityLog("  bail: not gaming"); return end
+    if not PlayerData.items.hasLamp or not PlayerData.skills.canFlash then abilityLog("  bail: no lamp/flash"); return end
+    if love.timer.getTime() < lightburstCooldownEnd then abilityLog("  bail: cooldown"); return end
+
+    -- Directional flash. Fall back to the last faced direction so a stationary
+    -- tap still flashes (same approach the grapple/plunge use); only bail if we
+    -- have no direction at all.
+    local dir = PlayerData.direction
+    if dir == 'idle' or dir == nil or dir == '' then dir = PlayerData.lastDirection end
+    if not dir or dir == 'idle' or dir == '' then abilityLog("  bail: no direction"); return end
+
+    if PlayerData.battery < (cfg.minBattery or cfg.batteryCost) then abilityLog("  bail: low battery"); return end
+
+    -- Block the flash if its self-damage would leave the player without life.
+    local selfDamage = cfg.selfDamage or 0
+    if selfDamage > 0 and (PlayerData.healthPoints - selfDamage) < (PlayerData.danceThresholdHP or 1) then
+        printDebug("🚫 Flash blocked: not enough HP")
+        return
+    end
+
+    -- Consume battery + show the cone
+    PlayerData.battery = math.max(0, PlayerData.battery - (cfg.batteryCost or 10))
     PlayerData.showLightCone = true
-    lightburstCooldownEnd = love.timer.getTime() + LIGHTBURST_COOLDOWN
+    lightburstCooldownEnd = love.timer.getTime() + (cfg.cooldown or 1000) / 1000
 
-    -- Schedule cone off
-    local Timer = require 'libraries/hump/timer'
-    Timer.after(LIGHTBURST_DURATION, function()
+    -- Hide the cone after displayTime (on the room timer, not the global one)
+    scheduleOnRoomTimer((cfg.displayTime or 1000) / 1000, function()
         PlayerData.showLightCone = false
     end)
 
     -- Blind entities inside the cone
     local FXshadow = require 'entities.UI.FXshadow'
-    local dir = PlayerData.direction
-    if dir and dir ~= "idle" and dir ~= "" then
-        local pts = FXshadow.buildConeVertices(PlayerData.x, PlayerData.y, dir, 200, 12)
-        if pts then
-            local gameScene = require 'scenes.gameScene'
-            -- Blind enemies
-            for _, enemy in ipairs(gameScene.enemies or {}) do
-                if utilities.pointInPolygon(pts, enemy.x, enemy.y) then
-                    if enemy.blind then enemy:blind(60) end
-                end
-            end
-            -- Blind crewMembers
-            for _, cm in ipairs(gameScene.crewMembers or {}) do
-                if utilities.pointInPolygon(pts, cm.x, cm.y) then
-                    if cm.blind then cm:blind(60) end
-                end
-            end
+    local pts = FXshadow.buildConeVertices(PlayerData.x, PlayerData.y, dir,
+        cfg.coneDistance or 200, cfg.coneHeight or 12)
+    if pts then
+        local gameScene = require 'scenes.gameScene'
+        local blind = cfg.blindDuration or 60
+        for _, enemy in ipairs(gameScene.enemies or {}) do
+            if utilities.pointInPolygon(pts, enemy.x, enemy.y) and enemy.blind then enemy:blind(blind) end
+        end
+        for _, cm in ipairs(gameScene.crewMembers or {}) do
+            if utilities.pointInPolygon(pts, cm.x, cm.y) and cm.blind then cm:blind(blind) end
         end
     end
 
-    printDebug("⚡ Lightburst activated! dir=" .. tostring(PlayerData.direction))
+    -- Self-damage (ignores invincibility; lethal case already rejected above)
+    if selfDamage > 0 then
+        PlayerData.healthPoints = PlayerData.healthPoints - selfDamage
+    end
+
+    -- Tokens granted because the flash actually fired
+    self:distributeMovementTokens((Config.Player and Config.Player.movementTokensPerAction) or 5)
+
+    abilityLog("  ⚡ FLASH FIRED! dir=" .. tostring(dir))
+end
+
+-- ── Ability dispatch (B tap) ────────────────────────────────────────────────
+-- In darkness the lamp flashes; in light the plungerang fires. Mirrors the
+-- Playdate abilities.lua useAbility().
+function Player:useAbility()
+    if PlayerData.isGaming ~= true then return end
+    if self:isOnHole() then return end  -- on a hole the player may only walk
+    if PlayerData.isInDarkness then
+        self:lightBurst()
+    else
+        playerPlunge.tryActivate(self)
+    end
+end
+
+-- ── Dark Reveal (B hold + crank in darkness) ────────────────────────────────
+-- Mirrors the grapple charge model: begin on B-press, accumulate crank, resolve
+-- on B-release. A long-enough hold WITH enough crank floods the room with light
+-- (activateDarkReveal); otherwise it falls back to a quick lamp flash.
+function Player:beginDarkCharge()
+    abilityLog(string.format("beginDarkCharge: gaming=%s onHole=%s dark=%s lamp=%s flash=%s",
+        tostring(PlayerData.isGaming), tostring(self:isOnHole()),
+        tostring(PlayerData.isInDarkness), tostring(PlayerData.items.hasLamp), tostring(PlayerData.skills.canFlash)))
+    if PlayerData.isGaming ~= true then return end
+    if self:isOnHole() then return end
+    if not PlayerData.isInDarkness or not PlayerData.items.hasLamp then return end
+    if not PlayerData.skills.canFlash then return end
+    if self.isDarkCharging or self.isGrappleCharging or self.isPlunging then return end
+
+    self.isDarkCharging   = true
+    self.darkCrankAccum   = 0
+    self.darkChargeStart  = love.timer.getTime()
+    self.lastDarkCrankTime = 0   -- no crank yet → HUD only shakes once cranking starts
+    abilityLog("beginDarkCharge: STARTED charging")
+end
+
+function Player:addDarkCrankDelta(delta)
+    if not self.isDarkCharging then return end
+    if delta and delta > 0 then
+        self.darkCrankAccum = (self.darkCrankAccum or 0) + delta
+        self.lastDarkCrankTime = love.timer.getTime()  -- HUD shakes only while actively cranking
+    end
+end
+
+function Player:endDarkCharge()
+    if not self.isDarkCharging then return end
+    self.isDarkCharging = false
+
+    local dr = Config.DarkReveal
+    local holdDelay = (dr.holdDelay or 400) / 1000
+    local armed = (love.timer.getTime() - (self.darkChargeStart or 0)) >= holdDelay
+    local crankDeg = math.deg(self.darkCrankAccum or 0)
+    self.darkCrankAccum = 0
+
+    local willReveal = armed and crankDeg >= (dr.crankThreshold or 720) and PlayerData.battery >= (dr.minBattery or 80)
+    abilityLog(string.format("endDarkCharge: armed=%s crankDeg=%.0f/%d battery=%.0f/%d → %s",
+        tostring(armed), crankDeg, (dr.crankThreshold or 720), PlayerData.battery, (dr.minBattery or 80),
+        willReveal and "DARK REVEAL" or "flash"))
+
+    if self:isOnHole() then return end  -- walked onto a hole mid-charge: cancel
+
+    if willReveal then
+        self:activateDarkReveal()
+    else
+        self:lightBurst()  -- tap / insufficient charge → quick flash
+    end
+end
+
+-- Abort an in-progress dark charge without firing (blocking UI interrupted it).
+function Player:cancelDarkCharge()
+    self.isDarkCharging = false
+    self.darkCrankAccum = 0
+end
+
+function Player:activateDarkReveal()
+    local dr = Config.DarkReveal
+    local selfDamage = dr.selfDamage or 0
+
+    -- Block the reveal if its self-damage would leave the player without life.
+    if selfDamage > 0 and (PlayerData.healthPoints - selfDamage) < (PlayerData.danceThresholdHP or 1) then
+        printDebug("🚫 Dark reveal blocked: not enough HP")
+        return
+    end
+
+    PlayerData.battery         = 0
+    PlayerData.rechargeBlocked = true
+    PlayerData.showFullLight   = true
+
+    if selfDamage > 0 then
+        PlayerData.healthPoints = PlayerData.healthPoints - selfDamage
+    end
+
+    self:distributeMovementTokens((Config.Player and Config.Player.movementTokensPerAction) or 5)
+    printDebug("🌟 Dark reveal activated!")
+
+    -- After revealDuration, fade the light; then unblock recharge after another delay.
+    scheduleOnRoomTimer((dr.revealDuration or 3000) / 1000, function()
+        PlayerData.showFullLight = false
+        local FXshadow = require 'entities.UI.FXshadow'
+        FXshadow.markDirty()  -- force the darkness overlay to recompute now the reveal is over
+        scheduleOnRoomTimer((dr.rechargeBlockDuration or 3000) / 1000, function()
+            PlayerData.rechargeBlocked = false
+        end)
+    end)
 end
 
 function Player:idle()

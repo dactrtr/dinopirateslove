@@ -1134,9 +1134,9 @@ function gameScene.update(dt)
 			gameScene.interactionHUD:update(dt)
 		end
 
-		-- Update player HUD
+		-- Update player HUD (player passed so it can react to dark-charge feedback)
 		if gameScene.playerHud then
-			gameScene.playerHud:update(dt)
+			gameScene.playerHud:update(dt, gameScene.player)
 		end
 
 		-- Sanity tick (every 2s)
@@ -1372,7 +1372,13 @@ function gameScene.keypressed(key)
 			if PlayerData.isMinifying then
 				gameScene.player:finishMinifying()
 			elseif gameScene.player then
-				playerGrapple.beginCharge(gameScene.player)
+				-- In darkness the lamp drives the ability (flash / dark reveal);
+				-- in light, B charges the plungerang/grapple.
+				if PlayerData.isInDarkness then
+					gameScene.player:beginDarkCharge()
+				else
+					playerGrapple.beginCharge(gameScene.player)
+				end
 			end
 		end
 	end
@@ -1411,14 +1417,26 @@ end
 
 function gameScene.keyreleased(key)
 	if not (Input.is(key, "BButton") and gameScene.player) then return end
+	local p = gameScene.player
 	-- During a blocking UI state, cancel any in-progress charge (fire nothing) so
-	-- the player can't get stuck mid-charge. Otherwise resolve normally
-	-- (endCharge fires a grapple if armed, else a tap-plunge — works in light or dark).
-	if ComicPlayer.isActive() or PlayerData.isTalking or PlayerData.isEquiping
-		or (gameScene.pauseMenu and gameScene.pauseMenu:isVisible()) then
-		playerGrapple.cancelCharge(gameScene.player)
+	-- the player can't get stuck mid-charge.
+	local blockingUI = ComicPlayer.isActive() or PlayerData.isTalking or PlayerData.isEquiping
+		or (gameScene.pauseMenu and gameScene.pauseMenu:isVisible())
+
+	if PlayerData.isInDarkness then
+		-- Dark rooms resolve the lamp charge (reveal if armed+cranked, else flash);
+		-- they never fall through to grapple/plunge.
+		if p.isDarkCharging then
+			if blockingUI then p:cancelDarkCharge() else p:endDarkCharge() end
+		end
+		return
+	end
+
+	-- Lit rooms: endCharge fires a grapple if armed, else a tap-plunge.
+	if blockingUI then
+		playerGrapple.cancelCharge(p)
 	else
-		playerGrapple.endCharge(gameScene.player)
+		playerGrapple.endCharge(p)
 	end
 end
 
@@ -1429,24 +1447,33 @@ function gameScene.gamepadInput(input)
 		return
 	end
 
-	-- Crank via right stick → grapple charge while charging, else minifier
+	-- Crank via right stick → dark-reveal charge / grapple charge while charging,
+	-- else battery recharge (handleCrankInput).
 	local cd = Input.getCrankDelta()
 	if cd ~= 0 and gameScene.player then
-		if gameScene.player.isGrappleCharging then
+		if gameScene.player.isDarkCharging then
+			gameScene.player:addDarkCrankDelta(cd)
+		elseif gameScene.player.isGrappleCharging then
 			playerGrapple.addCrankDelta(gameScene.player, cd)
 		elseif gameScene.player.handleCrankInput then
 			gameScene.player:handleCrankInput(cd)
 		end
 	end
 
-	-- B release: resolve a grapple charge / tap-plunge regardless of menu/talk state
-	-- so the player can't get stuck mid-charge. Cancel (no fire) during blocking UI.
+	-- B release: resolve the charge regardless of menu/talk state so the player
+	-- can't get stuck mid-charge. Cancel (no fire) during blocking UI.
 	if Input.wasReleased("BButton") and gameScene.player and not PlayerData.isMinifying then
-		if PlayerData.isTalking or PlayerData.isEquiping or ComicPlayer.isActive()
-			or (gameScene.pauseMenu and gameScene.pauseMenu:isVisible()) then
-			playerGrapple.cancelCharge(gameScene.player)
+		local p = gameScene.player
+		local blockingUI = PlayerData.isTalking or PlayerData.isEquiping or ComicPlayer.isActive()
+			or (gameScene.pauseMenu and gameScene.pauseMenu:isVisible())
+		if PlayerData.isInDarkness then
+			if p.isDarkCharging then
+				if blockingUI then p:cancelDarkCharge() else p:endDarkCharge() end
+			end
+		elseif blockingUI then
+			playerGrapple.cancelCharge(p)
 		else
-			playerGrapple.endCharge(gameScene.player)
+			playerGrapple.endCharge(p)
 		end
 	end
 
@@ -1482,7 +1509,11 @@ function gameScene.gamepadInput(input)
 			if PlayerData.isMinifying then
 				gameScene.player:finishMinifying()
 			elseif gameScene.player then
-				playerGrapple.beginCharge(gameScene.player)
+				if PlayerData.isInDarkness then
+					gameScene.player:beginDarkCharge()
+				else
+					playerGrapple.beginCharge(gameScene.player)
+				end
 			end
 		end
 
@@ -1524,9 +1555,16 @@ function gameScene.drawTriggerIcons()
 		return 
 	end
 	
+	-- While charging a dark reveal, prompt the player to keep cranking.
+	if gameScene.player.isDarkCharging and gameScene.interactionHUD then
+		gameScene.interactionHUD:setState("crankClock")
+		gameScene.interactionHUD:setVisible(true)
+		return
+	end
+
 	local px, py, pw, ph = gameScene.player:getCollisionRect()
 	local items, len = gameScene.world:queryRect(px, py, pw, ph)
-	
+
 	local foundTrigger = false
 	for i = 1, len do
 		local item = items[i]
@@ -1563,7 +1601,9 @@ function gameScene.wheelmoved(x, y)
 		return
 	end
 
-	if gameScene.player and gameScene.player.isGrappleCharging then
+	if gameScene.player and gameScene.player.isDarkCharging then
+		gameScene.player:addDarkCrankDelta(y * math.rad(30))
+	elseif gameScene.player and gameScene.player.isGrappleCharging then
 		playerGrapple.addCrankDelta(gameScene.player, y * math.rad(30))
 	elseif gameScene.player and gameScene.player.handleCrankInput then
 		gameScene.player:handleCrankInput(y)

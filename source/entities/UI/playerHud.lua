@@ -56,10 +56,15 @@ function PlayerHud:initialize()
         sanity40  = anim8.newAnimation(frames(grid('2-4',2)),                  fd),
         sanity20  = anim8.newAnimation(frames(grid(5,2), grid(1,3)),           fd),
         sanity0   = anim8.newAnimation(frames(grid('2-3',3)),                  fd),
+        -- flash: shown when a dark-charge crank reaches the reveal threshold
+        -- (frames 14-15 = (4,3),(5,3) in the 5-wide grid). Faster cadence.
+        flash     = anim8.newAnimation(frames(grid(4,3), grid(5,3)),           4 / 50),
     }
 
     self.currentState = 'sanity100'
     self.currentAnim  = self.animations.sanity100
+    self.shakeX = 0
+    self.shakeY = 0
 end
 
 local function getSanityState(sanity)
@@ -72,9 +77,35 @@ local function getSanityState(sanity)
     end
 end
 
-function PlayerHud:update(dt)
+function PlayerHud:update(dt, player)
     if not PlayerData then return end
-    local state = getSanityState(PlayerData.sanity or 100)
+
+    -- Dark-charge feedback (ported from the Playdate playerHud:update):
+    --   • while ACTIVELY cranking below the reveal threshold → the HUD jitters ±2px
+    --   • once the crank reaches the threshold → it switches to the 'flash' state
+    -- "Actively cranking" = a crank tick arrived within the last CRANK_SHAKE_WINDOW
+    -- seconds (the port's crank is discrete: mouse-wheel notches / L2-R2 presses).
+    local CRANK_SHAKE_WINDOW = 0.15
+    local crankThreshold = (Config and Config.DarkReveal and Config.DarkReveal.crankThreshold) or 720
+    local charging = player and player.isDarkCharging
+    local crankDeg = charging and math.deg(player.darkCrankAccum or 0) or 0
+    local cranking = charging and (love.timer.getTime() - (player.lastDarkCrankTime or 0)) < CRANK_SHAKE_WINDOW
+
+    local state
+    if charging and crankDeg >= crankThreshold then
+        state = 'flash'
+        self.shakeX, self.shakeY = 0, 0
+    else
+        state = getSanityState(PlayerData.sanity or 100)
+        if cranking then
+            -- jitter only while a crank tick is fresh
+            self.shakeX = math.random(-2, 2)
+            self.shakeY = math.random(-2, 2)
+        else
+            self.shakeX, self.shakeY = 0, 0
+        end
+    end
+
     if state ~= self.currentState then
         self.currentState = state
         self.currentAnim  = self.animations[state]
@@ -88,8 +119,8 @@ function PlayerHud:draw(player)
     if not (PlayerData.items.hasLamp or PlayerData.items.hasBoots or PlayerData.items.hasDWatch) then return end
 
     local yOffset = PlayerData.isTiny and -22 or -36
-    local tx = math.floor(player.x)
-    local ty = math.floor(player.y + yOffset)
+    local tx = math.floor(player.x + (self.shakeX or 0))
+    local ty = math.floor(player.y + yOffset + (self.shakeY or 0))
 
     -- Sprite top-left corner
     local sx = tx - SPRITE_OX

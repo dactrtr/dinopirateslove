@@ -54,6 +54,8 @@ local DefaultPlayerData = {
 	amountDances = 0,
 	isInDarkness = false,
 	showLightCone = false,
+	showFullLight = false,    -- dark-reveal: floods the whole room with light
+	rechargeBlocked = false,  -- dark-reveal aftermath: battery can't recharge for a few seconds
 	direction = "idle",
 	lastDirection = "right",
 	lastRoom = nil,
@@ -76,7 +78,7 @@ local DefaultPlayerData = {
 		y = nil
 	},
 	items={
-		hasLamp = false,
+		hasLamp = true,
 		hasRadio = true,
 		hasDWatch = true,
 		hasNotes = true,
@@ -84,7 +86,7 @@ local DefaultPlayerData = {
 		hasPlunger = false,
 	},
 	skills ={
-		canFlash = false,
+		canFlash = true,
 		canDash = false,
 		canPlungerang = false,
 	},

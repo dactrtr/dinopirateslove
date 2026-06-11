@@ -15,6 +15,14 @@ function enemyLog(...)
 		print("🦖", ...)
 	end
 end
+
+-- TEMP: lamp ability (flash / dark reveal) trace channel. Remove once confirmed.
+ABILITY_DEBUG = true
+function abilityLog(...)
+	if ABILITY_DEBUG then
+		print("💡", ...)
+	end
+end
 -- Config must load before everything else (other modules read it at load time)
 Config = require 'assets.data.Config'
 -- Expose ZIndex globally so all existing code continues to work unchanged

@@ -200,6 +200,9 @@ end
 
 function FXshadow.draw(player, globalLightAmount)
 	if not PlayerData.isInDarkness then return end
+	-- Dark reveal: skip the darkening overlay so the whole room shows at full
+	-- brightness. markDirty() (called when the reveal ends) forces a recompute.
+	if PlayerData.showFullLight then return end
 	FXshadow.refresh(player, globalLightAmount)
 
 	-- Multiply blend with "premultiplied" alphamode (required by LÖVE 11 for multiply)

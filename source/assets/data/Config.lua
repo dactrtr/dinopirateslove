@@ -119,11 +119,24 @@ Config.Sanity = {
 -- Light Burst (lamp ability)
 Config.LightBurst = {
     batteryCost   = 10,
+    minBattery    = 10,     -- minimum battery % required to use (just enough to cover batteryCost)
     cooldown      = 1000,   -- ms
     displayTime   = 1000,   -- ms the cone stays visible
     coneDistance  = 200,    -- px forward
     coneHeight    = 12,     -- scaling factor
     blindDuration = 60,     -- frames enemies stay blinded
+    selfDamage    = 0,      -- HP the player loses each time the flash fires (0 = no self-damage)
+}
+
+-- Dark Reveal (lamp ability charged with the crank while holding B in darkness).
+-- Burns the whole battery to flood the room with light for a few seconds.
+Config.DarkReveal = {
+    minBattery            = 80,    -- minimum battery % required to activate the reveal
+    holdDelay             = 400,   -- ms holding B before the crank charge "arms" (tap < this = flash)
+    crankThreshold        = 720,   -- degrees of total crank rotation required to activate
+    revealDuration        = 3000,  -- ms the full light lasts after activation
+    rechargeBlockDuration = 3000,  -- ms recharge is blocked after the reveal ends
+    selfDamage            = 1,     -- HP the player loses each time the reveal fires (0 = no self-damage)
 }
 
 -- Projectile (plungerang)
