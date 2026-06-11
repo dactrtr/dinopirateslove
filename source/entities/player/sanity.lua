@@ -5,7 +5,10 @@
 local SanitySystem = {}
 
 local cfg = Config and Config.Sanity or {}
-local TICK_INTERVAL = cfg.tickInterval   or 2.0
+-- Config.Sanity.tickInterval is in MILLISECONDS (Playdate convention); update()
+-- accumulates dt in seconds, so convert. Without this, the tick fired every
+-- ~2000 seconds (33 min) instead of every 2s and sanity never drained.
+local TICK_INTERVAL = (cfg.tickInterval or 2000) / 1000
 local SANITY_LOSS   = cfg.lossMultiplier or 1
 
 local tickTimer = 0
@@ -26,14 +29,18 @@ end
 
 function SanitySystem.tick()
     local lastSanity = PlayerData.sanity
+    local hasLamp = PlayerData.items and PlayerData.items.hasLamp == true
+    local dark    = PlayerData.isInDarkness == true
 
-    -- ── Lower sanity: darkness + low battery ─────────────────────────────────
-    if PlayerData.isInDarkness then
-        if PlayerData.battery < (cfg.batteryThresholdLow or 20) then
-            PlayerData.sanity = PlayerData.sanity - ((cfg.lossLowBattery or 2) * SANITY_LOSS)
-        elseif PlayerData.battery < (cfg.batteryThresholdMid or 40) then
-            PlayerData.sanity = PlayerData.sanity - ((cfg.lossMidBattery or 1) * SANITY_LOSS)
-        end
+    -- ── Lower sanity (mirrors Playdate sanityCheck) ──────────────────────────
+    -- With no lamp the dark is total → drain regardless of battery; with a lamp
+    -- it depends on the charge level.
+    if dark and not hasLamp then
+        PlayerData.sanity = PlayerData.sanity - ((cfg.lossLowBattery or 2) * SANITY_LOSS)
+    elseif dark and PlayerData.battery < (cfg.batteryThresholdLow or 20) then
+        PlayerData.sanity = PlayerData.sanity - ((cfg.lossLowBattery or 2) * SANITY_LOSS)
+    elseif dark and PlayerData.battery < (cfg.batteryThresholdMid or 40) then
+        PlayerData.sanity = PlayerData.sanity - ((cfg.lossMidBattery or 1) * SANITY_LOSS)
     end
 
     -- ── Detect hitting 0 for the first time this cycle ────────────────────────
@@ -43,13 +50,16 @@ function SanitySystem.tick()
         printDebug("💀 Sanity hit 0 (count: " .. PlayerData.sanityCounter .. ")")
     end
 
-    -- ── Raise sanity: high battery OR not in darkness ─────────────────────────
-    if PlayerData.battery > (cfg.batteryThresholdHigh or 50) or not PlayerData.isInDarkness then
+    -- ── Raise sanity: in the light, or in the dark with a well-charged lamp ──
+    if (not dark) or (hasLamp and PlayerData.battery > (cfg.batteryThresholdHigh or 50)) then
         PlayerData.sanity = PlayerData.sanity + ((cfg.gainHighBattery or 2) * SANITY_LOSS)
     end
 
     -- ── Clamp 0–100 ──────────────────────────────────────────────────────────
     PlayerData.sanity = math.max(0, math.min(100, PlayerData.sanity))
+
+    if abilityLog then abilityLog(string.format("sanity tick: dark=%s lamp=%s battery=%.0f  %.0f → %.0f",
+        tostring(dark), tostring(hasLamp), PlayerData.battery or -1, lastSanity, PlayerData.sanity)) end
 end
 
 -- ── Manual focus ability (costs 20 sanity) ───────────────────────────────────

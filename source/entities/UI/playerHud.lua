@@ -107,6 +107,8 @@ function PlayerHud:update(dt, player)
     end
 
     if state ~= self.currentState then
+        if abilityLog then abilityLog(string.format("playerHud state: %s → %s (sanity=%.0f)",
+            tostring(self.currentState), tostring(state), PlayerData.sanity or -1)) end
         self.currentState = state
         self.currentAnim  = self.animations[state]
     end

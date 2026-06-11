@@ -386,6 +386,16 @@ end
 
 function love.keypressed(key)
 	if CRTDebugMenu.keypressed(key) then return end
+	-- TEMP: sanity test keys (F5 -20, F6 +20). Remove with the 💡 logging.
+	if key == "f5" then
+		PlayerData.sanity = math.max(0, (PlayerData.sanity or 100) - 20)
+		abilityLog("DEBUG sanity → " .. PlayerData.sanity)
+		return
+	elseif key == "f6" then
+		PlayerData.sanity = math.min(100, (PlayerData.sanity or 100) + 20)
+		abilityLog("DEBUG sanity → " .. PlayerData.sanity)
+		return
+	end
 	if key == "f9" then
 		-- Procedural generator self-check across a range of progress values.
 		for progress = 0, (Config.MapGen.totalCrew or 12) do
