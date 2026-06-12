@@ -16,9 +16,10 @@ local BUTTON_FRAMES = {
 }
 local EMPTY_FRAME = 8
 
-local SIZE       = 32
-local ROW_TOP_Y  = 14   -- Playdate adds at center y=30 → top-left 14
-local RECYCLE_X  = 16   -- Playdate recycles at center x<=32 → top-left 16
+local SIZE        = 32
+local ROW_TOP_Y   = 14   -- Playdate adds at center y=30 → top-left 14
+local RECYCLE_X   = 16   -- Playdate recycles at center x<=32 → top-left 16
+local MS_PER_TICK = 20   -- 1000 / 50 ticks per second
 
 local _image, _quads  -- module-level cache shared across all instances
 
@@ -55,16 +56,6 @@ function ButtonPress:movementDelay(ms)
     self.delayMs = ms
 end
 
--- Real-time stagger timer; runs from scene enter, ready screen included
--- (Playdate uses playdate.timer.performAfterDelay from scene:start()).
-function ButtonPress:updateDelay(dtMs)
-    if self.active then return end
-    self.elapsedMs = self.elapsedMs + dtMs
-    if self.elapsedMs >= self.delayMs then
-        self.active = true
-    end
-end
-
 -- Teleport without collision resolution (Playdate moveTo).
 function ButtonPress:teleportToStart()
     self.x = self.startX
@@ -87,22 +78,35 @@ function ButtonPress:hit()
     self:changeButtonSprite()
 end
 
--- One 50 Hz tick of movement. Called only while PlayerData.isDancing.
--- Playdate 'freeze': a moving button stops when it would newly contact another
--- button. Already-overlapping pairs (stacked at spawn) keep moving so they can
--- separate — blocking them would wedge every button at the spawn point.
+-- One 50 Hz tick. Runs only while PlayerData.isDancing, so the stagger delay
+-- counts battle time: buttons enter spaced 300 ms apart no matter how long the
+-- player sat on the ready screen. (Deviation from Playdate, whose real-time
+-- timers let every button activate during the ready screen and pile up.)
 function ButtonPress:tick(buttons)
-    if not self.active then return end
+    if not self.active then
+        self.elapsedMs = self.elapsedMs + MS_PER_TICK
+        if self.elapsedMs >= self.delayMs then
+            self.active = true
+        end
+        return
+    end
+
     local goalX = self.x - self.speedPerTick
+    -- 'freeze' collision: never move onto another active button. The button
+    -- ahead (smaller x) has right of way; exact stacks (same x after recycle
+    -- teleports) break the tie by spawn order (lower delayMs goes first).
     for _, other in ipairs(buttons) do
-        if other ~= self
-            and math.abs(goalX - other.x) < SIZE
-            and math.abs(self.x - other.x) >= SIZE then
-            goalX = self.x  -- freeze this tick
-            break
+        if other ~= self and other.active then
+            local ahead = other.x < self.x
+                or (other.x == self.x and other.delayMs < self.delayMs)
+            if ahead and goalX < other.x + SIZE and goalX + SIZE > other.x then
+                goalX = self.x  -- freeze this tick
+                break
+            end
         end
     end
     self.x = goalX
+
     if self.x <= RECYCLE_X then
         self:teleportToStart()
         self:changeButtonSprite()

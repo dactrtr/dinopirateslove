@@ -277,16 +277,11 @@ function danceScene.update(dt)
 
     dt = math.min(dt, 0.1)  -- cap tick debt after a hitch (window drag etc.)
 
-    -- Visual animations advance in real time (ready screen included)
+    -- Visual animations advance in real time (ready screen included).
+    -- Button stagger delays count inside ButtonPress:tick (battle time only).
     state.hitZone:update(dt)
     state.playerDance:update(dt)
     state.enemyDance:update(dt)
-
-    -- Stagger timers run in real time from enter() — Playdate starts them in
-    -- scene:start(), i.e. they elapse during the ready screen too.
-    for _, btn in ipairs(state.buttons) do
-        btn:updateDelay(dt * 1000)
-    end
 
     tickAccumulator = tickAccumulator + dt
     while tickAccumulator >= TICK do
