@@ -57,9 +57,6 @@ function SanitySystem.tick()
 
     -- ── Clamp 0–100 ──────────────────────────────────────────────────────────
     PlayerData.sanity = math.max(0, math.min(100, PlayerData.sanity))
-
-    if abilityLog then abilityLog(string.format("sanity tick: dark=%s lamp=%s battery=%.0f  %.0f → %.0f",
-        tostring(dark), tostring(hasLamp), PlayerData.battery or -1, lastSanity, PlayerData.sanity)) end
 end
 
 -- ── Manual focus ability (costs 20 sanity) ───────────────────────────────────

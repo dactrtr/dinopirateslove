@@ -15,14 +15,6 @@ function enemyLog(...)
 		print("🦖", ...)
 	end
 end
-
--- TEMP: lamp ability (flash / dark reveal) trace channel. Remove once confirmed.
-ABILITY_DEBUG = true
-function abilityLog(...)
-	if ABILITY_DEBUG then
-		print("💡", ...)
-	end
-end
 -- Config must load before everything else (other modules read it at load time)
 Config = require 'assets.data.Config'
 -- Expose ZIndex globally so all existing code continues to work unchanged
@@ -386,16 +378,6 @@ end
 
 function love.keypressed(key)
 	if CRTDebugMenu.keypressed(key) then return end
-	-- TEMP: sanity test keys (F5 -20, F6 +20). Remove with the 💡 logging.
-	if key == "f5" then
-		PlayerData.sanity = math.max(0, (PlayerData.sanity or 100) - 20)
-		abilityLog("DEBUG sanity → " .. PlayerData.sanity)
-		return
-	elseif key == "f6" then
-		PlayerData.sanity = math.min(100, (PlayerData.sanity or 100) + 20)
-		abilityLog("DEBUG sanity → " .. PlayerData.sanity)
-		return
-	end
 	if key == "f9" then
 		-- Procedural generator self-check across a range of progress values.
 		for progress = 0, (Config.MapGen.totalCrew or 12) do
@@ -431,6 +413,12 @@ function love.keypressed(key)
 		love.timer.sleep(0.02)
 		updateScale()
 		require('entities.UI.FXshadow').resize()
+	elseif key == "f5" then
+		-- Debug: jump straight into the rhythm battle (Playdate DanceScene.debugMode)
+		if sceneManager.getCurrentSceneName() ~= "dance" then
+			danceScene.debugMode = true
+			sceneManager.startTransition(sceneManager.getCurrentSceneName(), "dance", "fade")
+		end
 	end
 	-- Scenes handle their own logic
 	sceneManager.keypressed(key)

@@ -43,6 +43,7 @@ Config.Tiles = {
 -- Player movement
 Config.Player = {
     speed            = 2,
+    maxHealthPoints         = 10,  -- hard cap on healthPoints (Playdate Config.Player.maxHealthPoints)
     speedDarkNoLamp  = 0.7,   -- multiplier when in darkness without lamp
     speedLowBattery  = 0.8,   -- multiplier when battery < batteryThresholdLow with lamp
     collideRect      = {x=8,  y=24, w=30, h=24},
@@ -104,16 +105,23 @@ Config.Battery = {
     thresholdMid      = 60,    -- mid; enemies use reduced speed, crew restores movement
 }
 
--- Sanity
+-- Sanity (drains in the dark, recovers in the light). Evaluated once per tick.
 Config.Sanity = {
-    tickInterval         = 2000,  -- ms between checks
-    lossLowBattery       = 2,     -- multiplier per tick when battery < batteryThresholdLow
-    lossMidBattery       = 1,     -- multiplier per tick when battery < batteryThresholdMid
-    gainHighBattery      = 2,     -- multiplier per tick when battery > batteryThresholdHigh or not dark
-    batteryThresholdLow  = Config.Battery.thresholdLow,  -- shared with Enemy
-    batteryThresholdMid  = 40,
-    batteryThresholdHigh = 50,
-    focusCost            = 20,    -- sanity consumed by focus ability
+    -- ── Tick timing ──────────────────────────────────────────────────────────
+    tickInterval         = 2000,  -- ms between sanity ticks (2000 = every 2 seconds)
+    lossMultiplier       = 1,     -- global scale applied to every loss/gain below
+
+    -- ── Sanity change per tick (multiplied by lossMultiplier) ────────────────
+    lossLowBattery       = 2,     -- lost per tick in the dark with battery < batteryThresholdLow (or no lamp)
+    lossMidBattery       = 1,     -- lost per tick in the dark with battery < batteryThresholdMid
+    gainHighBattery      = 2,     -- gained per tick in the light, or in the dark with lamp + battery > batteryThresholdHigh
+
+    -- ── Battery thresholds that select which case applies ────────────────────
+    batteryThresholdLow  = Config.Battery.thresholdLow,  -- below this → fast drain (shared with Enemy)
+    batteryThresholdMid  = 40,    -- below this → slow drain
+    batteryThresholdHigh = 50,    -- above this → recover even in the dark (with lamp)
+
+    focusCost            = 20,    -- sanity consumed by the focus ability
 }
 
 -- Light Burst (lamp ability)

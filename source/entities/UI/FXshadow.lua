@@ -21,8 +21,55 @@ local function darkColor(t)  -- t: 0=dark, 1=white
 	       DARK_B + (1 - DARK_B) * t
 end
 
+-- Luminance of the fully-dark canvas colour (darkColor(0)); used to normalise
+-- the brightness stored in the canvas back to 0..1 inside the dither shader.
+local DARK_FLOOR = (DARK_R + DARK_G + DARK_B) / 3
+
 local shadowCanvas = nil
 local dirty = true
+
+-- Dither shader: turns the smooth brightness canvas into a 1-bit ordered-dither
+-- pattern (warm-dark dots over transparent gaps) so the darkness survives the
+-- onebit post-effect and reads like the Playdate's dithered shadow instead of a
+-- flat translucent layer. Bayer 4x4 on the virtual pixel grid (canvas is 400x240,
+-- drawn 1:1 into the game canvas, so pixel_coords == virtual pixel).
+local ditherShader = nil
+local function ensureShader()
+	if ditherShader then return end
+	ditherShader = love.graphics.newShader[[
+		extern float darkFloor;
+		extern vec3  darkTint;
+
+		float bayer4x4(vec2 p) {
+			int x = int(mod(p.x, 4.0));
+			int y = int(mod(p.y, 4.0));
+			int i = x + y * 4;
+			float m = 0.0;
+			if      (i == 0)  m = 0.0;   else if (i == 1)  m = 8.0;
+			else if (i == 2)  m = 2.0;   else if (i == 3)  m = 10.0;
+			else if (i == 4)  m = 12.0;  else if (i == 5)  m = 4.0;
+			else if (i == 6)  m = 14.0;  else if (i == 7)  m = 6.0;
+			else if (i == 8)  m = 3.0;   else if (i == 9)  m = 11.0;
+			else if (i == 10) m = 1.0;   else if (i == 11) m = 9.0;
+			else if (i == 12) m = 15.0;  else if (i == 13) m = 7.0;
+			else if (i == 14) m = 13.0;  else if (i == 15) m = 5.0;
+			return (m + 0.5) / 16.0;
+		}
+
+		vec4 effect(vec4 color, Image tex, vec2 tc, vec2 pc) {
+			vec4 px = Texel(tex, tc);
+			float lum = (px.r + px.g + px.b) / 3.0;
+			// Normalise stored brightness (darkFloor..1) → 0=dark, 1=bright.
+			float t = clamp((lum - darkFloor) / (1.0 - darkFloor), 0.0, 1.0);
+			float m = bayer4x4(floor(pc));
+			// Darker pixels (low t) fall below more Bayer thresholds → more dots.
+			if (t < m) {
+				return vec4(darkTint, 1.0);   // solid dark dot
+			}
+			return vec4(0.0, 0.0, 0.0, 0.0);  // transparent → scene shows through
+		}
+	]]
+end
 
 local prev = {
 	battery = -1, direction = "", x = -1, y = -1,
@@ -205,11 +252,16 @@ function FXshadow.draw(player, globalLightAmount)
 	if PlayerData.showFullLight then return end
 	FXshadow.refresh(player, globalLightAmount)
 
-	-- Multiply blend with "premultiplied" alphamode (required by LÖVE 11 for multiply)
-	love.graphics.setBlendMode("multiply", "premultiplied")
+	-- Dither the brightness canvas into 1-bit shadow dots (alpha blend: solid dark
+	-- dots over transparent gaps), so it matches the Playdate and the onebit pass.
+	ensureShader()
+	ditherShader:send("darkFloor", DARK_FLOOR)
+	ditherShader:send("darkTint", {DARK_R, DARK_G, DARK_B})
+	love.graphics.setShader(ditherShader)
+	love.graphics.setBlendMode("alpha")
 	love.graphics.setColor(1, 1, 1, 1)
 	love.graphics.draw(shadowCanvas, 0, 0)
-	love.graphics.setBlendMode("alpha")
+	love.graphics.setShader()
 	love.graphics.setColor(1, 1, 1, 1)
 end
 

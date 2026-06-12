@@ -832,24 +832,20 @@ end
 -- the Playdate lightburst.lua. Costs battery (and optionally HP via selfDamage).
 function Player:lightBurst()
     local cfg = Config.LightBurst
-    abilityLog(string.format("lightBurst: alive=%s gaming=%s lamp=%s flash=%s cooldownOK=%s dir=%s lastDir=%s battery=%.0f",
-        tostring(self.isAlive), tostring(PlayerData.isGaming), tostring(PlayerData.items.hasLamp),
-        tostring(PlayerData.skills.canFlash), tostring(love.timer.getTime() >= lightburstCooldownEnd),
-        tostring(PlayerData.direction), tostring(PlayerData.lastDirection), PlayerData.battery))
 
     -- Guards (the port gates gameplay with isGaming; there is no self.isAlive)
-    if PlayerData.isGaming ~= true then abilityLog("  bail: not gaming"); return end
-    if not PlayerData.items.hasLamp or not PlayerData.skills.canFlash then abilityLog("  bail: no lamp/flash"); return end
-    if love.timer.getTime() < lightburstCooldownEnd then abilityLog("  bail: cooldown"); return end
+    if PlayerData.isGaming ~= true then return end
+    if not PlayerData.items.hasLamp or not PlayerData.skills.canFlash then return end
+    if love.timer.getTime() < lightburstCooldownEnd then return end
 
     -- Directional flash. Fall back to the last faced direction so a stationary
     -- tap still flashes (same approach the grapple/plunge use); only bail if we
     -- have no direction at all.
     local dir = PlayerData.direction
     if dir == 'idle' or dir == nil or dir == '' then dir = PlayerData.lastDirection end
-    if not dir or dir == 'idle' or dir == '' then abilityLog("  bail: no direction"); return end
+    if not dir or dir == 'idle' or dir == '' then return end
 
-    if PlayerData.battery < (cfg.minBattery or cfg.batteryCost) then abilityLog("  bail: low battery"); return end
+    if PlayerData.battery < (cfg.minBattery or cfg.batteryCost) then return end
 
     -- Block the flash if its self-damage would leave the player without life.
     local selfDamage = cfg.selfDamage or 0
@@ -890,8 +886,6 @@ function Player:lightBurst()
 
     -- Tokens granted because the flash actually fired
     self:distributeMovementTokens((Config.Player and Config.Player.movementTokensPerAction) or 5)
-
-    abilityLog("  ⚡ FLASH FIRED! dir=" .. tostring(dir))
 end
 
 -- ── Ability dispatch (B tap) ────────────────────────────────────────────────
@@ -912,9 +906,6 @@ end
 -- on B-release. A long-enough hold WITH enough crank floods the room with light
 -- (activateDarkReveal); otherwise it falls back to a quick lamp flash.
 function Player:beginDarkCharge()
-    abilityLog(string.format("beginDarkCharge: gaming=%s onHole=%s dark=%s lamp=%s flash=%s",
-        tostring(PlayerData.isGaming), tostring(self:isOnHole()),
-        tostring(PlayerData.isInDarkness), tostring(PlayerData.items.hasLamp), tostring(PlayerData.skills.canFlash)))
     if PlayerData.isGaming ~= true then return end
     if self:isOnHole() then return end
     if not PlayerData.isInDarkness or not PlayerData.items.hasLamp then return end
@@ -925,7 +916,6 @@ function Player:beginDarkCharge()
     self.darkCrankAccum   = 0
     self.darkChargeStart  = love.timer.getTime()
     self.lastDarkCrankTime = 0   -- no crank yet → HUD only shakes once cranking starts
-    abilityLog("beginDarkCharge: STARTED charging")
 end
 
 function Player:addDarkCrankDelta(delta)
@@ -947,9 +937,6 @@ function Player:endDarkCharge()
     self.darkCrankAccum = 0
 
     local willReveal = armed and crankDeg >= (dr.crankThreshold or 720) and PlayerData.battery >= (dr.minBattery or 80)
-    abilityLog(string.format("endDarkCharge: armed=%s crankDeg=%.0f/%d battery=%.0f/%d → %s",
-        tostring(armed), crankDeg, (dr.crankThreshold or 720), PlayerData.battery, (dr.minBattery or 80),
-        willReveal and "DARK REVEAL" or "flash"))
 
     if self:isOnHole() then return end  -- walked onto a hole mid-charge: cancel
 

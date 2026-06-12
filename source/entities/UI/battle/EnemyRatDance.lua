@@ -10,7 +10,7 @@ local COLS    = 6
 local FRAME_W = 211
 local FRAME_H = 214
 
-local function buildAnim(g, fromFrame, toFrame, fps)
+local function buildAnim(g, fromFrame, toFrame, frameDur, onLoop)
     local quads = {}
     for n = fromFrame, toFrame do
         local col = ((n-1) % COLS) + 1
@@ -19,7 +19,7 @@ local function buildAnim(g, fromFrame, toFrame, fps)
             quads[#quads+1] = q
         end
     end
-    return anim8.newAnimation(quads, 1 / fps)
+    return anim8.newAnimation(quads, frameDur, onLoop)
 end
 
 function EnemyRatDance.new(bpm, enemyType, evolving)
@@ -28,23 +28,19 @@ function EnemyRatDance.new(bpm, enemyType, evolving)
     }, EnemyRatDance)
     self.image = love.graphics.newImage('assets/images/ui/battle/enemyDance-table-211-214.png')
     local g    = anim8.newGrid(211, 214, self.image:getWidth(), self.image:getHeight())
-    local fps  = 10
+    -- Playdate: frameDuration = bpm/2 frames → bpm/100 s; aButton/bButton are
+    -- hardcoded to 3 frames → 0.06 s
+    local frameDur = bpm / 100
     self.anims = {
-        idle        = buildAnim(g, 1,  5,  fps),
-        upAttack    = buildAnim(g, 6,  9,  fps),
-        leftAttack  = buildAnim(g, 10, 13, fps),
-        rightAttack = buildAnim(g, 14, 17, fps),
-        downAttack  = buildAnim(g, 18, 21, fps),
-        bButton     = buildAnim(g, 22, 25, fps),
-        aButton     = buildAnim(g, 26, 29, fps),
-        evolving    = buildAnim(g, 30, 33, fps),
+        idle        = buildAnim(g, 1,  5,  frameDur),
+        upAttack    = buildAnim(g, 6,  9,  frameDur, 'pauseAtEnd'),
+        leftAttack  = buildAnim(g, 10, 13, frameDur, 'pauseAtEnd'),
+        rightAttack = buildAnim(g, 14, 17, frameDur, 'pauseAtEnd'),
+        downAttack  = buildAnim(g, 18, 21, frameDur, 'pauseAtEnd'),
+        bButton     = buildAnim(g, 22, 25, 0.06,     'pauseAtEnd'),
+        aButton     = buildAnim(g, 26, 29, 0.06,     'pauseAtEnd'),
+        evolving    = buildAnim(g, 30, 33, frameDur),
     }
-
-    -- Attack animations play once then pause at last frame
-    local attackNames = {"upAttack","downAttack","leftAttack","rightAttack","bButton","aButton","evolving"}
-    for _, name in ipairs(attackNames) do
-        self.anims[name]:pauseAtEnd()
-    end
 
     self.currentAnim = self.anims.idle
     return self
@@ -63,6 +59,7 @@ function EnemyRatDance:changeAnimation(buttonKey)
     if name and self.anims[name] then
         self.currentAnim = self.anims[name]
         self.currentAnim:gotoFrame(1)
+        self.currentAnim:resume()
     end
 end
 
@@ -71,6 +68,7 @@ function EnemyRatDance:attackAnimation(buttonKey)
     if self.anims[name] then
         self.currentAnim = self.anims[name]
         self.currentAnim:gotoFrame(1)
+        self.currentAnim:resume()
     end
 end
 

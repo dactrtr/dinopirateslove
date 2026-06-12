@@ -53,15 +53,31 @@ local padBindings = {
     pause    = { "start", "back" },
 }
 
--- Dance mode: key → button label shown on screen
+-- Dance mode: raw key → internal dance button name (must match ButtonPress.buttonKey)
 Input.danceKeys = {
-    ["z"]      = "A",
-    ["return"] = "A",
-    ["x"]      = "B",
-    ["up"]     = "up",
-    ["down"]   = "down",
-    ["left"]   = "left",
-    ["right"]  = "right",
+    ["z"]      = "aButton",
+    ["return"] = "aButton",
+    ["space"]  = "aButton",
+    ["x"]      = "bButton",
+    ["lshift"] = "bButton",
+    ["up"]     = "upButton",
+    ["w"]      = "upButton",
+    ["down"]   = "downButton",
+    ["s"]      = "downButton",
+    ["left"]   = "leftButton",
+    ["a"]      = "leftButton",
+    ["right"]  = "rightButton",
+    ["d"]      = "rightButton",
+}
+
+-- Dance mode: gamepad button → internal dance button name
+Input.dancePadButtons = {
+    a       = "aButton",
+    b       = "bButton",
+    dpup    = "upButton",
+    dpdown  = "downButton",
+    dpleft  = "leftButton",
+    dpright = "rightButton",
 }
 
 -- Returns true if `key` (string from love.keypressed) is bound to `action`.

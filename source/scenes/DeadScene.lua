@@ -16,6 +16,7 @@ local deadScene = {}
 -- Death-cause → message (default falls back to "caught").
 local MESSAGES = {
 	caught = "they caught you",
+	hp     = "they caught you",  -- lost the dance battle (same text as Playdate)
 	sanity = "you lost your mind",
 	void   = "you fell into the void",
 }

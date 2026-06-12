@@ -287,6 +287,13 @@ function sceneManager.gamepadpressed(button)
 	end
 end
 
+function sceneManager.gamepadreleased(button)
+	if transition.active then return end
+	if currentScene and currentScene.gamepadreleased then
+		currentScene.gamepadreleased(button)
+	end
+end
+
 function sceneManager.wheelmoved(x, y)
 	if transition.active then
 		return

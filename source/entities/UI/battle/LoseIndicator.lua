@@ -15,7 +15,7 @@ function LoseIndicator:draw(scale)
     scale = scale or 1
     love.graphics.setColor(1, 1, 1)
     love.graphics.draw(self.image,
-        (self.x + FRAME_W/2) * scale, (self.y + FRAME_H/2) * scale,
+        self.x * scale, self.y * scale,
         0, scale, scale,
         FRAME_W/2, FRAME_H/2)
 end

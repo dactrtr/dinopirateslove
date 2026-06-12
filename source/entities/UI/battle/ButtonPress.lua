@@ -1,58 +1,53 @@
 -- entities/UI/battle/ButtonPress.lua
+-- Scrolling input prompt for the dance battle. Mirrors the Playdate original:
+-- moves a fixed amount per 50 Hz tick, freezes against other buttons, recycles
+-- instantly to the spawn point when hit or past the left edge.
 ButtonPress = {}
 ButtonPress.__index = ButtonPress
 
-local BUTTON_LABELS = {
-    aButton    = "A",
-    bButton    = "B",
-    leftButton = "◀",
-    upButton   = "▲",
-    rightButton= "▶",
-    downButton = "▼",
-}
-
--- Frame indices in button-table-32-32.png (8 frames, 1 row)
+-- Frame indices in button-table-32-32.png — same order as the Playdate sheet.
 local BUTTON_FRAMES = {
-    leftButton  = 1,
-    upButton    = 2,
-    rightButton = 3,
-    downButton  = 4,
-    aButton     = 5,
-    bButton     = 6,
+    aButton     = 1,
+    bButton     = 2,
+    leftButton  = 3,
+    upButton    = 4,
+    rightButton = 5,
+    downButton  = 6,
 }
-local EMPTY_FRAME = 7
+local EMPTY_FRAME = 8
 
-local LEFT_BOUNDARY = 16  -- recycle when left edge < 16 (Playdate: center <= 32, right edge <= 48)
+local SIZE       = 32
+local ROW_TOP_Y  = 14   -- Playdate adds at center y=30 → top-left 14
+local RECYCLE_X  = 16   -- Playdate recycles at center x<=32 → top-left 16
+
 local _image, _quads  -- module-level cache shared across all instances
 
 local function loadAssets()
     if _image then return end
     _image = love.graphics.newImage('assets/images/ui/battle/button-table-32-32.png')
     _quads = {}
-    local fw, fh = 32, 32
     local iw = _image:getWidth()
-    local nFrames = math.floor(iw / fw)
+    local nFrames = math.floor(iw / SIZE)
     for i = 1, nFrames do
-        _quads[i] = love.graphics.newQuad((i-1)*fw, 0, fw, fh, iw, fh)
+        _quads[i] = love.graphics.newQuad((i-1)*SIZE, 0, SIZE, SIZE, iw, SIZE)
     end
 end
 
-function ButtonPress.new(bpm, startX, keyProvider)
+-- startCenterX: Playdate passes startPoint+bpm as the sprite CENTER x.
+function ButtonPress.new(bpm, startCenterX, keyProvider)
     loadAssets()
     local self = setmetatable({}, ButtonPress)
-    self.keyProvider = keyProvider
-    self.startX      = startX or 400
-    self.buttonKey   = keyProvider()
-    self.label       = BUTTON_LABELS[self.buttonKey] or "?"
-    self.x           = startX or 400
-    self.y           = 40
-    self.width       = 32
-    self.height      = 32
-    self.isHit       = false
-    self.hitTimer    = 0
-    self.delayMs     = 0
-    self.elapsedMs   = 0
-    self.speed       = bpm * 25 / 3  -- matches Playdate: 0.5*bpm/3 px/frame at 50fps
+    self.keyProvider  = keyProvider
+    self.startX       = startCenterX - SIZE/2  -- stored as top-left
+    self.x            = self.startX
+    self.y            = ROW_TOP_Y
+    self.width        = SIZE
+    self.height       = SIZE
+    self.buttonKey    = keyProvider()
+    self.active       = false
+    self.delayMs      = 0
+    self.elapsedMs    = 0
+    self.speedPerTick = 0.5 * bpm / 3  -- px per 50 Hz tick (Playdate px/frame)
     return self
 end
 
@@ -60,54 +55,70 @@ function ButtonPress:movementDelay(ms)
     self.delayMs = ms
 end
 
-function ButtonPress:recycle()
-    self.x         = self.startX
-    self.buttonKey = self.keyProvider()
-    self.label     = BUTTON_LABELS[self.buttonKey] or "?"
-    self.isHit     = false
-    self.hitTimer  = 0
-    self.elapsedMs = self.delayMs
+-- Real-time stagger timer; runs from scene enter, ready screen included
+-- (Playdate uses playdate.timer.performAfterDelay from scene:start()).
+function ButtonPress:updateDelay(dtMs)
+    if self.active then return end
+    self.elapsedMs = self.elapsedMs + dtMs
+    if self.elapsedMs >= self.delayMs then
+        self.active = true
+    end
 end
 
+-- Teleport without collision resolution (Playdate moveTo).
+function ButtonPress:teleportToStart()
+    self.x = self.startX
+end
+
+-- Edge recycle: repeat-until-different (Playdate changeButtonSprite).
+function ButtonPress:changeButtonSprite()
+    local newKey
+    repeat
+        newKey = self.keyProvider()
+    until newKey ~= self.buttonKey
+    self.buttonKey = newKey
+end
+
+-- Hit recycle: instant; key set to "empty" first, so the re-roll may legally
+-- repeat the key that was just hit (faithful to the Playdate original).
 function ButtonPress:hit()
-    self.isHit    = true
-    self.hitTimer = 0.15
+    self.buttonKey = "empty"
+    self:teleportToStart()
+    self:changeButtonSprite()
 end
 
-function ButtonPress:update(dt)
-    if self.hitTimer > 0 then
-        self.hitTimer = self.hitTimer - dt
-        if self.hitTimer <= 0 then
-            self:recycle()
+-- One 50 Hz tick of movement. Called only while PlayerData.isDancing.
+-- Playdate 'freeze': a moving button stops when it would newly contact another
+-- button. Already-overlapping pairs (stacked at spawn) keep moving so they can
+-- separate — blocking them would wedge every button at the spawn point.
+function ButtonPress:tick(buttons)
+    if not self.active then return end
+    local goalX = self.x - self.speedPerTick
+    for _, other in ipairs(buttons) do
+        if other ~= self
+            and math.abs(goalX - other.x) < SIZE
+            and math.abs(self.x - other.x) >= SIZE then
+            goalX = self.x  -- freeze this tick
+            break
         end
-        return
     end
-
-    if self.isHit then return end
-
-    local dtMs = dt * 1000
-    if self.elapsedMs < self.delayMs then
-        self.elapsedMs = self.elapsedMs + dtMs
-        return
-    end
-
-    self.x = self.x - self.speed * dt
-
-    if self.x < LEFT_BOUNDARY then
-        self:recycle()
+    self.x = goalX
+    if self.x <= RECYCLE_X then
+        self:teleportToStart()
+        self:changeButtonSprite()
     end
 end
 
 function ButtonPress:draw(scale)
     scale = scale or 1
-    local frameIdx = self.isHit and EMPTY_FRAME or (BUTTON_FRAMES[self.buttonKey] or 1)
+    local frameIdx = BUTTON_FRAMES[self.buttonKey] or EMPTY_FRAME
     local quad = _quads[frameIdx]
     if not quad then return end
     love.graphics.setColor(1, 1, 1)
     love.graphics.draw(_image, quad,
-        (self.x + self.width/2) * scale, (self.y + self.height/2) * scale,
+        (self.x + SIZE/2) * scale, (self.y + SIZE/2) * scale,
         0, scale, scale,
-        self.width/2, self.height/2)
+        SIZE/2, SIZE/2)
 end
 
 function ButtonPress:getBounds()
