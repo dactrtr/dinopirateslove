@@ -731,7 +731,9 @@ function Player:checkSlimeTile(direction)
 	end
 
 	if self.slideHitWall then return end
-	if PlayerData.items.hasPlunger then return end
+	-- Immunity is the run-gated canCrossSlime skill (Playdate parity). The plunger
+	-- no longer grants it, so slime stays a physics puzzle until the skill is earned.
+	if PlayerData.skills.canCrossSlime == true then return end
 
 	-- Reuse the committed direction if a slide is already in progress (survives a
 	-- one-frame onSlime() flicker at tile edges); input cannot re-steer it.

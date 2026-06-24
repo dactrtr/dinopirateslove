@@ -53,6 +53,7 @@ UI_OVERLAY_OPACITY = 0.8 -- Opacity for menu overlays and backgrounds
 -- Todos los bindings están en assets/data/InputBindings.lua
 Input = require 'assets.data.InputBindings'
 local ControllerConfig = require 'assets.data.ControllerConfig'
+local TouchControls = require 'entities.UI.TouchControls'
 
 -- Set DEBUG_CONTROLLER = true to print button/axis info when a gamepad is connected.
 -- Useful for finding raw button indices for a new controller.
@@ -180,6 +181,9 @@ function love.load()
 	applyCRTSettings()
 	CRTDebugMenu.loadFromDisk()
 
+	-- Mobile on-screen controls (auto-enabled on Android/iOS; F6 toggles for desktop testing)
+	TouchControls.load()
+
 	-- Load all scenes first
 	titleScene.load()
 	gameScene.load()
@@ -293,6 +297,7 @@ function love.resize(w, h)
 end
 
 function love.update(dt)
+	TouchControls.update(dt)   -- set touch state BEFORE Input snapshots it
 	Input.update(activeJoystick)
 	sceneManager.update(dt)
 
@@ -373,6 +378,17 @@ function love.draw()
 		love.graphics.pop()
 	end
 
+	-- Touch controls: drawn crisp on top of the CRT, in the same virtual-space
+	-- transform as the canvas blit so the overlay lines up with finger position.
+	if TouchControls.enabled then
+		love.graphics.push()
+		love.graphics.translate(offsetX, offsetY)
+		love.graphics.scale(scale, scale)
+		TouchControls.draw()
+		love.graphics.pop()
+		love.graphics.setColor(1, 1, 1, 1)
+	end
+
 	CRTDebugMenu.draw()
 end
 
@@ -419,6 +435,10 @@ function love.keypressed(key)
 			danceScene.debugMode = true
 			sceneManager.startTransition(sceneManager.getCurrentSceneName(), "dance", "fade")
 		end
+	elseif key == "f6" then
+		-- Debug: toggle the mobile touch overlay so it can be tested with the mouse
+		local on = TouchControls.toggle()
+		printDebug("📱 TouchControls " .. (on and "ON" or "OFF"))
 	end
 	-- Scenes handle their own logic
 	sceneManager.keypressed(key)
@@ -471,7 +491,13 @@ end
 function love.mousepressed(x, y, button, istouch, presses)
 	local virtualX = (x - offsetX) / scale
 	local virtualY = (y - offsetY) / scale
-	
+
+	-- Desktop testing of the touch overlay: treat the mouse as a single pointer.
+	-- (Real touch comes through love.touch* with istouch=true → handled there.)
+	if not istouch and button == 1 and TouchControls.pressed("mouse", virtualX, virtualY) then
+		return
+	end
+
 	if virtualX >= 0 and virtualX <= VIRTUAL_WIDTH and virtualY >= 0 and virtualY <= VIRTUAL_HEIGHT then
 		if sceneManager.mousepressed then
 			sceneManager.mousepressed(virtualX, virtualY, button, istouch, presses)
@@ -479,14 +505,48 @@ function love.mousepressed(x, y, button, istouch, presses)
 	end
 end
 
+function love.mousemoved(x, y, dx, dy, istouch)
+	if istouch then return end  -- touch already drives TouchControls via love.touchmoved
+	local virtualX = (x - offsetX) / scale
+	local virtualY = (y - offsetY) / scale
+	TouchControls.moved("mouse", virtualX, virtualY)
+end
+
+function love.mousereleased(x, y, button, istouch, presses)
+	if not istouch and button == 1 then
+		TouchControls.released("mouse")
+	end
+end
+
 function love.touchpressed(id, x, y, dx, dy, pressure)
 	local virtualX = (x - offsetX) / scale
 	local virtualY = (y - offsetY) / scale
-	
+
+	-- On-screen controls get first crack; if they own this pointer, don't route it.
+	if TouchControls.pressed(id, virtualX, virtualY) then return end
+
 	if virtualX >= 0 and virtualX <= VIRTUAL_WIDTH and virtualY >= 0 and virtualY <= VIRTUAL_HEIGHT then
 		if sceneManager.touchpressed then
 			sceneManager.touchpressed(id, virtualX, virtualY, dx, dy, pressure)
 		end
+	end
+end
+
+function love.touchmoved(id, x, y, dx, dy, pressure)
+	local virtualX = (x - offsetX) / scale
+	local virtualY = (y - offsetY) / scale
+	if TouchControls.moved(id, virtualX, virtualY) then return end
+	if sceneManager.touchmoved then
+		sceneManager.touchmoved(id, virtualX, virtualY, dx, dy, pressure)
+	end
+end
+
+function love.touchreleased(id, x, y, dx, dy, pressure)
+	if TouchControls.released(id) then return end
+	local virtualX = (x - offsetX) / scale
+	local virtualY = (y - offsetY) / scale
+	if sceneManager.touchreleased then
+		sceneManager.touchreleased(id, virtualX, virtualY, dx, dy, pressure)
 	end
 end
 

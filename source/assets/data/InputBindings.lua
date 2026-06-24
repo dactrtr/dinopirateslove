@@ -12,6 +12,11 @@ local Input = {}
 local prevState          = {}
 local curState           = {}
 
+-- Touch input source (set by entities/UI/TouchControls.lua on mobile). Holds
+-- action → true while an on-screen control is pressed. OR'd into isDown and
+-- folded into curState so wasPressed/wasReleased treat touch like a real button.
+local touchState         = {}
+
 -- Crank emulation via alternating L2/R2 triggers (replaces Playdate's crank
 -- rotation on gamepads). Each alternated press emits one crank "tick":
 -- R2 = + (clockwise), L2 = - (counter-clockwise). You must alternate triggers —
@@ -109,7 +114,14 @@ function Input.isDown(action)
             end
         end
     end
+    if touchState[action] then return true end
     return false
+end
+
+-- Set/clear a touch-driven action. Called by TouchControls; `isDown` is treated
+-- as truthy → held, falsy → released.
+function Input.setTouch(action, isDown)
+    touchState[action] = isDown and true or nil
 end
 
 -- Call once per love.update frame, before sceneManager.update.
@@ -126,6 +138,11 @@ function Input.update(joystick)
                 break
             end
         end
+    end
+
+    -- Touch polling (mobile on-screen controls)
+    for action, held in pairs(touchState) do
+        if held then curState[action] = true end
     end
 
     if joystick then

@@ -23,7 +23,7 @@ function Player:move(direction)
 
       -- Drain battery with DWatch while walking
       if DRAIN_BATTERY_ON_WALK and PlayerData.items.hasDWatch == true then
-        self:drainBattery(0.5)
+        self:drainBattery(Config.Battery.drainDWatchWalk)
       end
       if (direction == "left") then
         if PlayerData.items.hasLamp == true and PlayerData.isInDarkness == true and  PlayerData.isTiny == false then
@@ -63,10 +63,19 @@ function Player:move(direction)
         else
           self.animation:setState('down')
         end 
-        movementX = self.x 
+        movementX = self.x
         movementY = self.y + self.speed
       end
-      
+
+      -- Plungerang is out (lost to a crew, so the player can walk): override the walk
+      -- animation with the noLeg pose so it persists until the boomerang returns. Track the
+      -- facing on horizontal moves; vertical moves keep the last facing.
+      if self.hasProjectile == false and PlayerData.isTiny == false then
+        if direction == 'left' then self.shootDir = 'left'
+        elseif direction == 'right' then self.shootDir = 'right' end
+        self.animation:setState(self.shootDir == 'left' and 'noLegLeft' or 'noLegRight')
+      end
+
       self.uiHud:moveTo(movementX + self.playerUIX, movementY - self.playerUIY)
       
       local actualX, actualY, collisions, lenght = self:moveWithCollisions(movementX, movementY )

@@ -234,6 +234,18 @@ Config.Input = {
     crankMenuThreshold = 30,   -- degrees of crank rotation to navigate menu
 }
 
+-- In-game-menu procedural map (rendered by entities/UI/MapDrawer.lua)
+Config.Map = {
+    panel        = { x = 32, y = 18, w = 140, h = 75 }, -- rect on the menu image the map fits into
+    maxCellSize  = 8,    -- cap on per-room box size
+    cellGap      = 1,    -- gap between box and its grid cell edge
+    lineWidth    = 1,    -- connection line width
+    unvisitedAlpha = 0.35, -- alpha for unvisited boxes/edges (replaces Playdate dither)
+    secretOffset = { col = 1, row = 0 }, -- cell offset for a visited secret node off its host
+    roomColor    = { 1, 1, 1 },          -- room boxes + connection lines (white)
+    markerColor  = { 0.196, 0.184, 0.161 }, -- current-room center dot (must contrast roomColor)
+}
+
 -- Enemy AI
 Config.Enemy = {
     sightRadiusBase         = 150,  -- min 50; base detection radius stored in PlayerData.EnemiesData.sightRadius

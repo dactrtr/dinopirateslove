@@ -115,6 +115,7 @@ function grapple.beginCharge(player)
     if player:isOnHole() then return end                  -- on a hole the player may only walk
     if PlayerData.isInDarkness then return end             -- grapple is the lit-room ability
     if not PlayerData.items.hasPlunger or not PlayerData.skills.canPlungerang then return end
+    if not PlayerData.skills.canGrapple then return end  -- grappling hook requires the canGrapple skill
     if not player.hasProjectile then return end            -- lost to a CrewMember; recover first
     if PlayerData.isTiny then return end
     if player.isGrappleCharging or player.isPlunging or player.isGrapplePulling or player.isGrappling then return end

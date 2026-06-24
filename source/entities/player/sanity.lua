@@ -14,7 +14,11 @@ local SANITY_LOSS   = cfg.lossMultiplier or 1
 local tickTimer = 0
 
 function SanitySystem.reset()
-    tickTimer = 0
+    -- Playdate parity: sanityCheck() uses keyRepeatTimerWithDelay, which fires
+    -- IMMEDIATELY when the Player is created (i.e. on every room entry), then
+    -- every tickInterval. Priming the accumulator makes the first update() after
+    -- a room load apply one tick right away, matching that cadence.
+    tickTimer = TICK_INTERVAL
 end
 
 function SanitySystem.update(dt)

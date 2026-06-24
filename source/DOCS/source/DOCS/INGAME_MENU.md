@@ -3,7 +3,8 @@
 This document describes the player's in-game menu: opening and closing, what it
 displays, and the distinction between pause and the menu.
 
-The menu is **purely visual / informational**. It shows the explored map and the
+The menu is **purely visual / informational**. It shows the current run's map
+(the active procedural run graph, with visited rooms highlighted) and the
 hats of the captured crew members. There is no skill or item selection — abilities
 fire directly from the B button based on context (see `PLAYER_SYSTEMS.md` and
 `entities/player/abilities.lua`).
@@ -148,7 +149,19 @@ Hats are removed in `closeMenu()`.
 
 ## Game Map in the Menu
 
-On opening, `inGameMenu:drawMapOnMenu()` calls `MapDrawer.drawMap(menuImage)` to draw the explored map directly onto the menu image.
+On opening, `inGameMenu:drawMapOnMenu()` first resets the working buffer to the pristine menu art (`baseMenuImage:draw(0,0)`) — so repeated opens never stack ghost renders — then calls `MapDrawer.drawMap(menuImage)` to draw the **current procedural run graph** directly onto it — not a fixed floor grid.
+
+`MapDrawer` reads the grid cell `MapGenerator` assigned to each node (`node.coord = {col,row}`). The generator builds the run on a 2D grid, so every edge already connects physically adjacent cells (no overlaps, no teleport-looking links) — the map just plots those coordinates. Secret rooms also get a real grid cell next to their host (assigned by the generator), so they live inside the same grid as every other room. The only coord-less node is the revealed final room, which is placed next to a placed neighbour via its edge, nudged to the nearest free cell.
+
+It then draws, inside `Config.Map.panel`:
+
+- **Connection lines** between adjacent rooms (solid when both ends are visited, otherwise dithered).
+- **Portal links**: a dithered line from a visited secret room to its host (portals are not cardinal edges, so this is drawn separately).
+- **Current room** (`RunState.currentNodeId`): `roomColor` box with a contrasting `markerColor` center.
+- **Visited rooms** (`node.visited`): solid `roomColor` box.
+- **In-graph but not yet visited**: dithered `roomColor` box.
+
+Colors are `Config.Map.roomColor` / `markerColor`. Secret rooms and the final room are **hidden until the player visits them** (a visited secret node appears offset from its portal host). `MapDrawer.calculateMapPercent()` returns the percent of the current run visited (visited non-secret nodes / total non-secret nodes).
 
 ---
 

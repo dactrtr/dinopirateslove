@@ -122,6 +122,8 @@ function scene:enter()
 	-- transition fires in start() — calling Noble.transition here would BONK because
 	-- enter() runs at the transition midpoint (still transitioning).
 	self.pendingEndgame = (node.content and node.content.isFinal) or false
+	-- Per-node, run-scoped visited tracking for the in-game run-graph map.
+	node.visited = true
 	-- Map the template back to its levelsLDTK index so all existing levelsLDTK[room]
 	-- reads (background, tilemap, entities, door metadata) keep working unchanged.
 	room = nil
@@ -199,9 +201,8 @@ function scene:enter()
 	
 	PlayerData.actualLevel = levelsLDTK[room].customFields.level
 	PlayerData.actualRoom = levelsLDTK[room].customFields.roomNumber
-	PlayerData.actualTilemap = levelsLDTK[room].customFields.tile 
-	levelsLDTK[room].customFields.visited = true
-	
+	PlayerData.actualTilemap = levelsLDTK[room].customFields.tile
+
 	-- MARK: Floor
 	local roomBgPath = 'assets/images/rooms/floor' .. PlayerData.actualLevel
 	                   .. '/' .. levelsLDTK[room].identifier
@@ -467,6 +468,16 @@ function scene:start()
 	else
 		PlayerData.isGaming = true
 	end
+
+	-- If the door-spawn placed the player on a hole, fall now. This runs post-transition
+	-- (start, not enter) so fallBelow's own scene transition isn't swallowed mid-transition,
+	-- which would otherwise leave isFalling stuck true and silently block the fall. isFalling
+	-- is cleared first in case the per-frame check already tripped during the entry transition.
+	if PlayerData.isGaming == true and not player.isSleeping then
+		player.isFalling = false
+		player:checkHoleTile()
+		player:checkTinyHoleTile()
+	end
 end
 
 -- This runs once per frame.
@@ -625,6 +636,14 @@ scene.inputHandler = {
 			if PlayerData.isTalking == false and pendingSceneOnDialogEnd then
 				local sceneGetter = pendingSceneOnDialogEnd
 				pendingSceneOnDialogEnd = nil
+				-- Remember the player's exact spot (and current run node, untouched) so the
+				-- launched scene (e.g. Cockpit) can drop them back here on exit instead of
+				-- dumping them at the title screen.
+				if player then
+					PlayerData.playerSpawn.x = player.x
+					PlayerData.playerSpawn.y = player.y
+				end
+				PlayerData.returnToMazeFromScene = true
 				Noble.transition(sceneGetter(), 0.3, Noble.Transition.MetroNexus)
 			end
 		elseif player.currentTrigger and PlayerData.isGaming == true then
@@ -823,13 +842,13 @@ scene.inputHandler = {
 		-- only calorie effect, otherwise this per-tick burn cancels it out.
 		local isCooking = (PlayerData.isGaming == false and PlayerData.readyToCook == true)
 		if ticksValue > 0 and not isCooking then
-			player:burnCalories(1)
+			player:burnCalories(Config.Pedometer.crankCalorieBurn)
 		end
 		
 		if PlayerData.isGaming == true then
 			if ticksValue > 0 then
-				if PlayerData.battery < 100 and PlayerData.readyToShrink == false and PlayerData.isTiny == false then
-					player:chargeBattery(3)
+				if PlayerData.battery < Config.Battery.max and PlayerData.readyToShrink == false and PlayerData.isTiny == false then
+					player:chargeBattery(Config.Battery.chargePerCrankTick)
 					if shadow then
 						shadow:refresh()
 					end
@@ -839,7 +858,9 @@ scene.inputHandler = {
 			-- Handle microwave cooking when locked on a microwave
 			if PlayerData.readyToCook == true then
 				if ticksValue ~= 0 then
-					player.cookProgress = (player.cookProgress or 0) + math.abs(ticksValue)
+					-- Play the eating animation while actively cranking to cook/heal.
+						player.animation:setState('eating')
+						player.cookProgress = (player.cookProgress or 0) + math.abs(ticksValue)
 					while player.cookProgress >= Config.Microwave.crankPerFood
 							and (PlayerData.food or 0) > 0
 							and PlayerData.healthPoints < Config.Player.maxHealthPoints do

@@ -78,8 +78,26 @@ function Player:initAnimations()
   self.animation:addState('slideTiny', 142, 145)
   self.animation.slideTiny.frameDuration = 4
   
-  self.animation:addState('sleep', 147, 148)
+  self.animation:addState('sleep', 146, 147)
   self.animation.sleep.frameDuration = 18
+  
+  self.animation:addState('shootLeft', 148, 150, 'noLegLeft')
+  self.animation.shootLeft.frameDuration = 4
+
+  self.animation:addState('shootRight', 151, 153, 'noLegRight')
+  self.animation.shootRight.frameDuration = 4
+  
+  self.animation:addState('noLegLeft', 149, 150)
+  self.animation.noLegLeft.frameDuration = 4
+  
+  self.animation:addState('noLegRight', 152, 153)
+  self.animation.noLegRight.frameDuration = 4
+  
+  self.animation:addState('eating', 154, 157)
+  self.animation.eating.frameDuration = 8
+  
+  self.animation:addState('shock', 158, 159)
+  self.animation.shock.frameDuration = 8
   
   if PlayerData.fromTitle then
     self.animation:setState('sleep')

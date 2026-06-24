@@ -86,9 +86,12 @@ local DefaultPlayerData = {
 		hasPlunger = false,
 	},
 	skills ={
-		canFlash = true,
+		canDance = false,
+		canFlash = false,
 		canDash = false,
 		canPlungerang = false,
+		canCrossSlime = false,  -- late-run "outgrow" skill; immune to slime sliding (Playdate parity)
+		canGrapple = false,
 	},
 	EnemiesData ={
 		powerLevel = 1, -- max 20

@@ -103,9 +103,11 @@ A template qualifies for the pool only when it is a procGen room **and** the pla
 
 `progress` = crew recruited so far; it scales run size (`Config.MapGen.roomsBase + progress`, capped at `roomsMax`). `entryRole` picks the start bucket (`start` default, `startdown`/`startup` for vertical entries).
 
-1. **Start node** — random template from `pool[entryRole]` (falls back to `start`, then `normal`).
-2. **Guaranteed path** — repeatedly attach a `normal` room to a node that still has a free side, until the run reaches its size. The candidate must match the from-side's **door signature** (see §4). Selection prefers fresh (unused) templates while sane (see §6) and biases toward a still-missing required feature (dark room / hole room, see §5).
-3. **Loops (exhaustive)** — every free side links to the first placed node whose opposite side is free and signature-compatible. No probability gate, so no door dangles. (A specific pair is still not *guaranteed* adjacent — both must be placed and reach this phase with the matching side free.)
+The run is built on a **2D grid**: the start node sits at cell `(0,0)` and every node gets a `coord = {col,row}` (`occupied[ "col,row" ]` tracks which cell each node owns). A `right` door always leads to the room one cell to the right, etc. This makes the graph embed cleanly — no two rooms share a cell and every edge connects physically adjacent cells, so the in-game map (see `INGAME_MENU.md`) never shows an illogical "teleport" link.
+
+1. **Start node** — random template from `pool[entryRole]` (falls back to `start`, then `normal`); placed at cell `(0,0)`.
+2. **Guaranteed path** — repeatedly attach a `normal` room to a node that has a free side **whose adjacent grid cell is still empty**, until the run reaches its size; the new room takes that cell. The candidate must match the from-side's **door signature** (see §4). Selection prefers fresh (unused) templates while sane (see §6) and biases toward a still-missing required feature (dark room / hole room, see §5). Growth stops when no free side points at an empty cell.
+3. **Loops (adjacency-only)** — a free side links **only** to the room physically occupying the adjacent grid cell, and only if that room's opposite side is free and signature-compatible. Loops are therefore always between neighbouring cells (never a cross-map teleport). Free sides with no adjacent match stay open and become **wall plugs**. Consequence: runs are less densely interconnected than the old exhaustive pass — more doors end up plugged.
 4. **Feature guarantee** — if the run still lacks a dark room or a hole room, swap a placed normal node for one with the **same full door layout** that has the feature (keeps connectivity intact).
 5. **Secret rooms** — pull portal destinations in as `isSecret` nodes (see §7).
 6. **Content roll** — per node, decide which authored enemies/utilities are active this run (see §8).
@@ -144,9 +146,9 @@ Every run includes at least one **dark** room (`customFields.shadow == true`) an
 
 ## 7. Secret rooms via PortalDoors
 
-PortalDoors are tiny-gated entrances to secret rooms, paired **A↔A** by `PortalID` (each room's portal cross-references the other's `DestLevel`/`DestRoom`). They are **not** part of side-connectivity.
+PortalDoors are tiny-gated entrances to secret rooms, paired **A↔A** by `PortalID` (each room's portal cross-references the other's `DestRoom`, the target room's `identifier`). They are **not** part of side-connectivity.
 
-- During generation, each placed room's `PortalDoors` resolves its destination template (`level*100 + roomNumber`; secret rooms are `procGen=false`) and adds it as an `isSecret` node, linking `host.portals[pid] ↔ secret.portals[pid]`.
+- During generation, each placed room's `PortalDoors` resolves its destination template (by `identifier`; secret rooms are `procGen=false`) and adds it as an `isSecret` node, linking `host.portals[pid] ↔ secret.portals[pid]`. The secret node is also given a grid `coord` in a free cell next to its host, so it lives inside the same grid as the rest of the run (the map draws it as a normal room with a dithered portal link to the host).
 - `CreatePortalsFromNode` (portal_door.lua) instantiates the portals with `targetNodeId = node.portals[pid]`.
 - `PortalDoor:goTo()` → `RunState.goTo(targetNodeId)` + transition, with `returningInPlace` so the player spawns at the portal's authored `SpawnX`/`SpawnY`.
 - Gating stays in the portal's `Conditions` (`canEnter`, e.g. `isTiny:true`); failing shows `BlockedDialog`.
@@ -240,7 +242,7 @@ For a template to participate in procedural generation:
 - [ ] At least one `Start` room with no `requiredItems`. Author `StartDown`/`StartUp` rooms for hole/tube entries and one `Final` room.
 - [ ] Door sides authored consistently so facing sides share door count + x/width (top/down) or y/height (left/right) — see §4.
 - [ ] (Optional) `requiredItems` for item-gated rooms; `forceSpawn = true` on entities that must always appear; `spawnConditions` on items/triggers for fine gating.
-- [ ] Secret rooms: a `PortalDoors` pair sharing a `PortalID`, each pointing at the other's `DestLevel`/`DestRoom`, with `Conditions` (e.g. `isTiny:true`).
+- [ ] Secret rooms: a `PortalDoors` pair sharing a `PortalID`, each pointing at the other's `DestRoom` (the target room's `identifier`), with `Conditions` (e.g. `isTiny:true`).
 - [ ] At least one dark room (`shadow`) and one hole room in the pool with door layouts that match other rooms (so the feature guarantee can place/connect them).
 
 ---

@@ -1,6 +1,8 @@
 -- entities/UI/InGameMenu.lua
 -- In-game equipment menu (D-Watch). Singleton called with colon syntax.
 
+local MapDrawer = require 'entities.UI.MapDrawer'
+
 local InGameMenu = {}
 InGameMenu.__index = InGameMenu
 
@@ -27,16 +29,6 @@ local HAT_START_Y   = 108
 local HAT_SPACING_X = 20
 local HAT_SPACING_Y = 20
 local HAT_PER_ROW   = 7
-
--- ── Map constants ─────────────────────────────────────────────────────────────
-local MAP_ROOM_SIZE = 7
-local MAP_SPACING   = 6
-local floorConfig = {
-    [1] = { cols = 5, rows = 3, posX = 142, posY = 73,  startRoom = 66 },
-    [2] = { cols = 7, rows = 5, posX = 131, posY = 18,  startRoom = 31 },
-    [3] = { cols = 5, rows = 3, posX = 32,  posY = 65,  startRoom = 16 },
-    [4] = { cols = 5, rows = 3, posX = 32,  posY = 29,  startRoom = 1  },
-}
 
 -- ── Quad tables ───────────────────────────────────────────────────────────────
 local itemQuads  = {}   -- [1]=plunger [2]=plungerSel [3]=boot [4]=bootSel [5]=lamp [6]=lampSel
@@ -145,53 +137,8 @@ function InGameMenu:_buildMapCanvas()
     love.graphics.setCanvas(canvas)
     love.graphics.clear(0, 0, 0, 0)
 
-    -- All possible room cells (dark background)
-    for _, cfg in pairs(floorConfig) do
-        love.graphics.setColor(0.196, 0.184, 0.161, 0.5)
-        for i = 0, cfg.cols * cfg.rows - 1 do
-            local col = i % cfg.cols
-            local row = math.floor(i / cfg.cols)
-            love.graphics.rectangle("fill",
-                cfg.posX + col * MAP_SPACING,
-                cfg.posY + row * MAP_SPACING,
-                MAP_ROOM_SIZE, MAP_ROOM_SIZE)
-        end
-    end
-
-    -- Visited rooms and player position
-    for _, levelData in ipairs(levelsLDTK) do
-        local cf      = levelData.customFields or {}
-        local level   = cf.level
-        local roomNum = cf.roomNumber
-        if not level or not roomNum then goto continue end
-
-        local cfg = floorConfig[level]
-        if not cfg then goto continue end
-
-        local roomIndex = roomNum - cfg.startRoom
-        if roomIndex < 0 or roomIndex >= cfg.cols * cfg.rows then goto continue end
-
-        local col = roomIndex % cfg.cols
-        local row = math.floor(roomIndex / cfg.cols)
-        local bx  = cfg.posX + col * MAP_SPACING
-        local by  = cfg.posY + row * MAP_SPACING
-
-        if cf.visited then
-            if PlayerData.actualLevel == level and PlayerData.actualRoom == roomNum then
-                -- Current room: white square + dark center dot
-                love.graphics.setColor(1, 1, 1, 1)
-                love.graphics.rectangle("fill", bx + 1, by + 1, 5, 5)
-                love.graphics.setColor(0.196, 0.184, 0.161, 1)
-                love.graphics.rectangle("fill", bx + 2, by + 2, 3, 3)
-            else
-                -- Visited room: solid white square
-                love.graphics.setColor(1, 1, 1, 1)
-                love.graphics.rectangle("fill", bx + 1, by + 1, 5, 5)
-            end
-        end
-
-        ::continue::
-    end
+    -- Render the procedural run graph at Config.Map.panel offsets in virtual coords.
+    MapDrawer.draw()
 
     love.graphics.setCanvas(prev)
     love.graphics.setColor(1, 1, 1, 1)

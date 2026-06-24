@@ -476,6 +476,10 @@ function gameScene.enter()
 		gameScene.bindNode(RunState.currentNode())
 		gameScene.computeSpawn(RunState.currentNode())
 
+		-- Per-node, run-scoped visited tracking for the in-game run-graph map.
+		local node = RunState.currentNode()
+		if node then node.visited = true end
+
 		-- Endgame: entering the final room (revealed once all crew are recruited) ends the
 		-- run. We flag it here and fire the transition from update() once the room is active
 		-- — firing now would clobber the in-progress scene transition.

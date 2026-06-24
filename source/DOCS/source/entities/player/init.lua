@@ -47,7 +47,7 @@ function Player:init(x, y, speed, Zindex)
     self.speed = speed
     self.initialSanity = PlayerData.sanity
     self.initialBattery = PlayerData.battery
-    self.sanityLoss = 1
+    self.sanityLoss = Config.Sanity.baseLoss
     self.sanity = PlayerData.sanity
     self.playerUIX = Config.Player.uiOffsetX
     self.playerUIY = Config.Player.uiOffsetY
@@ -85,6 +85,7 @@ function Player:init(x, y, speed, Zindex)
     self.isDarkCharging  = false
     self.darkCrankAccum  = 0
     self.hasProjectile = true
+    self.shootDir = 'right'  -- facing of the shoot pose held while the plungerang is out
 
     -- Grappling hook state variables
     self.isGrappleCharging = false
