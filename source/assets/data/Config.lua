@@ -73,15 +73,6 @@ Config.Grapple = {
     ropeWidth       = 2,     -- px width of the rope drawn from player to hook
 }
 
--- Dash ability
-Config.Dash = {
-    speed          = 6,
-    totalDistance  = 56,
-    bounceDistance = 16,
-    batteryCost    = 10,
-    cooldown       = 500,   -- ms
-}
-
 -- Slide (slime)
 Config.Slide = {
     speed = 4,

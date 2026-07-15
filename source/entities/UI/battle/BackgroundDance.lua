@@ -2,9 +2,10 @@
 BackgroundDance = {}
 BackgroundDance.__index = BackgroundDance
 
-function BackgroundDance.new()
+-- spritePath: resolved by DanceScene (Fight variant); defaults to the base sheet.
+function BackgroundDance.new(spritePath)
     local self = setmetatable({}, BackgroundDance)
-    self.image = love.graphics.newImage('assets/images/ui/battle/background-table-400-240.png')
+    self.image = love.graphics.newImage(spritePath or 'assets/images/ui/battle/background-table-400-240.png')
     return self
 end
 

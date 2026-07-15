@@ -187,7 +187,6 @@ function Projectile:handleCollision(other, col)
 		-- Projectile is lost
 		self.player.hasProjectile = false
 		PlayerData.items.hasPlunger = false
-		PlayerData.activeItem = 0
 		self:destroy()
 		return
 	end

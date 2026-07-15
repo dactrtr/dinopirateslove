@@ -257,7 +257,6 @@ function CrewMember:taken()
 		self.player.hasProjectile       = true
 		PlayerData.items.hasPlunger     = true
 		PlayerData.skills.canPlungerang = true
-		PlayerData.activeItem           = 3
 	end
 
 	printDebug("🎯 CrewMember " .. tostring(self.iid) .. " capturado! Total: " .. PlayerData.CrewMemberData.amountTaken)

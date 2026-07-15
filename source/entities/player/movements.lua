@@ -8,8 +8,10 @@ function movements.handleInput(player, dt)
 	local dx, dy = 0, 0
 
 	-- Don't allow movement if talking, in cutscene, sliding, charging battery,
-	-- or locked into the minifier doing the size transformation.
-	if PlayerData.isTalking or PlayerData.isCutscene or PlayerData.isSliding or PlayerData.isCharging or PlayerData.isMinifying then return dx, dy end
+	-- locked into the minifier doing the size transformation, or while input is
+	-- suppressed by an overlay (the analog stick below is read directly, so it
+	-- bypasses Input's suppression and must be gated here too).
+	if Input.isSuppressed() or PlayerData.isTalking or PlayerData.isCutscene or PlayerData.isSliding or PlayerData.isCharging or PlayerData.isMinifying then return dx, dy end
 
 
 	-- Keyboard movement

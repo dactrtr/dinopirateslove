@@ -9,11 +9,10 @@ local PLAYER_Y  = 26
 local FRAME_W   = 246
 local FRAME_H   = 214
 
-function PlayerDance.new(bpm)
+-- spritePath: resolved by DanceScene (tiny/Fight variants); defaults to the base sheet.
+function PlayerDance.new(bpm, spritePath)
     local self = setmetatable({ bpm = bpm }, PlayerDance)
-    local path = PlayerData.isTiny
-        and 'assets/images/ui/battle/playerDanceTiny-table-246-214.png'
-        or  'assets/images/ui/battle/playerDance-table-246-214.png'
+    local path = spritePath or 'assets/images/ui/battle/playerDance-table-246-214.png'
     self.image = love.graphics.newImage(path)
     local g    = anim8.newGrid(246, 214, self.image:getWidth(), self.image:getHeight())
     -- Playdate: frameDuration = bpm/2 (50 fps frames) → bpm/100 seconds

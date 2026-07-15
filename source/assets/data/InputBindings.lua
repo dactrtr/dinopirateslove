@@ -8,6 +8,14 @@ local ControllerConfig = require 'assets.data.ControllerConfig'
 
 local Input = {}
 
+-- When suppressed, every game-facing query reports "nothing pressed" so overlays
+-- (e.g. the CRT filter menu) can freeze all interaction without touching each
+-- scene. The overlay's own navigation goes through raw love.keypressed /
+-- love.gamepadpressed callbacks, not these queries, so it keeps working.
+local suppressed = false
+function Input.setSuppressed(v) suppressed = v and true or false end
+function Input.isSuppressed() return suppressed end
+
 -- Frame state for edge detection
 local prevState          = {}
 local curState           = {}
@@ -87,6 +95,7 @@ Input.dancePadButtons = {
 
 -- Returns true if `key` (string from love.keypressed) is bound to `action`.
 function Input.is(key, action)
+    if suppressed then return false end
     local binds = keyBindings[action]
     if not binds then return false end
     for _, k in ipairs(binds) do
@@ -97,6 +106,7 @@ end
 
 -- Returns true if any key or gamepad button for `action` is currently held.
 function Input.isDown(action)
+    if suppressed then return false end
     local binds = keyBindings[action]
     if binds then
         for _, k in ipairs(binds) do
@@ -188,17 +198,22 @@ end
 -- Returns true only on the first frame an action goes from not-held to held.
 -- Works for both keyboard and gamepad.
 function Input.wasPressed(action)
+    if suppressed then return false end
     return (curState[action] == true) and not (prevState[action] == true)
 end
 
 -- Returns true only on the first frame an action goes from held to not-held.
 function Input.wasReleased(action)
+    if suppressed then return false end
     return (prevState[action] == true) and not (curState[action] == true)
 end
 
 -- Returns accumulated right-stick crank rotation in radians (positive = clockwise).
 -- Clears the pending value; call at most once per frame.
 function Input.getCrankDelta()
+    -- Drop any accumulated rotation while suppressed so it can't dump a large
+    -- delta the frame the overlay closes.
+    if suppressed then pendingCrankDelta = 0; return 0 end
     local d = pendingCrankDelta
     pendingCrankDelta = 0
     return d

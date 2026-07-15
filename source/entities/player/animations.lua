@@ -28,7 +28,6 @@ function animations.load(spritesheet)
 	local durIdle = 0.4    -- 12 ticks
 	local durWalk = 0.26   -- 8 ticks
 	local durTiny = 0.13   -- 4 ticks
-	local durDash = 0.1    -- 3 ticks
 	
 	return {
 		-- Normal Movement
@@ -47,14 +46,6 @@ function animations.load(spritesheet)
 		-- Actions
 		charge = anim8.newAnimation(getFrames(grid, 36, 40, cols), 0.08), -- 5 frames ~0.4s total
 		
-		-- Dashing
-		dashRight = anim8.newAnimation(getFrames(grid, 65, 68, cols), durDash),
-		dashLeft  = anim8.newAnimation(getFrames(grid, 69, 72, cols), durDash), -- Note: User repeated 65-68 for others, assume typos or sharing frames?
-		-- User code: dashRight 65-68, dashLeft 69-72. dashUp/Down 65-68. 
-		-- I will follow user code strictly where unique, and reuse for up/down fallback.
-		dashUp    = anim8.newAnimation(getFrames(grid, 65, 68, cols), durDash),
-		dashDown  = anim8.newAnimation(getFrames(grid, 65, 68, cols), durDash),
-
 		-- Tiny Mode
 		tinyIdle  = anim8.newAnimation(getFrames(grid, 73, 81, cols), durTiny),
 		tinyRight = anim8.newAnimation(getFrames(grid, 82, 84, cols), durTiny),

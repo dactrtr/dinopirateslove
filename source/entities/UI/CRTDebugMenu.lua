@@ -6,13 +6,17 @@ local CRTDebugMenu = {}
 local visible = false
 local cursor  = 1
 
+-- True while the overlay is open. main.lua uses this to suppress all game input
+-- so the player can't move/act while adjusting filters.
+function CRTDebugMenu.isVisible() return visible end
+
 local DEFAULTS = {
     crtEnabled = true,
-    onebit     = { enabled=true, threshold=0.5, dither=true, dark={46,46,46}, light={200,166,92} },
-    scanlines  = { opacity=0.4, thickness=0.5, frequency=240, phase=1,   width=0.5  },
+    onebit     = { enabled=true, threshold=0.5, dither=false, dark={15,5,10}, light={160,155,135} },
+    scanlines  = { opacity=0.45, thickness=0.9, frequency=480, phase=2.30,   width=0.25  },
     crt        = { distortionFactor=1.02, feather=0.02 },
-    chromasep  = { radius=2.0, angle=0 },
-    glow       = { strength=5, min_luma=0.7 }
+    chromasep  = { radius=1.0, angle=0 },
+    glow       = { strength=0, min_luma=0.95 }
 }
 
 local ITEMS = {

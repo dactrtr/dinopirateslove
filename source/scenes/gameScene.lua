@@ -247,15 +247,17 @@ local function handleTriggerActivation(trigger, script, isTerminal)
 	end
 	
 	if isOneTime then
-		-- Update the source data to persist the used state
-		if trigger.sourceData then
+		-- Update the source data to persist the used state. Counter triggers are the
+		-- exception (as on Playdate): they only disappear for the current visit and
+		-- respawn on room reload, so they must never be marked usedTrigger.
+		if trigger.type ~= "Counter" and trigger.sourceData then
 			if not trigger.sourceData.customFields then
 				trigger.sourceData.customFields = {}
 			end
 			trigger.sourceData.customFields.usedTrigger = true
 			printDebug("💾 Trigger marked as used for persistence: " .. tostring(trigger.sourceData.iid))
 		end
-		
+
 		gameScene.removeTrigger(trigger)
 	end
 end
@@ -568,8 +570,8 @@ function gameScene.reloadCurrentRoom()
 	-- Update room info in pause menu
 	gameScene.updateRoomInfo()
 
-	-- Read darkness config from the new room
-	SanitySystem.reset()   -- restart 2s tick on each room entry
+	-- Read darkness config from the new room. Sanity is driven by a single global
+	-- ticker in main.lua (SanitySystem.update) — nothing to (re)start per room.
 	if gameScene.currentLevelData and gameScene.currentLevelData.customFields then
 		local cf = gameScene.currentLevelData.customFields
 		PlayerData.isInDarkness = cf.shadow == true
@@ -1143,8 +1145,8 @@ function gameScene.update(dt)
 			gameScene.playerHud:update(dt, gameScene.player)
 		end
 
-		-- Sanity tick (every 2s)
-		SanitySystem.update(dt)
+		-- Sanity ticking runs in main.lua's love.update (all scenes, like
+		-- Playdate's Timer.updateTimers) — nothing to do here.
 
 		-- Check for pending trigger removals
 		if gameScene.pendingTriggerRemovals then
@@ -1396,20 +1398,15 @@ function gameScene.keypressed(key)
 
 	-- Game input (when menu is not shown)
 	if PlayerData.isEquiping then
-		-- BButton o pause cierra el menú de equipo
+		-- El menú es solo visual (mapa + gorros): BButton o pause lo cierra
 		if Input.is(key, "BButton") or Input.is(key, "pause") then
 			PlayerData.isGaming = true
 			PlayerData.isEquiping = false
-		else
-			InGameMenu:keypressed(key)
 		end
 	elseif Input.is(key, "menuOpen") and PlayerData.isGaming and PlayerData.items.hasDWatch then
-		-- Abre menú de equipo (evento sintético del hold timer de AButton)
+		-- Abre menú del D-Watch (evento sintético del hold timer de AButton)
 		PlayerData.isGaming = false
 		PlayerData.isEquiping = true
-		if PlayerData.activeItem == 0 or PlayerData.activeItem == nil then
-			InGameMenu:nextItem()
-		end
 	elseif Input.is(key, "pause") and not PlayerData.isTalking then
 		gameScene.pauseMenu:show()
 	elseif Input.is(key, "resize") then
@@ -1492,20 +1489,15 @@ function gameScene.gamepadInput(input)
 	-- Pass gamepad input to In-Game Menu or game
 	if PlayerData.isEquiping then
 		if Input.wasPressed("menuOpen") or Input.wasPressed("BButton") then
-			-- Close Menu on B or Y
+			-- Close Menu on B or Y (menu is purely visual: map + crew hats)
 			PlayerData.isGaming = true
 			PlayerData.isEquiping = false
-		else
-			InGameMenu:gamepadInput(input)
 		end
 	elseif not gameScene.pauseMenu:isVisible() then
 		if Input.wasPressed("menuOpen") and PlayerData.isGaming and PlayerData.items.hasDWatch then
-			-- Open In-Game Menu for equipment (requires D-Watch, only while gaming)
+			-- Open D-Watch menu (requires D-Watch, only while gaming)
 			PlayerData.isGaming = false
 			PlayerData.isEquiping = true
-			if PlayerData.activeItem == 0 or PlayerData.activeItem == nil then
-				InGameMenu:nextItem()
-			end
 		end
 
 		-- BButton: cancel minifier if locked in, otherwise begin charge (fires on release)

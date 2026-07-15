@@ -99,15 +99,7 @@ function Player:initialize(x, y, world)
 	-- reverts to idle (mirrors Playdate's crankStopTimer / crankIsMoving logic).
 	self.minifyCrankTimer = 0
 
-	-- Dash state
-	local dashCfg = Config and Config.Dash or {}
-	self.isDashing            = false
-	self.dashDir              = "right"
-	self.dashDistanceTraveled = 0
-	self.dashSpeed            = dashCfg.speed          or 6
-	self.dashMaxDistance      = dashCfg.totalDistance  or 56
-	self.dashBounceDistance   = dashCfg.bounceDistance or 16
-	-- Sanity ticking is handled by SanitySystem.update(dt) in gameScene — no timer here.
+	-- Sanity ticking is handled by SanitySystem.update(dt) in main.lua — no timer here.
 end
 
 function Player:syncDimensions(skipBumpUpdate)
@@ -248,9 +240,7 @@ function Player:update(dt)
 	-- Update grapple hook if active
 	playerGrapple.update(self, dt)
 
-	if self.isDashing then
-		self:updateDash()
-	elseif self.isGrapplePulling then
+	if self.isGrapplePulling then
 		playerGrapple.updatePull(self, dt)
 	elseif PlayerData.isSliding then
 		self:updateSliding(dt)
@@ -719,7 +709,6 @@ end
 
 function Player:checkSlimeTile(direction)
 	if PlayerData.isSliding then return end
-	if self.isDashing then return end
 	if self.isPlunging then return end
 
 	if not self:onSlime() then
@@ -995,69 +984,6 @@ function Player:idle()
 		self.currentAnimation = anims.lampIdle
 	else
 		self.currentAnimation = anims.idle
-	end
-end
-
-function Player:setDashAnimation(direction)
-	local anims = self.animations
-	if direction == "right" then self.currentAnimation = anims.dashRight
-	elseif direction == "left" then self.currentAnimation = anims.dashLeft
-	elseif direction == "up" then self.currentAnimation = anims.dashUp
-	else self.currentAnimation = anims.dashDown
-	end
-end
-
-function Player:startDash(direction)
-	if not PlayerData.skills.canDash then return end
-	local bat      = Config and Config.Battery or {}
-	local dashCost = (Config and Config.Dash and Config.Dash.batteryCost) or 10
-	if PlayerData.battery <= (bat.floor or 10) then return end
-	if self.isDashing or self.isPlunging or PlayerData.isSliding then return end
-	PlayerData.battery = math.max(bat.floor or 10, PlayerData.battery - dashCost)
-	self.isDashing = true
-	self.dashDir = direction
-	self.dashDistanceTraveled = 0
-	self:setDashAnimation(direction)
-	printDebug("💨 Dash started: " .. direction)
-end
-
-function Player:updateDash()
-	local dx, dy = 0, 0
-	if self.dashDir == "left" then dx = -self.dashSpeed
-	elseif self.dashDir == "right" then dx = self.dashSpeed
-	elseif self.dashDir == "up" then dy = -self.dashSpeed
-	elseif self.dashDir == "down" then dy = self.dashSpeed end
-
-	local newCollisionX = self.x + self.collisionOffsetX + dx
-	local newCollisionY = self.y + self.collisionOffsetY + dy
-	local actualX, actualY, cols, len = self.world:move(self, newCollisionX, newCollisionY, function(item, other)
-		return playerCollisions.response(self, other)
-	end)
-
-	local prevX, prevY = self.x, self.y
-	self.x = actualX - self.collisionOffsetX
-	self.y = actualY - self.collisionOffsetY
-	self:updateCollisionPosition()
-
-	local moved = math.abs(self.x - prevX) + math.abs(self.y - prevY)
-	self.dashDistanceTraveled = self.dashDistanceTraveled + moved
-
-	if len > 0 then
-		-- Bounce back on wall hit
-		local ratio = self.dashBounceDistance / self.dashSpeed
-		local bounceColX = self.x + self.collisionOffsetX - dx * ratio
-		local bounceColY = self.y + self.collisionOffsetY - dy * ratio
-		local bx, by = self.world:move(self, bounceColX, bounceColY, function(item, other)
-			return playerCollisions.response(self, other)
-		end)
-		self.x = bx - self.collisionOffsetX
-		self.y = by - self.collisionOffsetY
-		self:updateCollisionPosition()
-		self.isDashing = false
-		self:idle()
-	elseif self.dashDistanceTraveled >= self.dashMaxDistance then
-		self.isDashing = false
-		self:idle()
 	end
 end
 

@@ -168,6 +168,12 @@ function titleScene.enter()
 			PlayerData.runCount = 1
 			PlayerData.deathCause = nil
 			if RunState then RunState.startRun() end
+			-- Brand-new game spawns at a fixed position. returningInPlace makes
+			-- gameScene.computeSpawn keep this playerSpawn instead of overriding it
+			-- with the start room's door-spawn (ported from DOCS TitleScene.lua:254-259).
+			PlayerData.playerSpawn.x = 200
+			PlayerData.playerSpawn.y = 200
+			PlayerData.returningInPlace = true
 			sceneManager.startTransition("title", "game", "fade")
 		end
 	})
@@ -197,6 +203,8 @@ function titleScene.enter()
 			action = function()
 				PlayerData.playerSpawn.x = 200
 				PlayerData.playerSpawn.y = 200
+				-- Keep this fixed spawn instead of the start room's door-spawn.
+				PlayerData.returningInPlace = true
 				sceneManager.startTransition("title", "game", "fade")
 			end
 		})

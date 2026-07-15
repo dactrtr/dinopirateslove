@@ -32,7 +32,13 @@ function conditionEval.condition(expr)
     -- Numeric comparison: "path OP value"
     local path, op, valStr = expr:match("^([%w%.]+)%s*([<>!=]=?)%s*([%d%-%.]+)$")
     if path and op and valStr then
-        local current    = resolvePath(PlayerData, path)
+        local current
+        if path == "crew" then
+            -- Alias: total crew recruited, for story gating (mirrors Playdate trigger.lua)
+            current = PlayerData.CrewMemberData and PlayerData.CrewMemberData.amountTaken
+        else
+            current = resolvePath(PlayerData, path)
+        end
         local val        = tonumber(valStr)
         local currentVal = tonumber(current) or 0
         if     op == ">"  then return currentVal > val

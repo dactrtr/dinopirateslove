@@ -28,6 +28,7 @@ local cockpitScene = require "scenes/CockpitScene"
 local creditsScene = require "scenes/CreditsScene"
 local deadScene = require "scenes/DeadScene"
 local tileMapData = require 'assets/data/tilemap'
+local SanitySystem = require 'entities.player.sanity'
 
 -- Procedural run-graph globals (read Config/PlayerData/tileMapData/levelsLDTK at call time).
 -- gameScene (required above) already loaded 'assets.data.levels' -> global levelsLDTK.
@@ -182,7 +183,7 @@ function love.load()
 	CRTDebugMenu.loadFromDisk()
 
 	-- Mobile on-screen controls (auto-enabled on Android/iOS; F6 toggles for desktop testing)
-	TouchControls.load()
+	-- TouchControls.load()
 
 	-- Load all scenes first
 	titleScene.load()
@@ -299,7 +300,20 @@ end
 function love.update(dt)
 	TouchControls.update(dt)   -- set touch state BEFORE Input snapshots it
 	Input.update(activeJoystick)
+
+	-- While the CRT filter menu is open, freeze all game interaction: Input
+	-- queries report nothing pressed, so movement/actions/charges all stop. The
+	-- menu's own navigation runs through raw love.keypressed/gamepadpressed.
+	local crtMenuOpen = CRTDebugMenu.isVisible()
+	Input.setSuppressed(crtMenuOpen)
+
 	sceneManager.update(dt)
+
+	-- Sanity timers tick in every scene, like Playdate's Timer.updateTimers()
+	-- in Noble (drains during dialogs/cutscenes/dances; death gated by isGaming).
+	SanitySystem.update(dt)
+
+	if crtMenuOpen then return end   -- menu open → skip all game-facing input
 
 	-- Hold AButton → abrir menú de equipo (dispara una sola vez por hold)
 	if Input.isDown("AButton") then
@@ -448,8 +462,22 @@ function love.keyreleased(key)
 	sceneManager.keyreleased(key)
 end
 
+-- Gamepad → CRT filter menu: L3 (leftstick) toggles it; while open, the dpad
+-- navigates and A/B confirm/close, reusing the menu's keyboard handler. Buttons
+-- fall through to the scene when the menu is closed (keypressed returns false).
+local crtPadButtons = {
+	leftstick = "n",
+	dpup = "up", dpdown = "down", dpleft = "left", dpright = "right",
+	a = "return", b = "escape",
+}
+
 function love.gamepadpressed(joystick, button)
-	if joystick == activeJoystick and sceneManager.gamepadpressed then
+	if joystick ~= activeJoystick then return end
+	local crtKey = crtPadButtons[button]
+	if crtKey and CRTDebugMenu.keypressed(crtKey) then return end
+	-- Menu open: swallow every other button so nothing reaches the game.
+	if CRTDebugMenu.isVisible() then return end
+	if sceneManager.gamepadpressed then
 		sceneManager.gamepadpressed(button)
 	end
 end

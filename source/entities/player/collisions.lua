@@ -2,7 +2,6 @@
 -- Collision-related functions for Player
 
 local collisions = {}
-local conditionEval = require 'utilities.conditionEval'
 
 -- Get the collision box position and dimensions
 function collisions.getCollisionRect(player)
@@ -171,55 +170,10 @@ function collisions.resolve(player, other)
 		end
 
 	elseif other.isTrigger then
-		local trigger = other
-		if trigger.type == "Cutscene" then
-			PlayerData.isGaming = false
-			PlayerData.isCutscene = true
-			if trigger.sourceData then
-				if not trigger.sourceData.customFields then trigger.sourceData.customFields = {} end
-				trigger.sourceData.customFields.usedTrigger = true
-			end
-			local sceneManager = require 'sceneManager'
-			local gs = sceneManager.getScene("game")
-			if gs and gs.removeTrigger then gs.removeTrigger(trigger) end
-			local comicData = comics and comics[trigger.script]
-			if comicData then
-				local ComicPlayer = require 'entities.UI.ComicPlayer'
-				ComicPlayer.start(comicData, function()
-					PlayerData.isGaming   = true
-					PlayerData.isCutscene = false
-				end)
-			else
-				printDebug("⚠️ Cutscene trigger: comic not found for key '" .. tostring(trigger.script) .. "'")
-				PlayerData.isGaming   = true
-				PlayerData.isCutscene = false
-			end
-		elseif trigger.type == "Search" or trigger.type == "Call" or trigger.type == nil then
-			player.currentTrigger = trigger
-		elseif trigger.type == "Story" then
-			PlayerData.isGaming = false
-			local script, isTerminal
-			if trigger.conditionalScripts and #trigger.conditionalScripts > 0 then
-				script, isTerminal = conditionEval.evaluateTrigger(trigger.conditionalScripts)
-			end
-			if not script then
-				script     = trigger.script
-				isTerminal = true
-			end
-			if player.dialogUI then player.dialogUI:addScreen(script) end
-			if isTerminal and trigger.sourceData then
-				if not trigger.sourceData.customFields then trigger.sourceData.customFields = {} end
-				trigger.sourceData.customFields.usedTrigger = true
-			end
-			local sceneManager = require 'sceneManager'
-			local gs = sceneManager.getScene("game")
-			if gs and gs.removeTrigger then gs.removeTrigger(trigger) end
-		elseif trigger.type == "Counter" then
-			PlayerData.storyCounter = (PlayerData.storyCounter or 0) + 1
-			local sceneManager = require 'sceneManager'
-			local gs = sceneManager.getScene("game")
-			if gs and gs.removeTrigger then gs.removeTrigger(trigger) end
-		end
+		-- Triggers are handled exclusively by gameScene.checkAutomaticTriggers()
+		-- (Story/Cutscene/Counter) and gameScene.checkTriggerInteraction() (A press),
+		-- which guard against re-activation via isCurrentlyActive. Handling them here
+		-- too fired them a second time in the same frame (double Counter increments).
 
 	elseif other.isNPC then
 		player.currentTrigger = other
@@ -471,15 +425,13 @@ function collisions.grabLamp(player)
 end
 function collisions.grabRadio(player) PlayerData.items.hasRadio = true end
 function collisions.grabTools(player) PlayerData.items.hasTools = true end
-function collisions.grabBoots(player) 
-	PlayerData.items.hasBoots = true 
-	PlayerData.skills.canDash = true
+function collisions.grabBoots(player)
+	PlayerData.items.hasBoots = true
 end
-function collisions.grabPlunger(player) 
-	PlayerData.items.hasPlunger = true 
+function collisions.grabPlunger(player)
+	PlayerData.items.hasPlunger = true
 	PlayerData.skills.canPlungerang = true
-	PlayerData.activeItem = 3 -- Auto-equip plunger
-	printDebug("🪠 Plunger collected and equipped!")
+	printDebug("🪠 Plunger collected!")
 end
 function collisions.grabBag(player) PlayerData.items.hasBag = true end
 

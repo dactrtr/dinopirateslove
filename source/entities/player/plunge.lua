@@ -21,25 +21,19 @@ function plunge.tryActivate(player)
 		return false
 	end
 	
-	-- 3. Must have plunger equipped
-	if PlayerData.activeItem ~= 3 then
-		printDebug("❌ Plunge failed: Plunger not equipped (activeItem: " .. PlayerData.activeItem .. ")")
-		return false
-	end
-	
-	-- 4. Cannot use while tiny
+	-- 3. Cannot use while tiny
 	if PlayerData.isTiny then
 		printDebug("❌ Plunge failed: Cannot use while tiny")
 		return false
 	end
-	
-	-- 5. Only one projectile at a time
+
+	-- 4. Only one projectile at a time
 	if player.isPlunging or player.projectile then
 		printDebug("❌ Plunge failed: Projectile already active")
 		return false
 	end
-	
-	-- 6. Determine fire direction — use last non-idle direction as fallback
+
+	-- 5. Determine fire direction — use last non-idle direction as fallback
 	local direction = PlayerData.direction
 	if direction == "idle" or not direction then
 		direction = PlayerData.lastDirection or "right"

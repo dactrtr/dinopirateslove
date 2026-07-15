@@ -1,0 +1,1 @@
+{"nodes": [], "edges": [{"source": "sdd_progress_canfight_skill_feature", "target": "playerdatatables_lua_canfight_field", "relation": "implements", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": ".superpowers/sdd/task-1-brief.md", "source_location": null, "weight": 1.0}], "hyperedges": []}

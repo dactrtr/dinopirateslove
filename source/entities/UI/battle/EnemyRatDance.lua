@@ -22,11 +22,12 @@ local function buildAnim(g, fromFrame, toFrame, frameDur, onLoop)
     return anim8.newAnimation(quads, frameDur, onLoop)
 end
 
-function EnemyRatDance.new(bpm, enemyType, evolving)
+-- spritePath: resolved by DanceScene (bosscolli/Fight variants); defaults to the base sheet.
+function EnemyRatDance.new(bpm, enemyType, evolving, spritePath)
     local self = setmetatable({
         bpm=bpm, enemyType=enemyType or "basic", evolving=evolving or false
     }, EnemyRatDance)
-    self.image = love.graphics.newImage('assets/images/ui/battle/enemyDance-table-211-214.png')
+    self.image = love.graphics.newImage(spritePath or 'assets/images/ui/battle/enemyDance-table-211-214.png')
     local g    = anim8.newGrid(211, 214, self.image:getWidth(), self.image:getHeight())
     -- Playdate: frameDuration = bpm/2 frames → bpm/100 s; aButton/bButton are
     -- hardcoded to 3 frames → 0.06 s

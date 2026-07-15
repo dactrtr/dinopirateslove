@@ -1,0 +1,12 @@
+{
+  "actions" : {
+    "build" : {
+      "enabled" : true,
+      "script" : ".\/build_mac.sh"
+    },
+    "run" : {
+      "enabled" : true,
+      "script" : ".\/run_game.sh"
+    }
+  }
+}

@@ -30,14 +30,13 @@ local DefaultPlayerData = {
 	sanityCounter = 0, -- top 100
 	mapPercent = 0, -- Percentage of map explored (0-100)
 	keys = {}, -- Table to store collected keys by number: {[1] = true, [2] = true, ...}
-	canDance = true,
+	canDance = false,
 	readyToShrink = false,
 	isMinifying = false,
 	isTiny = false,
 	isBig = false,
 	playerSize = 10 ,
 	actualPlayerSize = 10,
-	activeItem = 0,
 	storyCounter = 0,
 	isActive = false, -- makes npc moves while charges the battery
 	isTalking = false,
@@ -78,20 +77,20 @@ local DefaultPlayerData = {
 		y = nil
 	},
 	items={
-		hasLamp = true,
-		hasRadio = true,
-		hasDWatch = true,
-		hasNotes = true,
+		hasLamp = false,
+		hasRadio = false,
+		hasDWatch = false,
+		hasNotes = false,
 		hasBoots = false,
 		hasPlunger = false,
 	},
 	skills ={
 		canDance = false,
 		canFlash = false,
-		canDash = false,
 		canPlungerang = false,
 		canCrossSlime = false,  -- late-run "outgrow" skill; immune to slime sliding (Playdate parity)
 		canGrapple = false,
+		canFight = false,  -- unlocks A/B attack prompts + Fight spritesheets in the dance battle
 	},
 	EnemiesData ={
 		powerLevel = 1, -- max 20

@@ -64,14 +64,18 @@ local EnemyPatterns = {
     boss   = { weights = { arrows=0.2, aButton=0.4, bButton=0.4 }, phaseLength=6  },
 }
 
+local ARROWS = { "leftButton", "upButton", "rightButton", "downButton" }
+local function pickArrow()
+    return ARROWS[math.random(#ARROWS)]
+end
+
 local function getPatternKey(profile)
     local w = profile.weights
     local rand = math.random()
     local sum = w.arrows + w.aButton + w.bButton
     local choice = rand * sum
     if choice < w.arrows then
-        local arrows = {"leftButton","upButton","rightButton","downButton"}
-        return arrows[math.random(#arrows)]
+        return pickArrow()
     elseif choice < w.arrows + w.aButton then
         return "aButton"
     else
@@ -84,10 +88,12 @@ local function determineDifficultyUpgrade()
     local sanity   = PlayerData.sanityCounter or 0
     local power    = (PlayerData.EnemiesData and PlayerData.EnemiesData.powerLevel) or 0
     local calories = PlayerData.calories or 0
-    local sN = math.max(0, math.min(1, sanity   / 100))
-    local pN = math.max(0, math.min(1, power    / 20))
-    local cN = math.max(0, math.min(1, calories / 500))
-    return math.max(0, math.min(100, (sN*0.35 + pN*0.45 + cN*0.20) * 100))
+    local d  = Config.Dance
+    local sN = math.max(0, math.min(1, sanity   / d.sanityMax))
+    local pN = math.max(0, math.min(1, power    / d.powerMax))
+    local cN = math.max(0, math.min(1, calories / d.caloriesMax))
+    local score = sN*d.weightSanity + pN*d.weightPower + cN*d.weightCalories
+    return math.max(0, math.min(100, score * 100))
 end
 
 local function determineEnemyType()
@@ -97,6 +103,25 @@ local function determineEnemyType()
     if pwr >= 13 and pwr <= 19 then return "badass" end
     if pwr == 20               then return "boss"   end
     return "basic"
+end
+
+-- ── Sprite sheet resolver ─────────────────────────────────────────────────────
+-- Playdate resolveFightPath: swap to the *Fight sheet when canFight is on,
+-- falling back to the base asset while the Fight PNG does not exist yet.
+-- `fallback` additionally guards bases whose art is not in the LÖVE tree yet
+-- (enemyBosscolliDance).
+local BATTLE_DIR = 'assets/images/ui/battle/'
+local function sheetPath(name, dims)
+    return BATTLE_DIR .. name .. '-table-' .. dims .. '.png'
+end
+local function resolveSheet(base, dims, useFight, fallback)
+    if useFight and love.filesystem.getInfo(sheetPath(base .. 'Fight', dims)) then
+        return sheetPath(base .. 'Fight', dims)
+    end
+    if love.filesystem.getInfo(sheetPath(base, dims)) then
+        return sheetPath(base, dims)
+    end
+    return sheetPath(fallback or base, dims)
 end
 
 -- ── Scene state (reset on each enter) ────────────────────────────────────────
@@ -168,7 +193,14 @@ function danceScene.enter()
     local startPoint = 400
     local delayStep  = 300
     local profile    = EnemyPatterns[state.enemyType] or EnemyPatterns.basic
-    local function kp() return getPatternKey(profile) end
+    local canFight   = PlayerData.skills and PlayerData.skills.canFight
+
+    -- Provider: arrows-only until the canFight skill is unlocked, then the
+    -- difficulty-weighted A/B pool.
+    local function kp()
+        if canFight then return getPatternKey(profile) end
+        return pickArrow()
+    end
     for i = 1, state.numberOfButtons do
         local b = ButtonPress.new(state.bpm, startPoint + state.bpm, kp)
         b:movementDelay((i-1) * delayStep)
@@ -178,9 +210,18 @@ function danceScene.enter()
     -- Build entities
     -- Playdate: HitZone centered at (40,30), 10×40 → top-left (35,10)
     state.hitZone        = HitZone.new(35, 10, 10, 40, state.bpm)
-    state.playerDance    = PlayerDance.new(state.bpm)
-    state.enemyDance     = EnemyRatDance.new(state.bpm, state.enemyType, state.enemyEvolving)
-    state.backgroundDance = BackgroundDance.new()
+
+    local charBase = PlayerData.isTiny and 'playerDanceTiny' or 'playerDance'
+    state.playerDance = PlayerDance.new(state.bpm,
+        resolveSheet(charBase, '246-214', canFight))
+
+    local enemyBase = (PlayerData.lastEnemyTouched and PlayerData.lastEnemyTouched.type == "bosscolli")
+        and 'enemyBosscolliDance' or 'enemyDance'
+    state.enemyDance = EnemyRatDance.new(state.bpm, state.enemyType, state.enemyEvolving,
+        resolveSheet(enemyBase, '211-214', canFight, 'enemyDance'))
+
+    state.backgroundDance = BackgroundDance.new(
+        resolveSheet('background', '400-240', canFight))
     state.buttonCover    = ButtonCover.new()
     state.winIndicator   = WinIndicator.new(SCREEN_CENTER_X + state.balanceMaxOffset + 2*BAR_WIDTH, BAR_Y + BAR_HEIGHT/2 - 6)
     state.loseIndicator  = LoseIndicator.new(SCREEN_CENTER_X - state.balanceMaxOffset - 2*BAR_WIDTH, BAR_Y + BAR_HEIGHT/2 - 6)
