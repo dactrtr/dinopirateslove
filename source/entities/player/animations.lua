@@ -66,10 +66,22 @@ function animations.load(spritesheet)
 
 		slideTiny = anim8.newAnimation(getFrames(grid, 142, 145, cols), 0.13),
 
-		
+
 		-- Transitions
 		transformTo    = anim8.newAnimation(getFrames(grid, 94, 99, cols), 0.13), -- 4 ticks
-		transformCycle = anim8.newAnimation(getFrames(grid, 100, 105, cols), 0.1) -- 3 ticks
+		transformCycle = anim8.newAnimation(getFrames(grid, 100, 105, cols), 0.1), -- 3 ticks
+
+		-- Idle/action states (parity with Playdate player/animations.lua). Frames and
+		-- durations mirror the Playdate imagetable; not all are wired to gameplay yet.
+		sleep      = anim8.newAnimation(getFrames(grid, 146, 147, cols), 0.6),  -- 18 ticks
+		-- Plungerang throw: shoot plays once, then the player rests on the matching
+		-- "no legs" idle (noLegLeft/Right) — same chain as Playdate's next-state arg.
+		shootLeft  = anim8.newAnimation(getFrames(grid, 148, 150, cols), 0.13, "pauseAtEnd"), -- → noLegLeft
+		shootRight = anim8.newAnimation(getFrames(grid, 151, 153, cols), 0.13, "pauseAtEnd"), -- → noLegRight
+		noLegLeft  = anim8.newAnimation(getFrames(grid, 149, 150, cols), 0.13),
+		noLegRight = anim8.newAnimation(getFrames(grid, 152, 153, cols), 0.13),
+		eating     = anim8.newAnimation(getFrames(grid, 154, 157, cols), 0.26), -- 8 ticks
+		shock      = anim8.newAnimation(getFrames(grid, 158, 159, cols), 0.26)  -- 8 ticks
 	}
 end
 
@@ -97,7 +109,26 @@ function animations.updateAnimation(player, dx, dy)
 		return
 	end
 
+	-- While cooking at a microwave, hold the eating animation (set in startCooking);
+	-- don't let movement/idle override it, mirroring the minifier lock.
+	if PlayerData.readyToCook and not PlayerData.isGaming then
+		return
+	end
+
 	local anims = player.animations
+
+	-- Dark-reveal shock: hold the shock pose until its timer expires, unless the
+	-- player moves — which cancels it early (mirrors Playdate's "revert to idle
+	-- after shockDuration, unless another animation started meanwhile").
+	if player.shockTimer and player.shockTimer > 0 then
+		if dx ~= 0 or dy ~= 0 then
+			player.shockTimer = 0  -- movement overrides the shock pose
+		else
+			player.currentAnimation = anims.shock
+			PlayerData.direction = "idle"
+			return
+		end
+	end
 
 	if PlayerData.isTiny then
 		-- Tiny never uses slideExitFrames — endSliding() goes directly to tinyIdle
@@ -167,7 +198,19 @@ function animations.updateAnimation(player, dx, dy)
 			PlayerData.direction = "up"
 			PlayerData.lastDirection = "up"
 		else
-			if PlayerData.isCharging then
+			-- Plungerang away (in flight, or stolen by a crewmember → hasProjectile
+			-- false): hold the throw pose while its one-shot plays, then the legless
+			-- idle — instead of a normal idle. Mirrors Playdate's Player:idle().
+			if player.isPlunging or player.hasProjectile == false then
+				local dir = player.shootDir or (PlayerData.lastDirection == "left" and "left" or "right")
+				local shootAnim = (dir == "left") and anims.shootLeft or anims.shootRight
+				local noLegAnim = (dir == "left") and anims.noLegLeft or anims.noLegRight
+				-- While the one-shot shoot is still playing, leave it; once it pauses
+				-- at its last frame, settle on the matching legless idle.
+				if not (player.currentAnimation == shootAnim and shootAnim.status ~= "paused") then
+					player.currentAnimation = noLegAnim
+				end
+			elseif PlayerData.isCharging then
 				if player.currentAnimation ~= anims.charge then
 					anims.charge:gotoFrame(1)
 					anims.charge:resume()

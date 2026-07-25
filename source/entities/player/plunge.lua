@@ -52,9 +52,18 @@ function plunge.activate(player, direction)
 	
 	-- Set plunging state
 	player.isPlunging = true
-	
-	-- Lock player to idle animation
-	-- The animations module will handle this based on isPlunging flag
+
+	-- Play the throw pose (one-shot). Only left/right have art, so a vertical throw
+	-- uses the right pose. updateAnimation holds this, then the legless idle
+	-- (noLegLeft/Right) while the plungerang is out, until it returns → real idle.
+	player.shootDir = (direction == "left") and "left" or "right"
+	local shootAnim = (player.shootDir == "left") and player.animations.shootLeft
+	                                                or player.animations.shootRight
+	if shootAnim then
+		shootAnim:gotoFrame(1)
+		shootAnim:resume()
+		player.currentAnimation = shootAnim
+	end
 end
 
 -- Update function (called from player update if needed)

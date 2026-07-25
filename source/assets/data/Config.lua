@@ -136,6 +136,17 @@ Config.DarkReveal = {
     revealDuration        = 3000,  -- ms the full light lasts after activation
     rechargeBlockDuration = 3000,  -- ms recharge is blocked after the reveal ends
     selfDamage            = 1,     -- HP the player loses each time the reveal fires (0 = no self-damage)
+    shockDuration         = 1000,  -- ms the 'shock' animation plays on activation before reverting to idle
+}
+
+-- Microwave + Food healing. Player picks up raw food, then cranks at a microwave
+-- station to cook it — each unit of crank turns 1 food into HP (see MICROWAVE_AND_FOOD.md).
+Config.Microwave = {
+    hpPerFood       = 1,   -- HP restored per food cooked
+    caloriesPerFood = 1,   -- calories gained per food cooked (byproduct; raises next dance difficulty)
+    carryMax        = 10,  -- max food the player can carry
+    perPickup       = 1,   -- food granted per food item picked up
+    crankPerFood    = 1,   -- crank ticks (~30° each, matching the minifier) to cook 1 food
 }
 
 -- Projectile (plungerang)

@@ -237,7 +237,9 @@ function ComicPlayer.draw()
 		if layer.image then
 			local img = tryLoadImage(layer.image)
 			if img then
-				love.graphics.draw(img, lx, ly)
+				local drawX = lx + (W - img:getWidth()) / 2
+				local drawY = ly + (H - img:getHeight()) / 2
+				love.graphics.draw(img, drawX, drawY)
 			else
 				-- Placeholder so layout is visible while assets are missing
 				love.graphics.setColor(0.25, 0.25, 0.28, 0.6)
@@ -251,7 +253,11 @@ function ComicPlayer.draw()
 			local frame = layer.imageTable[s.animFrame or 1]
 			if frame then
 				local img = tryLoadImage(frame)
-				if img then love.graphics.draw(img, lx, ly) end
+				if img then
+					local drawX = lx + (W - img:getWidth()) / 2
+					local drawY = ly + (H - img:getHeight()) / 2
+					love.graphics.draw(img, drawX, drawY)
+				end
 			end
 
 		-- Text (with optional typewriter)

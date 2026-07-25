@@ -328,6 +328,12 @@ function Player:update(dt)
 	self:checkHoleTile()
 	self:checkTinyHoleTile()
 
+	-- Count down the dark-reveal shock pose (updateAnimation reverts once it hits 0).
+	if self.shockTimer and self.shockTimer > 0 then
+		self.shockTimer = self.shockTimer - dt
+		if self.shockTimer < 0 then self.shockTimer = 0 end
+	end
+
 	-- Update animation
 	self.currentAnimation:update(dt)
 
@@ -452,10 +458,13 @@ function Player:displayDialog()
 end
 
 function Player:checkPropInteractions()
-	-- Reset state frame by frame. While locked into the minifier the player stays
-	-- centered on it, so the overlap below re-asserts readyToShrink/currentMinifier.
+	-- Reset state frame by frame. While locked into the minifier/microwave the player
+	-- stays centered on it, so the overlap below re-asserts the flags; walking off a
+	-- station (while unlocked) leaves them cleared, hiding the prompt.
 	PlayerData.readyToShrink = false
 	self.currentMinifier     = nil
+	PlayerData.readyToCook   = false
+	self.currentMicrowave    = nil
 
 	-- Check for overlaps with props using centralized logic
 	local collisionsList, count = self:checkCollisions()
@@ -516,6 +525,13 @@ function Player:handleCrankInput(delta)
 		return
 	end
 
+	-- Locked into the microwave: crank cooks food into HP (one direction only).
+	if not PlayerData.isGaming and PlayerData.readyToCook then
+		local ticks = math.max(1, math.floor(math.abs(delta) / MINIFY_CRANK_TICK + 0.5))
+		self:cookTick(ticks)
+		return
+	end
+
 	-- Standing on a minifier but not locked in yet: crank does nothing.
 	-- The player must press A (startMinifying) to begin transforming.
 	if PlayerData.readyToShrink then return end
@@ -559,6 +575,62 @@ function Player:finishMinifying()
 	PlayerData.isMinifying = false
 	PlayerData.isGaming    = true
 	printDebug("✅ finishMinifying")
+end
+
+-- ── Microwave cooking (mirrors the minifier: A locks in, crank cooks, B/auto ends) ──
+
+-- Lock onto the microwave and enter cooking. Triggered by A while standing on a
+-- microwave (readyToCook + isGaming). Refuses if nothing to cook or already full.
+function Player:startCooking()
+	if not self.currentMicrowave or PlayerData.isTalking or not PlayerData.isGaming then return end
+	if PlayerData.isTiny then return end  -- cooking is big-only
+	local maxHP = (Config.Player and Config.Player.maxHealthPoints) or 10
+	if (PlayerData.food or 0) <= 0 or PlayerData.healthPoints >= maxHP then return end
+
+	PlayerData.isGaming = false  -- locks movement/abilities
+
+	-- Center on the microwave (prop x/y is top-left of a 32×32 tile), 10px above center.
+	self:moveTo(self.currentMicrowave.x + 16, self.currentMicrowave.y + 16 - 10)
+
+	self.cookProgress = 0  -- reset crank accumulator
+
+	-- Show the eating animation for the whole cook (updateAnimation holds it).
+	local anim = self.animations.eating
+	if anim then
+		anim:gotoFrame(1)
+		anim:resume()
+		self.currentAnimation = anim
+	end
+	printDebug("🍳 startCooking (food: " .. tostring(PlayerData.food) .. ")")
+end
+
+-- Consume `ticks` of crank: each Config.Microwave.crankPerFood ticks turns 1 food
+-- into HP (+calories byproduct), all clamped. Auto-finishes at full HP or 0 food.
+function Player:cookTick(ticks)
+	local mw    = Config.Microwave
+	local maxHP = (Config.Player and Config.Player.maxHealthPoints) or 10
+	local maxCal = (Config.Dance and Config.Dance.caloriesMax) or 500
+	self.cookProgress = (self.cookProgress or 0) + math.abs(ticks)
+	while self.cookProgress >= (mw.crankPerFood or 1)
+		and (PlayerData.food or 0) > 0
+		and PlayerData.healthPoints < maxHP do
+		self.cookProgress = self.cookProgress - (mw.crankPerFood or 1)
+		PlayerData.food = PlayerData.food - 1
+		PlayerData.healthPoints = math.min(PlayerData.healthPoints + (mw.hpPerFood or 1), maxHP)
+		PlayerData.calories     = math.min((PlayerData.calories or 0) + (mw.caloriesPerFood or 1), maxCal)
+		PlayerData.isActive = true  -- cranking advances the turn-based world (vulnerable while cooking)
+	end
+	if PlayerData.healthPoints >= maxHP or (PlayerData.food or 0) <= 0 then
+		self:finishCooking()
+	end
+end
+
+-- Release the microwave lock (full HP / out of food, or cancelled with B).
+function Player:finishCooking()
+	PlayerData.isGaming = true
+	self.cookProgress   = 0
+	self:idle()
+	printDebug("✅ finishCooking")
 end
 
 -- Looping animation shown while the player cranks inside the minifier.
@@ -961,6 +1033,13 @@ function Player:activateDarkReveal()
     if selfDamage > 0 then
         PlayerData.healthPoints = PlayerData.healthPoints - selfDamage
     end
+
+    -- Play the shock pose on activation; updateAnimation holds it for shockDuration
+    -- (or until the player moves), then falls back to a normal idle/walk.
+    self.animations.shock:gotoFrame(1)
+    self.animations.shock:resume()
+    self.currentAnimation = self.animations.shock
+    self.shockTimer = (dr.shockDuration or 1000) / 1000
 
     self:distributeMovementTokens((Config.Player and Config.Player.movementTokensPerAction) or 5)
     printDebug("🌟 Dark reveal activated!")

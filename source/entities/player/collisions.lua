@@ -132,7 +132,7 @@ function collisions.getType(player, other)
 	elseif other.class and other.class.name == 'Items' then
 		return 'cross'
 	elseif other.isProp then
-		if other.isHole or other.isSlime or other.type == 'minifier' then
+		if other.isHole or other.isSlime or other.type == 'minifier' or other.type == 'microwave' then
 			return 'cross'
 		elseif other.isTube then
 			return PlayerData.isTiny and 'cross' or 'touch'
@@ -207,6 +207,11 @@ function collisions.resolve(player, other)
 		elseif item.type == 'plunger' then
 			collisions.grabPlunger(player)
 			item:removeAll()
+		elseif item.type == 'food' then
+			-- Food stacks into a counter; removeAll() persists the LDtk 'collected'
+			-- flag by iid so each food item is grabbed exactly once.
+			collisions.grabFood(player)
+			item:removeAll()
 		end
 
 	elseif other.isProp and other.isHole then
@@ -220,6 +225,14 @@ function collisions.resolve(player, other)
 	elseif other.isProp and other.type == 'minifier' then
 		player.currentMinifier = other
 		PlayerData.readyToShrink = true
+
+	elseif other.isProp and other.type == 'microwave' then
+		-- Arm the microwave (big only — tiny can't cook). Mirrors the minifier: the
+		-- "Press A" prompt is driven by readyToCook in gameScene.drawTriggerIcons.
+		if not PlayerData.isTiny then
+			player.currentMicrowave = other
+			PlayerData.readyToCook = true
+		end
 
 	elseif other.isProp and other.isTube then
 		if PlayerData.isTiny == true then
@@ -424,6 +437,10 @@ function collisions.grabLamp(player)
 	FXshadow.markDirty()
 end
 function collisions.grabRadio(player) PlayerData.items.hasRadio = true end
+function collisions.grabFood(player)
+	local mw = Config.Microwave
+	PlayerData.food = math.min((PlayerData.food or 0) + (mw.perPickup or 1), mw.carryMax or 10)
+end
 function collisions.grabTools(player) PlayerData.items.hasTools = true end
 function collisions.grabBoots(player)
 	PlayerData.items.hasBoots = true

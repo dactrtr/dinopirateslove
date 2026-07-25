@@ -678,6 +678,22 @@ table.insert(levelsLDTK, {
         }
       }
     },
+    Microwave = {
+      {
+        id = "Microwave",
+        iid = "9f9f9f90-48b0-11f1-8344-abcdef123456",
+        x = 204,
+        y = 120,
+        width = 32,
+        height = 32,
+        customFields = {
+          type = "microwave",
+          nocollider = false,
+          destroyed = false,
+          forceSpawn = true
+        }
+      }
+    },
     Food = {
       {
         id = "Food",

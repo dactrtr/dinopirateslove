@@ -860,18 +860,17 @@ function gameScene.loadItems()
 	local startX = VIRTUAL_WIDTH / 2 - (gameScene.mapWidth * gameScene.tileSize) / 2
 	local startY = VIRTUAL_HEIGHT / 2 - (gameScene.mapHeight * gameScene.tileSize) / 2
 
-	local validItemTypes = {
-		boots=true, plunger=true, lamp=true, notes=true, keycard=true, itemgift=true
-	}
-
 	for typeName, entityList in pairs(entities) do
 		for _, entity in ipairs(entityList) do
 			local cf = entity.customFields or {}
 			local resolvedType = (cf.type or typeName):lower()
 			local isKey  = (typeName == "Keys")
-			local isItem = not isKey and validItemTypes[resolvedType]
+			-- Any entity flagged isItem in the level data is an item (mirrors the
+			-- Playdate MazeScene gate). A type whitelist here silently dropped
+			-- authored items missing from it (e.g. the radio in room 8).
+			local isItem = isKey or cf.isItem == true
 
-			if isItem or isKey then
+			if isItem then
 				local itemType
 				if isKey then
 					itemType = "keycard"
@@ -886,7 +885,11 @@ function gameScene.loadItems()
 				-- nil/empty = always allowed, so authored items without it are unaffected.
 				local conditionsOk = Conditions.met(cf.spawnConditions or cf.SpawnConditions)
 
-				if conditionsOk and shouldSpawnItem(itemType, keyNumber, grants) then
+				-- Food is stackable: it persists per-iid via the 'collected' flag (set by
+				-- Items:removeAll on pickup) rather than a PlayerData ownership boolean.
+				local foodCollected = (itemType == "food" and cf.collected == true)
+
+				if conditionsOk and not foodCollected and shouldSpawnItem(itemType, keyNumber, grants) then
 					local worldX = entity.x + startX
 					local worldY = entity.y + startY
 
@@ -1122,7 +1125,12 @@ function gameScene.update(dt)
 				table.remove(gameScene.items, i)
 			end
 		end
-		
+
+		-- Update props so their animations advance (minifier/microwave loops).
+		for _, prop in ipairs(gameScene.props or {}) do
+			if prop.update then prop:update(dt) end
+		end
+
 		-- Reset player movement flag only when player stops moving
 		if gameScene.player.hasMoved and not gameScene.player.isMoving then
 			gameScene.player.hasMoved = false
@@ -1313,6 +1321,12 @@ function gameScene.checkTriggerInteraction()
 		return true
 	end
 
+	-- Microwave: press A while standing on it to lock in and start cooking.
+	if PlayerData.readyToCook and PlayerData.isGaming then
+		gameScene.player:startCooking()
+		return true
+	end
+
 	return false
 end
 
@@ -1377,6 +1391,8 @@ function gameScene.keypressed(key)
 		if Input.is(key, "BButton") then
 			if PlayerData.isMinifying then
 				gameScene.player:finishMinifying()
+			elseif PlayerData.readyToCook and not PlayerData.isGaming then
+				gameScene.player:finishCooking()
 			elseif gameScene.player then
 				-- In darkness the lamp drives the ability (flash / dark reveal);
 				-- in light, B charges the plungerang/grapple.
@@ -1500,10 +1516,12 @@ function gameScene.gamepadInput(input)
 			PlayerData.isEquiping = true
 		end
 
-		-- BButton: cancel minifier if locked in, otherwise begin charge (fires on release)
+		-- BButton: cancel minifier/microwave if locked in, otherwise begin charge (fires on release)
 		if Input.wasPressed("BButton") then
 			if PlayerData.isMinifying then
 				gameScene.player:finishMinifying()
+			elseif PlayerData.readyToCook and not PlayerData.isGaming then
+				gameScene.player:finishCooking()
 			elseif gameScene.player then
 				if PlayerData.isInDarkness then
 					gameScene.player:beginDarkCharge()
@@ -1584,7 +1602,14 @@ function gameScene.drawTriggerIcons()
 		gameScene.interactionHUD:setVisible(true)
 		foundTrigger = true
 	end
-	
+
+	-- Microwave: "Press A" while armed and free to act, crank prompt while cooking.
+	if not foundTrigger and PlayerData.readyToCook and gameScene.interactionHUD then
+		gameScene.interactionHUD:setState(PlayerData.isGaming and "pressA" or "crankClock")
+		gameScene.interactionHUD:setVisible(true)
+		foundTrigger = true
+	end
+
 	if not foundTrigger and gameScene.interactionHUD and not gameScene.suppressInteractionHUD then
 		gameScene.interactionHUD:setVisible(false)
 	end

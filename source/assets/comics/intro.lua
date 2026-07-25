@@ -18,8 +18,8 @@ intro = {
                 layers = {
                     {
                         image = "comics/intro/001",
-                        x = -8,
-                        y = -8
+                        x = 0,
+                        y = 0
                     }
                 },
             },
@@ -28,13 +28,13 @@ intro = {
                 layers = {
                     {
                         image = "comics/intro/001",
-                        x = -8,
-                        y = -8
+                        x = 0,
+                        y = 0
                     },
                     {
                         image = "comics/intro/002",
-                        x = -8,
-                        y = -8
+                        x = 0,
+                        y = 0
                     },
                 },
                
@@ -44,18 +44,18 @@ intro = {
                layers = {
                    {
                        image = "comics/intro/001",
-                       x = -8,
-                       y = -8
+                       x = 0,
+                       y = 0
                    },
                    {
                        image = "comics/intro/002",
-                       x = -8,
-                       y = -8
+                       x = 0,
+                       y = 0
                    },
                    {
                           image = "comics/intro/003",
-                          x = -8,
-                          y = -8
+                          x = 0,
+                          y = 0
                       },
                },
                 
@@ -65,23 +65,23 @@ intro = {
                layers = {
                    {
                        image = "comics/intro/001",
-                       x = -8,
-                       y = -8
+                       x = 0,
+                       y = 0
                    },
                    {
                        image = "comics/intro/002",
-                       x = -8,
-                       y = -8
+                       x = 0,
+                       y = 0
                    },
                    {
                         image = "comics/intro/003",
-                        x = -8,
-                        y = -8
+                        x = 0,
+                        y = 0
                     },
                     {
                         image = "comics/intro/004",
-                        x = -8,
-                        y = -8
+                        x = 0,
+                        y = 0
                     },
                },
                 

@@ -31,11 +31,12 @@ function Items:initialize(x, y, itemType, keyNumber, grants, world)
 	self.removed = false
 
 	-- Load spritesheet and setup animations
-	-- Spritesheet: 192×96 px, 6 cols × 3 rows at 32×32 per frame (18 frames total)
-	-- Frame layout matches Playdate sequential numbering 1–18:
+	-- Spritesheet: 192×128 px, 6 cols × 4 rows at 32×32 per frame (24 frames total)
+	-- Frame layout matches Playdate sequential numbering 1–24:
 	--   Row 1 (cols 1-6): boots(1-3), plunger(4-6)
 	--   Row 2 (cols 1-6): lamp(7-9), notes(10-12)
 	--   Row 3 (cols 1-6): keycard(13-15), itemgift(16-18)
+	--   Row 4 (cols 1-6): radio(19-21), food(22-24)
 	self.spritesheet = love.graphics.newImage('assets/images/items/items-key-table-32-32.png')
 	local grid = anim8.newGrid(32, 32, self.spritesheet:getWidth(), self.spritesheet:getHeight())
 
@@ -46,6 +47,8 @@ function Items:initialize(x, y, itemType, keyNumber, grants, world)
 		notes    = anim8.newAnimation(grid('4-6', 2), 8/60),
 		keycard  = anim8.newAnimation(grid('1-3', 3), 8/60),
 		itemgift = anim8.newAnimation(grid('4-6', 3), 8/60),
+		radio    = anim8.newAnimation(grid('1-3', 4), 8/60),
+		food     = anim8.newAnimation(grid('4-6', 4), 8/60),
 	}
 
 	-- Set current animation based on type
