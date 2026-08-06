@@ -1,5 +1,6 @@
 local moonshine = require "libraries/moonshine"
 local CRTDebugMenu = require 'entities.UI.CRTDebugMenu'
+local DebugSceneMenu = require 'entities.UI.DebugSceneMenu'
 DEBUG = false -- Set to true to re-enable all the general debug prints
 function printDebug(...)
 	if DEBUG then
@@ -304,7 +305,7 @@ function love.update(dt)
 	-- While the CRT filter menu is open, freeze all game interaction: Input
 	-- queries report nothing pressed, so movement/actions/charges all stop. The
 	-- menu's own navigation runs through raw love.keypressed/gamepadpressed.
-	local crtMenuOpen = CRTDebugMenu.isVisible()
+	local crtMenuOpen = CRTDebugMenu.isVisible() or DebugSceneMenu.isVisible()
 	Input.setSuppressed(crtMenuOpen)
 
 	sceneManager.update(dt)
@@ -404,10 +405,12 @@ function love.draw()
 	end
 
 	CRTDebugMenu.draw()
+	DebugSceneMenu.draw()
 end
 
 function love.keypressed(key)
 	if CRTDebugMenu.keypressed(key) then return end
+	if DebugSceneMenu.keypressed(key) then return end
 	if key == "f9" then
 		-- Procedural generator self-check across a range of progress values.
 		for progress = 0, (Config.MapGen.totalCrew or 12) do
@@ -476,7 +479,7 @@ function love.gamepadpressed(joystick, button)
 	local crtKey = crtPadButtons[button]
 	if crtKey and CRTDebugMenu.keypressed(crtKey) then return end
 	-- Menu open: swallow every other button so nothing reaches the game.
-	if CRTDebugMenu.isVisible() then return end
+	if CRTDebugMenu.isVisible() or DebugSceneMenu.isVisible() then return end
 	if sceneManager.gamepadpressed then
 		sceneManager.gamepadpressed(button)
 	end

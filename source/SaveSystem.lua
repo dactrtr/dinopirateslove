@@ -25,19 +25,29 @@ levelsLDTKOriginal = nil
 -------------------------------------------------------------
 -- Save logic for Love2D
 -------------------------------------------------------------
+-- Capture the player's live position into PlayerData.playerSpawn so a later save resumes
+-- exactly where the run was left (mirrors Playdate's MazeScene captureResumePosition).
+-- Together with returningInPlace in titleScene's Continue, computeSpawn honours this
+-- position instead of a door spawn.
+--
+-- Deliberately NOT called from inside SaveSystem.save() itself: save() also runs
+-- mid-door/portal-transition (gameScene.exit()), at which point a portal or DanceScene
+-- may have already staged PlayerData.playerSpawn for the destination room — capturing the
+-- live (pre-transition, old-room) position there would clobber that. Playdate only calls
+-- this on scene:pause() (menu/sleep), never on scene:finish(); call sites here should do
+-- the same — only where the player is genuinely idle mid-room, not mid-transition.
+function SaveSystem.captureResumePosition()
+    local gs = require('sceneManager').getScene("game")
+    if gs and gs.player and PlayerData and PlayerData.playerSpawn then
+        PlayerData.playerSpawn.x = gs.player.x
+        PlayerData.playerSpawn.y = gs.player.y
+    end
+end
+
 function SaveSystem.save()
     if not PlayerData then
         printDebug("❌ SaveSystem: PlayerData is nil, cannot save!")
         return false
-    end
-
-    -- Capture the player's live position so Continue resumes exactly where the run was
-    -- left (mirrors MazeScene captureResumePosition). Together with returningInPlace in
-    -- titleScene's Continue, computeSpawn honours this position instead of a door spawn.
-    local gs = require('sceneManager').getScene("game")
-    if gs and gs.player and PlayerData.playerSpawn then
-        PlayerData.playerSpawn.x = gs.player.x
-        PlayerData.playerSpawn.y = gs.player.y
     end
 
     local saveData = {

@@ -1424,6 +1424,10 @@ function gameScene.keypressed(key)
 		PlayerData.isGaming = false
 		PlayerData.isEquiping = true
 	elseif Input.is(key, "pause") and not PlayerData.isTalking then
+		-- Player is genuinely idle mid-room here (not mid-transition), so this is the
+		-- right moment to capture live position — mirrors Playdate's scene:pause().
+		SaveSystem.captureResumePosition()
+		SaveSystem.save()
 		gameScene.pauseMenu:show()
 	elseif Input.is(key, "resize") then
 		PlayerData.battery = 100
